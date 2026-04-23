@@ -32,6 +32,10 @@ jobs:
         run: |
           npm pkg set name=@dotvoid/textbit
           npm pkg delete publishConfig
+          npm pkg set repository.type=git
+          npm pkg set repository.url=git+https://github.com/dotvoid/textbit.git
+          npm pkg set homepage=https://github.com/dotvoid/textbit#readme
+          npm pkg set bugs.url=https://github.com/dotvoid/textbit/issues
       - name: Publish package
         run: |
           VERSION=$(node -p "require('./package.json').version")
