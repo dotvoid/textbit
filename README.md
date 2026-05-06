@@ -2,19 +2,12 @@
 
 An unstyled, plugin-based rich text editor component for React applications. Built on Slate with support for collaborative editing via Yjs.
 
+> This is the public npm distribution of [`ttab/textbit`](https://github.com/ttab/textbit), published as `@dotvoid/textbit`. The two packages track the same codebase.
+
 ## Installation
 
-Textbit is available as an NPM package published on GitHub. Add the following to your `.npmrc`:
-
-```
-registry=https://registry.npmjs.org/
-@ttab:registry=https://npm.pkg.github.com/
-```
-
-Then install using your favorite package manager:
-
 ```bash
-npm install @ttab/textbit
+npm install @dotvoid/textbit
 ```
 
 ## Development
@@ -35,8 +28,8 @@ This produces ESM and CJS modules along with TypeScript definitions in `dist/`.
 ## Quick Start
 
 ```tsx
-import { Textbit } from '@ttab/textbit'
-import type { TBElement } from '@ttab/textbit'
+import { Textbit } from '@dotvoid/textbit'
+import type { TBElement } from '@dotvoid/textbit'
 
 const initialValue: TBElement[] = [
   {
@@ -336,7 +329,7 @@ Visual indicator for drag-and-drop operations. Automatically handles positioning
 Array of standard plugins included with Textbit.
 
 ```tsx
-import { Textbit } from '@ttab/textbit'
+import { Textbit } from '@dotvoid/textbit'
 
 // Use default plugins
 <Textbit.Root plugins={Textbit.Plugins}>
@@ -434,7 +427,7 @@ Individual menu item that triggers a plugin action.
 #### Example
 
 ```tsx
-import { usePluginRegistry } from '@ttab/textbit'
+import { usePluginRegistry } from '@dotvoid/textbit'
 
 function ContentMenu() {
   const { actions } = usePluginRegistry()
@@ -556,7 +549,7 @@ Individual toolbar button that triggers a plugin action.
 #### Example
 
 ```tsx
-import { usePluginRegistry } from '@ttab/textbit'
+import { usePluginRegistry } from '@dotvoid/textbit'
 
 function ContextToolbar() {
   const { actions } = usePluginRegistry()
@@ -639,7 +632,7 @@ Individual context menu item.
 #### Example
 
 ```tsx
-import { useContextMenuHints } from '@ttab/textbit'
+import { useContextMenuHints } from '@dotvoid/textbit'
 
 function SpellingContextMenu() {
   const { spelling } = useContextMenuHints()
@@ -1039,7 +1032,7 @@ Textbit supports real-time collaboration using Yjs.
 ```tsx
 import * as Y from 'yjs'
 import { WebrtcProvider } from 'y-webrtc'
-import { Textbit } from '@ttab/textbit'
+import { Textbit } from '@dotvoid/textbit'
 
 function CollaborativeEditor() {
   const ydoc = useMemo(() => new Y.Doc(), [])
@@ -1095,7 +1088,7 @@ interface CursorConfig {
 import { useMemo, useEffect } from 'react'
 import * as Y from 'yjs'
 import { WebrtcProvider } from 'y-webrtc'
-import { Textbit } from '@ttab/textbit'
+import { Textbit } from '@dotvoid/textbit'
 import { slateNodesToInsertDelta } from '@slate-yjs/core'
 
 function CollaborativeEditor() {
@@ -1161,7 +1154,7 @@ Any DOM element with the attribute `draggable` set to `true` will act as a "drag
 ### Plugin Structure
 
 ```typescript
-import type { TBPluginInitFunction } from '@ttab/textbit'
+import type { TBPluginInitFunction } from '@dotvoid/textbit'
 
 const MyPlugin: TBPluginInitFunction = (options) => {
   return {
@@ -1251,7 +1244,7 @@ See the [Image Block Plugin example](#example-image-block-plugin) below for a pr
 
 ```tsx
 import { BoldIcon } from 'lucide-react'
-import type { TBPluginInitFunction, TBComponentProps } from '@ttab/textbit'
+import type { TBPluginInitFunction, TBComponentProps } from '@dotvoid/textbit'
 
 const Bold: TBPluginInitFunction = () => {
   return {
@@ -1282,7 +1275,7 @@ export { Bold }
 
 ```tsx
 import { LinkIcon } from 'lucide-react'
-import type { TBPluginInitFunction, TBComponentProps } from '@ttab/textbit'
+import type { TBPluginInitFunction, TBComponentProps } from '@dotvoid/textbit'
 import { Editor, Transforms } from 'slate'
 
 const Link: TBPluginInitFunction = () => {
@@ -1342,8 +1335,8 @@ export { Link }
 
 ```tsx
 import { ImageIcon } from 'lucide-react'
-import type { TBPluginInitFunction, TBComponentProps } from '@ttab/textbit'
-import { Transforms } from '@ttab/textbit'
+import type { TBPluginInitFunction, TBComponentProps } from '@dotvoid/textbit'
+import { Transforms } from '@dotvoid/textbit'
 
 const Image: TBPluginInitFunction = () => {
   return {
@@ -1440,8 +1433,8 @@ export { Image }
 Use the `useAction` hook to call plugin actions from within components:
 
 ```tsx
-import { useAction } from '@ttab/textbit'
-import type { TBComponentProps } from '@ttab/textbit'
+import { useAction } from '@dotvoid/textbit'
+import type { TBComponentProps } from '@dotvoid/textbit'
 
 function ImageComponent({ element }: TBComponentProps) {
   const deleteImage = useAction('core/image', 'delete-image')
@@ -1462,7 +1455,7 @@ function ImageComponent({ element }: TBComponentProps) {
 By default, Textbit wraps each plugin component in a `<div>` so framework attributes (`data-id`, `data-type`, slate-react's `data-slate-node`, etc.) reliably reach the DOM. When the structural HTML tag matters — e.g. a `<tr>` inside a `<table>`, or an `<li>` inside a `<ul>` — set `asOwnElement: true` on the `componentEntry` and spread `attributes` onto the component's root node.
 
 ```tsx
-import type { TBComponentProps } from '@ttab/textbit'
+import type { TBComponentProps } from '@dotvoid/textbit'
 
 export const TableRow = ({ children, attributes }: TBComponentProps<HTMLTableRowElement>) => (
   <tr {...attributes}>{children}</tr>
@@ -1493,7 +1486,7 @@ Process dropped files or file input changes:
 import { 
   consumeFileDropEvent, 
   consumeFileInputChangeEvent 
-} from '@ttab/textbit'
+} from '@dotvoid/textbit'
 
 // Handle drop events
 const handleDrop = async (event: DragEvent) => {
@@ -1517,7 +1510,7 @@ const handleChange = async (event: ChangeEvent<HTMLInputElement>) => {
 Calculate word and character counts:
 
 ```typescript
-import { useTextbit } from '@ttab/textbit'
+import { useTextbit } from '@dotvoid/textbit'
 
 function EditorStats() {
   const { stats } = useTextbit()
@@ -1539,7 +1532,7 @@ function EditorStats() {
 Helper utilities for working with the editor:
 
 ```typescript
-import { TextbitEditor, TextbitElement, TextbitPlugin } from '@ttab/textbit'
+import { TextbitEditor, TextbitElement, TextbitPlugin } from '@dotvoid/textbit'
 
 // Check if element is a certain type
 if (TextbitElement.isOfType(element, 'core/text')) {
@@ -1586,7 +1579,7 @@ import type {
   TBSpellingError,    // Spelling error structure
   TBConsumeFunction,  // Consume function type
   TBConsumesFunction  // Consumes function type
-} from '@ttab/textbit'
+} from '@dotvoid/textbit'
 ```
 
 ### Re-exported Slate Types
@@ -1602,7 +1595,7 @@ import {
   Transforms,  // Slate transform operations
   Node,        // Slate Node utilities
   Range        // Slate Range utilities
-} from '@ttab/textbit'
+} from '@dotvoid/textbit'
 
 import type {
   // Base types
@@ -1612,15 +1605,15 @@ import type {
   BaseElement, // Base element type
   BaseText,    // Base text type
   BaseRange    // Base range type
-} from '@ttab/textbit'
+} from '@dotvoid/textbit'
 ```
 
 ### Type Augmentation
 
-Textbit uses TypeScript declaration merging to extend Slate's types. When you import from `@ttab/textbit`, you get the augmented types automatically:
+Textbit uses TypeScript declaration merging to extend Slate's types. When you import from `@dotvoid/textbit`, you get the augmented types automatically:
 
 ```typescript
-import { Editor, Element } from '@ttab/textbit'
+import { Editor, Element } from '@dotvoid/textbit'
 
 // These now use Textbit's augmented types
 const editor: Editor // Actually TBEditor
@@ -1636,7 +1629,7 @@ import type {
   TBPluginInitFunction, 
   TBComponentProps,
   TBElement
-} from '@ttab/textbit'
+} from '@dotvoid/textbit'
 
 // Plugin initialization
 const MyPlugin: TBPluginInitFunction = (options) => {
