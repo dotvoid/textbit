@@ -1,5 +1,5 @@
 {
-  "name": "@ttab/textbit",
+  "name": "@dotvoid/textbit",
   "version": "1.5.2",
   "license": "MIT",
   "description": "Textbit is an editable component created as part of the Elephant project, based on Slate.",
@@ -33,12 +33,13 @@
     "test": "vitest run",
     "test:ui": "vitest --ui"
   },
-  "publishConfig": {
-    "registry": "https://npm.pkg.github.com/ttab"
-  },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ttab/textbit.git"
+    "url": "git+https://github.com/dotvoid/textbit.git"
+  },
+  "homepage": "https://github.com/dotvoid/textbit#readme",
+  "bugs": {
+    "url": "https://github.com/dotvoid/textbit/issues"
   },
   "peerDependencies": {
     "@slate-yjs/core": "^1.0.2",

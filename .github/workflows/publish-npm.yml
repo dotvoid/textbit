@@ -1,0 +1,38 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  workflow_dispatch:
+
+permissions:
+  id-token: write  # Required for OIDC
+  contents: read
+
+jobs:
+  build:
+    name: Build and publish npm package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Upgrade npm (OIDC fixes ship in npm releases)
+        run: npm install -g npm@latest
+      - name: Install dependencies
+        run: npm ci
+      - name: Build package
+        run: npm run build
+      - name: Publish package
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" == *-* ]]; then
+            npm publish --access public --tag next
+          else
+            npm publish --access public
+          fi
