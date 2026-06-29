@@ -875,6 +875,37 @@ function SelectionHighlight() {
 
 ---
 
+### useSelectionStats()
+
+Word and character counts for the current selection. Returns zeros when the selection is null or collapsed.
+
+```typescript
+const stats = useSelectionStats()
+// Returns: { words: number, characters: number, charactersNoSpaces: number }
+```
+
+Counts everything inside the range regardless of node class — captions, factbox text, and text inside void containers all contribute. Words are matched against the Unicode letter class (`\p{L}+`), so non-ASCII text is counted correctly. Whitespace counts toward `characters` but not `charactersNoSpaces`.
+
+The hook subscribes via `useSlateSelector` with a structural equality check, so it only re-renders when one of the counts actually changes.
+
+#### Example
+
+```tsx
+function SelectionCounter() {
+  const { words, characters, charactersNoSpaces } = useSelectionStats()
+
+  if (characters === 0) return null
+
+  return (
+    <div className="selection-counter">
+      {words} words · {characters} chars ({charactersNoSpaces} without spaces)
+    </div>
+  )
+}
+```
+
+---
+
 ## Styling
 
 Textbit provides minimal default styling, allowing you to fully customize the appearance.
