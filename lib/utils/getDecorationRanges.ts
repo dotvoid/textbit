@@ -3,6 +3,10 @@ import { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { PlaceholdersVisibility } from '../contexts/TextbitContext'
 import { SpellcheckLookupTable } from '../types'
 
+// Non-breaking space (U+00A0). Sourced from its char code so the file stays
+// ASCII and a literal NBSP is never confused with a regular space.
+const NBSP = String.fromCharCode(0xa0)
+
 /**
  * Escape special regex characters
  */
@@ -57,6 +61,22 @@ export function getDecorationRanges(
               })
             }
           })
+        })
+      }
+    }
+  }
+
+  // Non-breaking spaces (U+00A0). A visual marker so authors can tell an
+  // intentional NBSP apart from a regular space, which is otherwise
+  // indistinguishable in the DOM.
+  if (Text.isText(node) && node.text.includes(NBSP)) {
+    const text = node.text
+    for (let i = 0; i < text.length; i++) {
+      if (text.charCodeAt(i) === 0xa0) {
+        ranges.push({
+          anchor: { path, offset: i },
+          focus: { path, offset: i + 1 },
+          nbsp: true
         })
       }
     }

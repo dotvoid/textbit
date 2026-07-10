@@ -48,6 +48,13 @@ export function LeafElement(props: RenderLeafProps) {
     style.paddingLeft = '0.1px'
   }
 
+  // Visual marker on non-breaking-space leaves. The character is invisible in
+  // the DOM, so authors can't otherwise tell an intentional NBSP from a regular
+  // space. Styling is applied via CSS on the `tb-nbsp` class (see injectStyles).
+  if (leaf.nbsp) {
+    className += ' tb-nbsp'
+  }
+
   if (leaf.spellingError) {
     return <MisspelledLeaf {...props} className={className} style={style} />
   } else if (leaf.placeholder) {

@@ -30,6 +30,69 @@ function placeholderRangesForFirstChild(editor: Editor, placeholder: string) {
   ).filter(r => 'placeholder' in r)
 }
 
+const NBSP = String.fromCharCode(0xa0)
+
+function nbspRangesFor(editor: Editor, path: number[]) {
+  const node = Node.get(editor, path)
+  return getDecorationRanges(
+    editor,
+    emptySpellcheck,
+    [node, path],
+    emptyComponents
+  ).filter((r) => 'nbsp' in r)
+}
+
+describe('getDecorationRanges — non-breaking spaces', () => {
+  test('emits one range per NBSP in a text leaf', () => {
+    const editor = makeEditor([
+      {
+        type: 'core/text',
+        class: 'text',
+        id: 'a',
+        properties: {},
+        children: [{ text: `1${NBSP}000 kr` }]
+      }
+    ])
+
+    const ranges = nbspRangesFor(editor, [0, 0])
+    expect(ranges).toHaveLength(1)
+    expect(ranges[0].anchor).toEqual({ path: [0, 0], offset: 1 })
+    expect(ranges[0].focus).toEqual({ path: [0, 0], offset: 2 })
+    expect(ranges[0].nbsp).toBe(true)
+  })
+
+  test('emits multiple ranges when several NBSPs are present', () => {
+    const editor = makeEditor([
+      {
+        type: 'core/text',
+        class: 'text',
+        id: 'a',
+        properties: {},
+        children: [{ text: `1${NBSP}000${NBSP}kr` }]
+      }
+    ])
+
+    const ranges = nbspRangesFor(editor, [0, 0])
+    expect(ranges).toHaveLength(2)
+    expect(ranges.map((r) => r.anchor.offset)).toEqual([1, 5])
+  })
+
+  test('emits no NBSP ranges when the text contains only regular spaces', () => {
+    const editor = makeEditor([
+      {
+        type: 'core/text',
+        class: 'text',
+        id: 'a',
+        properties: {},
+        children: [{ text: 'hello world' }]
+      }
+    ])
+
+    const ranges = nbspRangesFor(editor, [0, 0])
+    expect(ranges).toHaveLength(0)
+  })
+})
+
 describe("getDecorationRanges — 'single' placeholder", () => {
   test('emits placeholder when the editor is entirely empty', () => {
     const editor = makeEditor([
