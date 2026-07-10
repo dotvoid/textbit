@@ -1,32 +1,25 @@
 /**
- * Normalizes all whitespace in a string by making sure it cannot break
- * into multiple paragraphs.
+ * Normalizes whitespace in a string so it cannot break a paragraph into
+ * multiple lines while preserving intentional non-breaking spaces.
  *
- * Tabs are removed as they normally are problematic in a single line
- * context in a field etc in the editor.
+ * Each run of whitespace collapses to a single character:
+ *   - if the run contains a non-breaking space (U+00A0), the result is a
+ *     non-breaking space so grouped values like `1<nbsp>000` stay together
+ *   - otherwise the result is a regular space; tabs, line breaks, form feeds,
+ *     line and paragraph separators, etc. all become one regular space
  *
- * We specifically don't want to remove non breaking spaces (\u00A0)
- * or any other specialized spacers that are used to keep numbers
- * together or used in different languages.
- *
- * 1. Replacing all whitespace characters (tabs, line breaks, etc.) with spaces
- * 2. Reducing multiple consecutive spaces to a single space
+ * Only U+00A0 is preserved. Other specialty whitespace codepoints matched by
+ * `\s` (figure space, narrow no-break space, ...) collapse to a regular space.
  */
+
+// Non-breaking space (U+00A0). Built from its char code so the source stays
+// ASCII and a regular space is never confused with a non-breaking one.
+const NBSP = String.fromCharCode(0xa0)
+
 export function normalizeWhitespace(text: string): string {
   if (!text) {
     return text
   }
 
-  // Replace all whitespace characters with a regular space
-  // - \n (line feed)
-  // - \r (carriage return)
-  // - \t (tab)
-  // - \f (form feed)
-  // - \v (vertical tab)
-  // - \u2028 (line separator)
-  // - \u2029 (paragraph separator)
-  const replacedWhitespace = text.replace(/[\n\r\t\f\v\u2028\u2029]+/g, ' ')
-
-  // Then, replace any sequences of spaces with a single space
-  return replacedWhitespace.replace(/\s+/g, ' ')
+  return text.replace(/\s+/g, (run) => (run.includes(NBSP) ? NBSP : ' '))
 }
