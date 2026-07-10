@@ -34,7 +34,24 @@ if (typeof document !== 'undefined') {
        *   --tb-nbsp-border      Border/outline of the leaf (any box-shadow value; `none` to remove)
        *   --tb-nbsp-radius      Corner radius of the tint (default: 2px)
        */
-      `.tb-nbsp{background:var(--tb-nbsp-background,color-mix(in srgb,currentColor 18%,transparent));box-shadow:var(--tb-nbsp-border,inset 0 0 0 1px color-mix(in srgb,currentColor 35%,transparent));border-radius:var(--tb-nbsp-radius,2px)}`
+      `.tb-nbsp{background:var(--tb-nbsp-background,color-mix(in srgb,currentColor 18%,transparent));box-shadow:var(--tb-nbsp-border,inset 0 0 0 1px color-mix(in srgb,currentColor 35%,transparent));border-radius:var(--tb-nbsp-radius,2px)}`,
+      /**
+       * Visual marker for a soft break (a `\n` character inside a text leaf).
+       * The break itself is invisible in the DOM; a `::before` pseudo-element
+       * renders a return-arrow symbol so authors can see where the line broke.
+       * The pseudo-element is not selectable and does not participate in the
+       * editable content. Colours are derived from `currentColor` via
+       * `color-mix`, so the marker adapts to light and dark themes without
+       * any consumer setup.
+       *
+       * Customisable via CSS custom properties:
+       *   --tb-newline-background  Background of the newline leaf
+       *   --tb-newline-border      Border/outline (any box-shadow value; `none` to remove)
+       *   --tb-newline-radius      Corner radius of the tint (default: 2px)
+       *   --tb-newline-symbol      Character rendered before the break (default: '↵')
+       */
+      `.tb-newline{background:var(--tb-newline-background,color-mix(in srgb,currentColor 18%,transparent));box-shadow:var(--tb-newline-border,inset 0 0 0 1px color-mix(in srgb,currentColor 35%,transparent));border-radius:var(--tb-newline-radius,2px)}`,
+      `.tb-newline::before{content:var(--tb-newline-symbol,"\\21B5");opacity:0.65;user-select:none;pointer-events:none}`
     ].join('')
 
     document.head.appendChild(style)

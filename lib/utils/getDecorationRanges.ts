@@ -66,17 +66,25 @@ export function getDecorationRanges(
     }
   }
 
-  // Non-breaking spaces (U+00A0). A visual marker so authors can tell an
-  // intentional NBSP apart from a regular space, which is otherwise
-  // indistinguishable in the DOM.
-  if (Text.isText(node) && node.text.includes(NBSP)) {
+  // Non-breaking spaces (U+00A0) and newlines (U+000A). Both are invisible
+  // in the DOM — an NBSP looks like a space, a newline just breaks the line —
+  // so we tint each so authors can spot them. Scanned together to make one
+  // pass over the text.
+  if (Text.isText(node) && (node.text.includes(NBSP) || node.text.includes('\n'))) {
     const text = node.text
     for (let i = 0; i < text.length; i++) {
-      if (text.charCodeAt(i) === 0xa0) {
+      const code = text.charCodeAt(i)
+      if (code === 0xa0) {
         ranges.push({
           anchor: { path, offset: i },
           focus: { path, offset: i + 1 },
           nbsp: true
+        })
+      } else if (code === 0x0a) {
+        ranges.push({
+          anchor: { path, offset: i },
+          focus: { path, offset: i + 1 },
+          newline: true
         })
       }
     }

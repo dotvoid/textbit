@@ -93,6 +93,105 @@ describe('getDecorationRanges — non-breaking spaces', () => {
   })
 })
 
+describe('getDecorationRanges — newlines (soft breaks)', () => {
+  test('emits one range per `\\n` in a text leaf', () => {
+    const editor = makeEditor([
+      {
+        type: 'core/text',
+        class: 'text',
+        id: 'a',
+        properties: {},
+        children: [{ text: 'first\nsecond' }]
+      }
+    ])
+
+    const node = Node.get(editor, [0, 0])
+    const ranges = getDecorationRanges(
+      editor,
+      emptySpellcheck,
+      [node, [0, 0]],
+      emptyComponents
+    ).filter((r) => 'newline' in r)
+
+    expect(ranges).toHaveLength(1)
+    expect(ranges[0].anchor).toEqual({ path: [0, 0], offset: 5 })
+    expect(ranges[0].focus).toEqual({ path: [0, 0], offset: 6 })
+    expect(ranges[0].newline).toBe(true)
+  })
+
+  test('emits multiple ranges for multiple `\\n`s', () => {
+    const editor = makeEditor([
+      {
+        type: 'core/text',
+        class: 'text',
+        id: 'a',
+        properties: {},
+        children: [{ text: 'a\nb\nc' }]
+      }
+    ])
+
+    const node = Node.get(editor, [0, 0])
+    const ranges = getDecorationRanges(
+      editor,
+      emptySpellcheck,
+      [node, [0, 0]],
+      emptyComponents
+    ).filter((r) => 'newline' in r)
+
+    expect(ranges).toHaveLength(2)
+    expect(ranges.map((r) => r.anchor.offset)).toEqual([1, 3])
+  })
+
+  test('emits both NBSP and newline ranges when mixed', () => {
+    const editor = makeEditor([
+      {
+        type: 'core/text',
+        class: 'text',
+        id: 'a',
+        properties: {},
+        children: [{ text: `1${NBSP}000\nkr` }]
+      }
+    ])
+
+    const node = Node.get(editor, [0, 0])
+    const all = getDecorationRanges(
+      editor,
+      emptySpellcheck,
+      [node, [0, 0]],
+      emptyComponents
+    )
+    const nbsp = all.filter((r) => 'nbsp' in r)
+    const nl = all.filter((r) => 'newline' in r)
+
+    expect(nbsp).toHaveLength(1)
+    expect(nbsp[0].anchor.offset).toBe(1)
+    expect(nl).toHaveLength(1)
+    expect(nl[0].anchor.offset).toBe(5)
+  })
+
+  test('emits no newline ranges when the text has no `\\n`', () => {
+    const editor = makeEditor([
+      {
+        type: 'core/text',
+        class: 'text',
+        id: 'a',
+        properties: {},
+        children: [{ text: 'plain text' }]
+      }
+    ])
+
+    const node = Node.get(editor, [0, 0])
+    const ranges = getDecorationRanges(
+      editor,
+      emptySpellcheck,
+      [node, [0, 0]],
+      emptyComponents
+    ).filter((r) => 'newline' in r)
+
+    expect(ranges).toHaveLength(0)
+  })
+})
+
 describe("getDecorationRanges — 'single' placeholder", () => {
   test('emits placeholder when the editor is entirely empty', () => {
     const editor = makeEditor([

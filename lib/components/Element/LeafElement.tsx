@@ -55,6 +55,13 @@ export function LeafElement(props: RenderLeafProps) {
     className += ' tb-nbsp'
   }
 
+  // Visual marker on soft-break leaves (a `\n` inside a text leaf). The break
+  // itself is invisible; a `::before` on `.tb-newline` renders a return-arrow
+  // symbol at the position so the author can see where the line broke.
+  if (leaf.newline) {
+    className += ' tb-newline'
+  }
+
   if (leaf.spellingError) {
     return <MisspelledLeaf {...props} className={className} style={style} />
   } else if (leaf.placeholder) {
