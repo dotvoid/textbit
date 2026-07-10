@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { TBComponentProps } from '@ttab/textbit'
+import type { TBComponentProps } from '@dotvoid/textbit'
 import { isValidLink } from '../lib/isValidLink'
 
 export const Link = ({ children, element }: TBComponentProps) => {

@@ -3,7 +3,7 @@ import { Editor, Element, Transforms } from 'slate'
 import {
   type TBToolComponentProps,
   TextbitElement
-} from '@ttab/textbit'
+} from '@dotvoid/textbit'
 import { isValidLink } from '../lib/isValidLink'
 import { ReactEditor, useSlateStatic } from 'slate-react'
 
