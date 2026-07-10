@@ -18,7 +18,25 @@ export function App() {
 
   const plugins = useMemo(() => {
     return [
-      ...Textbit.Plugins.map(p => p()),
+      ...Textbit.Plugins.map(p => {
+        // Opt the built-in text plugin into soft breaks so the example
+        // demonstrates Shift+Enter producing a `\n` (rendered by the
+        // newline visualization).
+        const def = p()
+        if (def.name === 'core/text' && def.componentEntry) {
+          return {
+            ...def,
+            componentEntry: {
+              ...def.componentEntry,
+              constraints: {
+                ...def.componentEntry.constraints,
+                allowSoftBreak: true
+              }
+            }
+          }
+        }
+        return def
+      }),
       Link(),
       TestBlock()
     ]

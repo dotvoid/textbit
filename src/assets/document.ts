@@ -28,6 +28,9 @@ export const document: Descendant[] = [
     id: '538345e5-bacc-48f9-8ef0-1219891b6024',
     class: 'text',
     children: [
+      // "1<NBSP>000" showcases the non-breaking-space visualization, and the
+      // embedded "\n" showcases the soft-break visualization (both rendered
+      // by getDecorationRanges as tinted chips with a border).
       { text: 'An example paragraph about ööland that contains text that is a wee bit ' },
       {
         text: 'stronger',
@@ -40,7 +43,7 @@ export const document: Descendant[] = [
         text: 'emphasized',
         'core/italic': true
       },
-      { text: ' compared to the normal styled text found elsewhere in the document.' }
+      { text: ' compared to the normal styled text found elsewhere in the document.\nThis line follows a soft break, and the group 1\u00A0000 uses a non-breaking space.' }
     ]
   },
   {

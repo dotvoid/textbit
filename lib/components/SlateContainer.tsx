@@ -18,6 +18,7 @@ import { withInsertText } from '../with/withInsertText'
 import { withNormalizeNode } from '../with/withNormalizeNode'
 import { withEditableVoids } from '../with/withEditableVoids'
 import { withInsertBreak } from '../with/withInsertBreak'
+import { withInsertSoftBreak } from '../with/withInsertSoftBreak'
 import { withInsertHtml } from '../with/withInsertHtml'
 import { withUniqueIds } from '../with/withUniqueIds'
 import { withDeletionManagement } from '../with/withDeletionManagement'
@@ -110,6 +111,7 @@ export function SlateContainer(props: SlateContainerProps) {
     withEditableVoids(editor, components)
     withTrimWhitespace(editor)
     withInsertBreak(editor, components)
+    withInsertSoftBreak(editor, components)
     withInsertHtml(editor, components, plugins)
     withUniqueIds(editor)
     withDeletionManagement(editor)
