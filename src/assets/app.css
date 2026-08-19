@@ -29,3 +29,24 @@ div[data-state="focused"] {
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
+
+/* Upload marker (Textbit.UploadMarker). A minimal example style — restyle
+   as you like via className/style props or the `children` render prop. */
+.upload-marker {
+    background: rgba(0, 123, 255, 0.08);
+    border: 1px dashed rgba(0, 123, 255, 0.6);
+    border-radius: 4px;
+    animation: upload-marker-pulse 1.2s ease-in-out infinite;
+}
+
+/* A peer's pending upload — muted so it's obviously not yours. */
+.upload-marker[data-source='peer'] {
+    background: rgba(78, 205, 196, 0.08);
+    border-color: rgba(78, 205, 196, 0.6);
+    animation: none;
+}
+
+@keyframes upload-marker-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}

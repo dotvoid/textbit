@@ -2,6 +2,7 @@ import type { BaseEditor, BaseElement, BaseRange, BaseText, Element } from 'slat
 import type { ReactEditor } from 'slate-react'
 import type { HistoryEditor } from 'slate-history'
 import { DebounceFunction } from '../utils/debounce'
+import type { PendingDropsController } from '../contexts/PendingDropsContext'
 
 export type SpellingError = {
   id: string
@@ -37,6 +38,7 @@ export type TextbitEditor = BaseEditor & ReactEditor & HistoryEditor & {
   isTextBlock: (value: unknown) => value is Element
   isOfType: <T extends Element>(value: unknown, type: string) => value is T
   allowEdgeWhitespace?: boolean
+  pendingDrops?: PendingDropsController
 }
 
 type BaseTextbitElement = BaseElement & {

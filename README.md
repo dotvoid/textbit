@@ -60,6 +60,7 @@ function MyEditor() {
   - [Textbit.Editable](#textbiteditable)
   - [Textbit.Gutter](#textbitgutter)
   - [Textbit.DropMarker](#textbitdropmarker)
+  - [Textbit.UploadMarker](#textbituploadmarker)
 - [Menu Components](#menu-components)
 - [Toolbar Components](#toolbar-components)
 - [Context Menu Components](#context-menu-components)
@@ -317,6 +318,98 @@ Visual indicator for drag-and-drop operations. Automatically handles positioning
 .drop-marker[data-dragover="around"] {
   outline: 2px solid #3b82f6;
   outline-offset: 2px;
+}
+```
+
+---
+
+### Textbit.UploadMarker
+
+Visual placeholder rendered at each drop position while a plugin consumer is running (`await consume()` still pending). Reserves flow space above the target block so surrounding content shifts down rather than being overlaid, and removes the reserved space automatically when the consumer resolves, fails, or is cancelled.
+
+The marker is ephemeral, it lives in local React state (via `PendingDropsProvider`, mounted internally by `Textbit.Editable`), and never syncs to the shared Yjs document. In a collaborative session, each peer's pending drops are mirrored to Yjs awareness so other peers can see intent markers at the same positions.
+
+#### Props
+
+| Name | Type | Default | Description |
+|------|------|---------|-------------|
+| `className` | `string` | - | CSS class applied to each marker element. |
+| `style` | `CSSProperties` | - | Inline style merged onto each marker. |
+| `height` | `number` | `60` | Reserved flow height in pixels. The target block gets an inline `margin-top` of this value so the marker sits in real space rather than overlaying content. |
+| `children` | `(drop: PendingDrop) => ReactNode` | - | Per-drop render override. Receives the pending drop and returns any React node. When omitted, a minimal default is rendered. |
+
+#### Data Attributes
+
+| Attribute | Values | Description |
+|-----------|--------|-------------|
+| `data-source` | `"own" \| "peer"` | Whether this marker was initiated by this session (`"own"`) or received from another peer via awareness (`"peer"`). |
+| `data-kind` | `string` | The `produces` type declared by the plugin consumer (e.g. `"core/image"`) — free-form. |
+
+#### PendingDrop
+
+```typescript
+interface PendingDrop {
+  id: string
+  source: 'own' | 'peer'
+  path: Path
+  kind?: string
+  peerId?: number       // when source === 'peer'
+  peerData?: unknown    // peer's cursor data (typically { name, color })
+}
+```
+
+#### Example — default marker
+
+```tsx
+<Textbit.Editable>
+  <Textbit.DropMarker className="drop-marker" />
+  <Textbit.UploadMarker className="upload-marker" />
+</Textbit.Editable>
+```
+
+```css
+.upload-marker {
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px dashed rgba(59, 130, 246, 0.6);
+  border-radius: 4px;
+}
+
+.upload-marker[data-source="peer"] {
+  background: rgba(150, 150, 150, 0.08);
+  border-color: rgba(150, 150, 150, 0.6);
+}
+```
+
+#### Example — render-prop children
+
+Use the render prop when you want richer per-drop UI (spinner, peer name badge, cancel button) or different rendering for own vs peer drops:
+
+```tsx
+<Textbit.UploadMarker height={80}>
+  {(drop) => (
+    <div className={`upload-chip upload-chip--${drop.source}`}>
+      {drop.source === 'own'
+        ? <MySpinner label={`Uploading ${drop.kind}...`} />
+        : <span style={{ color: (drop.peerData as {color?: string})?.color }}>
+            {(drop.peerData as {name?: string})?.name ?? 'Peer'} is uploading
+          </span>}
+    </div>
+  )}
+</Textbit.UploadMarker>
+```
+
+#### Programmatic access
+
+`usePendingDrops()` returns the same array of `PendingDrop` objects the marker reads from. Useful for status bars or counters:
+
+```tsx
+import { usePendingDrops } from '@dotvoid/textbit'
+
+function UploadStatusBar() {
+  const drops = usePendingDrops()
+  const own = drops.filter((d) => d.source === 'own').length
+  if (own === 0) return null
+  return <div className="status">{own} uploads pending</div>
 }
 ```
 

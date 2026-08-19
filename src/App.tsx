@@ -7,10 +7,11 @@ import { ContextMenu, Menu, Textbit, Toolbar, useContextMenuHints, usePluginRegi
 import { document } from './assets/document'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as Y from 'yjs'
-import { Awareness } from 'y-protocols/awareness'
+import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from 'y-protocols/awareness'
 import { slateNodesToInsertDelta } from '@slate-yjs/core'
 import { spellChecker } from './spellChecker'
 import { Link } from './plugins/Link'
+import { MockUpload } from './plugins/MockUpload'
 import { TestBlock } from './TestBlock'
 import type { TBPluginDefinition } from '../dist/main'
 
@@ -38,7 +39,8 @@ export function App() {
         return def
       }),
       Link(),
-      TestBlock()
+      TestBlock(),
+      MockUpload()
     ]
   }, [])
 
@@ -154,6 +156,7 @@ function TextbitFormatEditor({ style, headerStyle, readOnly, plugins }: {
         >
           <ContextTools/>
           <Textbit.DropMarker />
+          <Textbit.UploadMarker className="upload-marker" />
           <EditorSpellingContextmenu />
         </Textbit.Editable>
       </div>
@@ -201,6 +204,7 @@ function TextEditor({ style, headerStyle, autoFocus, plugins }: {
 
         <Textbit.Editable autoFocus={autoFocus} style={style}>
           <Textbit.DropMarker />
+          <Textbit.UploadMarker className="upload-marker" />
           <ContextTools/>
           <EditorSpellingContextmenu />
         </Textbit.Editable>
@@ -220,34 +224,62 @@ function YjsDemo({ style, headerStyle, plugins }: {
   headerStyle: React.CSSProperties
   plugins: TBPluginDefinition[]
 }) {
-  // Create shared YJS document and awareness
+  // Two independent Y.Docs (one per "peer") bridged via update events, so
+  // each editor has its own clientID and its own Awareness. This is what
+  // makes peer visibility testable in a single browser tab: without
+  // distinct clientIDs, awareness can't tell peers apart and the pending-
+  // drops broadcast collapses to a single self-state.
   const sharedState = useMemo(() => {
-    const doc = new Y.Doc()
-    const value = doc.get('content', Y.XmlText)
-    const awareness = new Awareness(doc)
+    const docA = new Y.Doc()
+    const docB = new Y.Doc()
+    const valueA = docA.get('content', Y.XmlText)
+    const valueB = docB.get('content', Y.XmlText)
+    const awarenessA = new Awareness(docA)
+    const awarenessB = new Awareness(docB)
 
-    return { doc, value, awareness }
+    // Document sync bridge: relay every update between docs. The `origin`
+    // marker prevents infinite loops (never re-broadcast an update we
+    // just received from the other doc).
+    docA.on('update', (update: Uint8Array, origin: unknown) => {
+      if (origin !== docB) Y.applyUpdate(docB, update, docA)
+    })
+    docB.on('update', (update: Uint8Array, origin: unknown) => {
+      if (origin !== docA) Y.applyUpdate(docA, update, docB)
+    })
+
+    // Awareness sync bridge (same pattern).
+    const bridgeAwareness = (from: Awareness, to: Awareness) => {
+      from.on('update', ({ added, updated, removed }: { added: number[], updated: number[], removed: number[] }, origin: unknown) => {
+        if (origin === to) return
+        const changed = added.concat(updated, removed)
+        const update = encodeAwarenessUpdate(from, changed)
+        applyAwarenessUpdate(to, update, from)
+      })
+    }
+    bridgeAwareness(awarenessA, awarenessB)
+    bridgeAwareness(awarenessB, awarenessA)
+
+    return { valueA, valueB, awarenessA, awarenessB }
   }, [])
 
-  const ref = useRef(false)
-
+  const seededRef = useRef(false)
   useEffect(() => {
-    if (!ref.current) {
-      ref.current = true
-      sharedState.value.applyDelta(slateNodesToInsertDelta(document))
+    if (!seededRef.current) {
+      seededRef.current = true
+      sharedState.valueA.applyDelta(slateNodesToInsertDelta(document))
     }
-  }, [sharedState.value])
+  }, [sharedState.valueA])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <strong style={{...headerStyle, fontSize: '14px', marginBottom: '10px'}}>
-        YJS Editors Demo - Two editors sharing the same document
+        YJS Editors Demo - Two peers sharing the same document (drop a file in one to see the peer marker in the other)
       </strong>
 
       <div style={{ display: 'flex', gap: '20px' }}>
         <div style={{ flex: 1 }}>
           <YjsEditor
-            sharedState={sharedState}
+            sharedState={{ value: sharedState.valueA, awareness: sharedState.awarenessA }}
             style={style}
             headerStyle={headerStyle}
             plugins={plugins}
@@ -258,7 +290,7 @@ function YjsDemo({ style, headerStyle, plugins }: {
 
         <div style={{ flex: 1 }}>
           <YjsEditor
-            sharedState={sharedState}
+            sharedState={{ value: sharedState.valueB, awareness: sharedState.awarenessB }}
             style={style}
             headerStyle={headerStyle}
             plugins={plugins}
@@ -276,7 +308,6 @@ function YjsDemo({ style, headerStyle, plugins }: {
  */
 function YjsEditor({ sharedState, style, headerStyle, plugins, userName, userColor }: {
   sharedState: {
-    doc: Y.Doc
     value: Y.XmlText
     awareness: Awareness
   }
@@ -319,6 +350,7 @@ function YjsEditor({ sharedState, style, headerStyle, plugins, userName, userCol
         <Textbit.Editable style={style}>
           <ContextTools/>
           <Textbit.DropMarker />
+          <Textbit.UploadMarker className="upload-marker" />
           <EditorSpellingContextmenu />
         </Textbit.Editable>
       </div>

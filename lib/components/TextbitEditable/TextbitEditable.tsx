@@ -9,6 +9,7 @@ import { useTextbit } from '../../hooks/useTextbit'
 import { useContextMenu } from '../../hooks/useContextMenu'
 import { useSlateStatic } from 'slate-react'
 import { DragStateProvider } from '../../contexts/DragStateProvider'
+import { PendingDropsProvider } from '../../contexts/PendingDropsProvider'
 import { PresenceOverlay } from '../PresenceOverlay'
 import type { SpellcheckLookupTable } from '../../types'
 import { SelectionBoundsDetails } from '../SelectionBoundsDetails'
@@ -266,6 +267,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
 <BlockSelectionProvider value={blockSelection}>
         <AdjacentBlockProvider value={adjacentBlock}>
           <DragStateProvider>
+            <PendingDropsProvider editor={editor}>
             <PresenceOverlay isCollaborative={collaborative}>
               <Editable
                 autoFocus={!!autoFocus}
@@ -291,6 +293,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
               />
               {props.children}
             </PresenceOverlay>
+            </PendingDropsProvider>
           </DragStateProvider>
         </AdjacentBlockProvider>
       </BlockSelectionProvider>
