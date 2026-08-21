@@ -1,6 +1,6 @@
 import type { PlaceholdersVisibility } from '../contexts/TextbitContext'
 import type { PluginDefinition, SpellingError } from '../types'
-import { Awareness } from 'y-protocols/awareness'
+import type { Awareness } from 'y-protocols/awareness'
 
 import { createEditor, Descendant, type Editor, Node } from 'slate'
 import * as Y from 'yjs'

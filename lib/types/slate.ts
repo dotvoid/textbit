@@ -77,6 +77,8 @@ export type TextbitText = BaseText & {
 export type TextbitRange = BaseRange & {
   placeholder?: React.ReactNode
   spellingError?: SpellingError
+  nbsp?: boolean
+  newline?: boolean
 }
 
 // Declare module augmentation
