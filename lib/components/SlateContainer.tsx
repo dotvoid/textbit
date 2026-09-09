@@ -26,6 +26,7 @@ import { withBlockBoundaryGuard } from '../with/withBlockBoundaryGuard'
 import { withInsertFragment } from '../with/withInsertFragment'
 import { withTrimWhitespace } from '../with/withTrimWhitespace'
 import { withSelectionGuard } from '../with/withSelectionGuard'
+import { withRemoteDeltaGuard } from '../with/withRemoteDeltaGuard'
 
 interface SlateContainerBaseProps {
   children: React.ReactNode
@@ -97,6 +98,13 @@ export function SlateContainer(props: SlateContainerProps) {
           cursorStateField: props.cursor?.stateField,
           cursorDataField: props.cursor?.dataField
         })
+      }
+
+      // Outermost of the yjs plugins, so it hands every inner one a private
+      // copy of each remote delta. Required whenever more than one editor is
+      // bound to the same shared root in this client.
+      if (YjsEditor.isYjsEditor(editor)) {
+        withRemoteDeltaGuard(editor)
       }
     }
 
