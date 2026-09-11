@@ -148,6 +148,21 @@ function initConsumersForPipe(plugins: PluginDefinition[], pipe: Pipe) {
   }
 }
 
+/**
+ * Drag metadata types that carry no droppable payload, skipped when the pipe
+ * is built. A real type that finds no consumer still warns.
+ *
+ * `chromium/x-drag-id` is attached by Chromium to every drag started in the
+ * page, so without this each in-page drop warned about an ignored type
+ * alongside handling the real data. `chromium/x-renderer-taint` is included
+ * as a suspected sibling of the same internal kind - it has not been observed
+ * in a drop here, and can go if it never shows up.
+ */
+const IGNORED_DROP_TYPES = new Set([
+  'chromium/x-drag-id',
+  'chromium/x-renderer-taint'
+])
+
 function initPipeForDrop(dt: DataTransfer) {
   const pipe = []
   let handleTextPlain = true
@@ -161,6 +176,10 @@ function initPipeForDrop(dt: DataTransfer) {
 
   for (let i = 0; i < dt.items.length; i++) {
     const item = dt.items[i]
+
+    if (IGNORED_DROP_TYPES.has(item.type)) {
+      continue
+    }
 
     if (item.kind === 'file') {
       pipe.push(getFileItem('drop', item))
