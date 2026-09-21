@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { createEditor, Node, type Descendant, type Editor } from 'slate'
 import { getDecorationRanges } from '../lib/utils/getDecorationRanges'
-import type { SpellcheckLookupTable } from '../lib/types'
+import type { SpellcheckLookupTable, SpellingError } from '../lib/types'
 import type { PluginRegistryComponent } from '../lib/contexts/PluginRegistry/lib/types'
 
 function makeEditor(value: Descendant[]): Editor {
@@ -247,5 +247,109 @@ describe("getDecorationRanges — 'single' placeholder", () => {
 
     const ranges = placeholderRangesForFirstChild(editor, 'Type here…')
     expect(ranges).toHaveLength(0)
+  })
+})
+
+function spellingTable(errors: SpellingError[]): SpellcheckLookupTable {
+  return new Map([['a', { lang: 'sv-SE', text: '', errors }]])
+}
+
+function spellingError(id: string, text: string): SpellingError {
+  return { id, text, level: 'error', suggestions: [] }
+}
+
+function spellingRangesFor(
+  text: string,
+  errors: SpellingError[],
+  isSpellingAccepted?: (error: SpellingError) => boolean
+) {
+  const editor = makeEditor([
+    { type: 'core/text', class: 'text', id: 'a', properties: {}, children: [{ text }] }
+  ])
+  const node = Node.get(editor, [0, 0])
+  return getDecorationRanges(
+    editor,
+    spellingTable(errors),
+    [node, [0, 0]],
+    emptyComponents,
+    undefined,
+    undefined,
+    undefined,
+    isSpellingAccepted
+  ).filter((r) => 'spellingError' in r)
+}
+
+describe('getDecorationRanges — accepted spelling errors', () => {
+  test('marks accepted errors instead of dropping their ranges', () => {
+    const errors = [spellingError('e1', 'Lundqvist')]
+    const ranges = spellingRangesFor('Danne Lundqvist', errors, () => true)
+
+    expect(ranges).toHaveLength(1)
+    expect(ranges[0].spellingAccepted).toBe(true)
+    // The error itself is still on the range — the mark changes, it is not removed.
+    expect(ranges[0].spellingError?.id).toBe('e1')
+  })
+
+  test('leaves unaccepted errors marked as errors', () => {
+    const errors = [spellingError('e1', 'Lundqvist'), spellingError('e2', 'teh')]
+    const ranges = spellingRangesFor(
+      'Lundqvist teh',
+      errors,
+      (error) => error.text === 'Lundqvist'
+    )
+
+    const byId = Object.fromEntries(ranges.map((r) => [r.spellingError?.id, r.spellingAccepted]))
+    expect(byId).toEqual({ e1: true, e2: false })
+  })
+
+  test('spellingAccepted is false when no predicate is supplied', () => {
+    const ranges = spellingRangesFor('Lundqvist', [spellingError('e1', 'Lundqvist')])
+
+    expect(ranges).toHaveLength(1)
+    expect(ranges[0].spellingAccepted).toBe(false)
+  })
+
+  test('a truthy non-boolean answer does not count as accepted', () => {
+    const ranges = spellingRangesFor(
+      'Lundqvist',
+      [spellingError('e1', 'Lundqvist')],
+      (() => 'yes') as unknown as (error: SpellingError) => boolean
+    )
+
+    expect(ranges[0].spellingAccepted).toBe(false)
+  })
+
+  test('asks once per error and marks every occurrence of it', () => {
+    const asked: string[] = []
+    const ranges = spellingRangesFor(
+      'Lundqvist and Lundqvist again',
+      [spellingError('e1', 'Lundqvist')],
+      (error) => {
+        asked.push(error.text)
+        return true
+      }
+    )
+
+    // Two matches in the text, but the question was asked once.
+    expect(ranges).toHaveLength(2)
+    expect(asked).toEqual(['Lundqvist'])
+    expect(ranges.every((r) => r.spellingAccepted === true)).toBe(true)
+  })
+
+  test('receives the whole error, so hosts can decide on level or suggestions', () => {
+    const received: SpellingError[] = []
+    const error: SpellingError = {
+      id: 'e1',
+      text: 'Lundqvist',
+      level: 'suggestion',
+      suggestions: [{ text: 'Lindqvist' }]
+    }
+
+    spellingRangesFor('Lundqvist', [error], (e) => {
+      received.push(e)
+      return false
+    })
+
+    expect(received).toEqual([error])
   })
 })

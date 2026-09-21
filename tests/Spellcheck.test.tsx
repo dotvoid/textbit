@@ -286,4 +286,115 @@ describe('Spellcheck', () => {
     const errorElements = container.querySelectorAll('[data-spelling-error]')
     expect(errorElements.length).toBeGreaterThanOrEqual(2)
   })
+  test('marks an accepted word without removing its spelling error', async () => {
+    const content: Descendant[] = [
+      {
+        type: 'core/text',
+        class: 'text',
+        id: 'accept-1',
+        properties: {},
+        children: [{ text: 'This is teh wrld' }]
+      }
+    ]
+
+    // Memoized in real use; stable here because it is defined once.
+    const isSpellingAccepted = (error: SpellingError) => error.text === 'teh'
+
+    const { container } = render(
+      <TextbitRoot
+        value={content}
+        onChange={() => {}}
+        onSpellcheck={mockSpellchecker}
+        spellcheckDebounce={100}
+      >
+        <TextbitEditable isSpellingAccepted={isSpellingAccepted} />
+      </TextbitRoot>
+    )
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-spelling-accepted]').length).toBe(1)
+    }, { timeout: 500 })
+
+    const accepted = container.querySelector('[data-spelling-accepted]')
+    expect(accepted?.textContent).toBe('teh')
+    // The error attribute stays put - the word is marked, not unmarked.
+    expect(accepted?.hasAttribute('data-spelling-error')).toBe(true)
+    // Presence attribute, so it matches [data-spelling-accepted] in CSS.
+    expect(accepted?.getAttribute('data-spelling-accepted')).toBe('')
+
+    // The word that was not accepted keeps reading as a plain error.
+    const notAccepted = [...container.querySelectorAll('[data-spelling-error]')]
+      .filter((el) => !el.hasAttribute('data-spelling-accepted'))
+    expect(notAccepted.map((el) => el.textContent)).toEqual(['wrld'])
+  })
+
+  test('omits the attribute entirely when nothing is accepted', async () => {
+    const content: Descendant[] = [
+      {
+        type: 'core/text',
+        class: 'text',
+        id: 'accept-2',
+        properties: {},
+        children: [{ text: 'This is teh wrld' }]
+      }
+    ]
+
+    const { container } = render(
+      <TextbitRoot
+        value={content}
+        onChange={() => {}}
+        onSpellcheck={mockSpellchecker}
+        spellcheckDebounce={100}
+      >
+        <TextbitEditable isSpellingAccepted={() => false} />
+      </TextbitRoot>
+    )
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-spelling-error]').length).toBe(2)
+    }, { timeout: 500 })
+
+    expect(container.querySelectorAll('[data-spelling-accepted]')).toHaveLength(0)
+  })
+  test('changing the accepted answer re-marks without re-running spellcheck', async () => {
+    const content: Descendant[] = [
+      {
+        type: 'core/text',
+        class: 'text',
+        id: 'accept-3',
+        properties: {},
+        children: [{ text: 'This is teh wrld' }]
+      }
+    ]
+
+    const editor = (isSpellingAccepted: (error: SpellingError) => boolean) => (
+      <TextbitRoot
+        value={content}
+        onChange={() => {}}
+        onSpellcheck={mockSpellchecker}
+        spellcheckDebounce={100}
+      >
+        <TextbitEditable isSpellingAccepted={isSpellingAccepted} />
+      </TextbitRoot>
+    )
+
+    const { container, rerender } = render(editor(() => false))
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-spelling-error]').length).toBe(2)
+    }, { timeout: 500 })
+    expect(container.querySelectorAll('[data-spelling-accepted]')).toHaveLength(0)
+
+    const callsBefore = mockSpellchecker.mock.calls.length
+
+    // Accepting a word is a pure render concern - the document did not change,
+    // so nothing may be sent to the spellchecker again.
+    rerender(editor((error) => error.text === 'teh'))
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('[data-spelling-accepted]').length).toBe(1)
+    }, { timeout: 500 })
+    expect(container.querySelector('[data-spelling-accepted]')?.textContent).toBe('teh')
+    expect(mockSpellchecker.mock.calls.length).toBe(callsBefore)
+  })
 })

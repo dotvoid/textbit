@@ -81,6 +81,7 @@ function getSpellingHints(
 ): SpellingError & {
   range: Range | undefined
   apply: (replacement: string) => void
+  accepted: boolean
 } | undefined {
   const ancestor = element.closest('[data-spelling-error]') as HTMLElement
   const errorId = ancestor?.dataset['spellingError']
@@ -96,6 +97,8 @@ function getSpellingHints(
     return (spellingError)
       ? {
         ...spellingError,
+        // Read off the clicked leaf, so this describes the mark on screen.
+        accepted: ancestor?.dataset['spellingAccepted'] !== undefined,
         range: getDecorationRangeFromMouseEvent(editor, event),
         apply: (replacement: string) => {
           TextbitEditor.replaceStringAtPosition(

@@ -77,6 +77,8 @@ export type TextbitText = BaseText & {
 export type TextbitRange = BaseRange & {
   placeholder?: React.ReactNode
   spellingError?: SpellingError
+  // Set alongside spellingError, never instead of it - accepted words stay marked.
+  spellingAccepted?: boolean
   nbsp?: boolean
   newline?: boolean
 }

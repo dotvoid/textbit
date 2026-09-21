@@ -123,6 +123,7 @@ function MisspelledLeaf(props: RenderLeafProps & { className: string, style: CSS
       className={className}
       data-spelling-error={spellingError?.id || ''}
       data-spelling-level={spellingError?.level || undefined}
+      data-spelling-accepted={leaf.spellingAccepted ? '' : undefined}
       {...attributes}
     >
       {props.children}

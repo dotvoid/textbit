@@ -11,7 +11,7 @@ import { useSlateStatic } from 'slate-react'
 import { DragStateProvider } from '../../contexts/DragStateProvider'
 import { PendingDropsProvider } from '../../contexts/PendingDropsProvider'
 import { PresenceOverlay } from '../PresenceOverlay'
-import type { SpellcheckLookupTable } from '../../types'
+import type { SpellcheckLookupTable, SpellingError } from '../../types'
 import { SelectionBoundsDetails } from '../SelectionBoundsDetails'
 import { type AdjacentBlockState } from '../../contexts/AdjacentBlockContext'
 import { AdjacentBlockProvider } from '../../contexts/AdjacentBlockProvider'
@@ -32,6 +32,11 @@ interface TextbitEditableProps {
   style?: React.CSSProperties
   children?: React.ReactNode
   'aria-label'?: string
+  /**
+   * Answer whether a reported spelling error is accepted for this document.
+   * Must be memoized - it takes part in the decorate callback identity.
+   */
+  isSpellingAccepted?: (error: SpellingError) => boolean
 }
 
 export function TextbitEditable(props: TextbitEditableProps) {
@@ -43,7 +48,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
   const [spellingLookupTable, setSpellingLookupTable] = useState<SpellcheckLookupTable>(new Map())
   const [adjacentBlock, setAdjacentBlock] = useState<AdjacentBlockState | null>(null)
   const [blockSelection, setBlockSelection] = useState<BlockSelectionState | null>(null)
-  const { onFocus, onBlur, constraints, autoFocus = false } = props
+  const { onFocus, onBlur, constraints, autoFocus = false, isSpellingAccepted } = props
 
   useEffect(() => {
     editor.allowEdgeWhitespace = constraints?.allowEdgeWhitespace !== false
@@ -130,9 +135,10 @@ export function TextbitEditable(props: TextbitEditableProps) {
       components,
       placeholders,
       placeholder,
-      editorIsEmpty
+      editorIsEmpty,
+      isSpellingAccepted
     )
-  }, [editor, components, placeholders, placeholder, spellingLookupTable, editorIsEmpty])
+  }, [editor, components, placeholders, placeholder, spellingLookupTable, editorIsEmpty, isSpellingAccepted])
 
   const handleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
     if (constraints?.allowEdgeWhitespace !== false) {

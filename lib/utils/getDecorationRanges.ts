@@ -1,7 +1,7 @@
 import { Editor, NodeEntry, Node, Text, Element, type Range } from 'slate'
 import { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { PlaceholdersVisibility } from '../contexts/TextbitContext'
-import { SpellcheckLookupTable } from '../types'
+import { SpellcheckLookupTable, SpellingError } from '../types'
 
 // Non-breaking space (U+00A0). Sourced from its char code so the file stays
 // ASCII and a literal NBSP is never confused with a regular space.
@@ -22,6 +22,11 @@ function escapeRegExp(string: string): string {
  * `useSlateSelector` once per emptiness change). It is only consulted in
  * 'single' placeholder mode, where the global placeholder must hide as
  * soon as *any* block has content, not just when the first block is empty.
+ *
+ * `isSpellingAccepted` marks errors the implementor has accepted. It is asked
+ * here rather than the host filtering its own `onSpellcheck` results, because
+ * the lookup table is only refreshed when a node's text changes - a word
+ * accepted while reading would keep its old mark until the paragraph was edited.
  */
 export function getDecorationRanges(
   editor: Editor,
@@ -30,7 +35,8 @@ export function getDecorationRanges(
   components: Map<string, PluginRegistryComponent>,
   placeholders?: PlaceholdersVisibility,
   placeholder?: string,
-  editorIsEmpty?: boolean
+  editorIsEmpty?: boolean,
+  isSpellingAccepted?: (error: SpellingError) => boolean
 ): Range[] {
   const [node, path] = nodeEntry
   const ranges: Range[] = []
@@ -45,6 +51,9 @@ export function getDecorationRanges(
       if (spelling?.errors.length) {
         const text = node.text
         spelling.errors.forEach((spellingError) => {
+          // Once per error - the sweep below can produce several ranges for it.
+          const spellingAccepted = isSpellingAccepted?.(spellingError) === true
+
           // Escape special regex characters
           const escapedText = escapeRegExp(spellingError.text)
 
@@ -57,7 +66,8 @@ export function getDecorationRanges(
               ranges.push({
                 anchor: { path, offset: match.index },
                 focus: { path, offset: match.index + spellingError.text.length },
-                spellingError
+                spellingError,
+                spellingAccepted
               })
             }
           })

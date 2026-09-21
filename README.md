@@ -102,7 +102,7 @@ The root component that provides context for the editor. All other Textbit compo
 
 #### Spellcheck Function Type
 
-A spellcheck function will receive an array of texts (with language code and the actual text). The function is expected to resolve with an array of spelling issues. Each spelling issue defines the identified string, start position of the string, an array of suggested substitutions and severity level.
+A spellcheck function will receive an array of texts (with language code and the actual text). The function is expected to resolve with one array of spelling issues per text, in the same order. Each spelling issue defines the misspelled string, an array of suggested substitutions and a severity level. It does not carry a position - textbit finds every occurrence of the string in the text itself, which is also why an issue applies to all occurrences rather than to one spot. The `id` is assigned by textbit, so it is omitted from what you return.
 
 When loading the editor the first time the whole text will be spellchecked. After that only the text object changed will be checked.
 
@@ -111,11 +111,14 @@ type SpellcheckFunction = (
   texts: Array<{ lang: string; text: string }>
 ) => Promise<Array<Array<Omit<SpellingError, 'id'>>>>
 
-interface SpellingError {
-  str: string      // The misspelled text
-  pos: number      // Position in the text
-  sub: string[]    // Suggested replacements
+type SpellingError = {
+  id: string       // Assigned by textbit, not by the spellcheck function
+  text: string     // The misspelled text
   level?: 'error' | 'suggestion'  // Severity level
+  suggestions: Array<{
+    text: string           // Suggested replacement
+    description?: string   // Optional note shown alongside the suggestion
+  }>
 }
 ```
 
@@ -190,12 +193,21 @@ function RichTextEditor() {
 function EditorWithSpellcheck() {
   const [value, setValue] = useState(initialValue)
 
-  const handleSpellcheck = async (texts) => {
+  const handleSpellcheck = async (texts: { lang: string, text: string }[]) => {
+    // One array of errors per text, in the same order. Omit `id` - textbit
+    // assigns it.
     return texts.map(({ text, lang }) => {
-      // Return array of spelling errors for each text
       return [
-        { str: 'teh', pos: 0, sub: ['the', 'tea'], level: 'error' },
-        { str: 'recieve', pos: 10, sub: ['receive'], level: 'error' }
+        {
+          text: 'teh',
+          level: 'error' as const,
+          suggestions: [{ text: 'the', description: 'article' }, { text: 'tea' }]
+        },
+        {
+          text: 'recieve',
+          level: 'error' as const,
+          suggestions: [{ text: 'receive' }]
+        }
       ]
     })
   }
@@ -225,6 +237,9 @@ The editable content area. Must be a child of `Textbit.Root`.
 | `autoFocus` | `boolean \| 'start' \| 'end'` | `false` | Auto-focus behavior. `true`/`'start'` focuses at start, `'end'` focuses at end. |
 | `onFocus` | `React.FocusEventHandler<HTMLDivElement>` | - | Called when editor receives focus. |
 | `onBlur` | `React.FocusEventHandler<HTMLDivElement>` | - | Called when editor loses focus. |
+| `isSpellingAccepted` | `(error: TBSpellingError) => boolean` | - | Answer whether a reported spelling error is accepted in this document. Must be memoized. See [Accepting Spelling Errors](#accepting-spelling-errors). |
+| `constraints` | `{ allowEdgeWhitespace?: boolean }` | - | Set `allowEdgeWhitespace` to `false` to trim leading and trailing whitespace on blur. Whitespace is kept by default. |
+| `aria-label` | `string` | - | Accessible label for the editable area. |
 | `className` | `string` | - | CSS class for editable container. |
 | `style` | `React.CSSProperties` | - | Inline styles for editable container. |
 | `children` | `React.ReactNode` | - | Additional components (Toolbar, Gutter, etc.). |
@@ -250,6 +265,56 @@ The editable content area. Must be a child of `Textbit.Root`.
   <Toolbar.Root>{/* ... */}</Toolbar.Root>
 </Textbit.Editable>
 ```
+
+#### Accepting Spelling Errors
+
+A spellchecker flags a word, but the word is right here - a name, usually. The
+user needs to say so, and the mark needs to change accordingly, without the
+spellchecker having to agree and without the decision leaking into a shared
+dictionary.
+
+`isSpellingAccepted` is called for every error the spellchecker reported. A
+`true` answer marks the word `data-spelling-accepted` instead of letting it read
+as a correction. Textbit does not know *why* a word is accepted - it knows
+nothing about documents, users or storage. Where the decision lives, who made it
+and when, all belongs to you.
+
+```tsx
+const [accepted, setAccepted] = useState<Set<string>>(() => loadForDocument(id))
+
+// Must be memoized. It takes part in the decorate callback's identity, so a
+// fresh function on every render re-decorates continuously.
+const isSpellingAccepted = useCallback(
+  (error: TBSpellingError) => accepted.has(error.text),
+  [accepted]
+)
+
+<Textbit.Editable isSpellingAccepted={isSpellingAccepted} />
+```
+
+The predicate receives the whole `TBSpellingError`, so you can decide on `level`
+or on the suggestions offered as well as on the text.
+
+Four things worth knowing:
+
+- **Accepted words are marked, not dropped.** The leaf keeps its
+  `data-spelling-error` and gains `data-spelling-accepted` on top, so the
+  acceptance stays visible and there is something to right-click to undo. See
+  [Spelling Errors](#spelling-errors) for styling, and
+  [useContextMenuHints()](#usecontextmenuhints) for offering the undo.
+- **Filtering accepted words out of your `onSpellcheck` results instead does not
+  work.** Results are cached per node and only refreshed when that node's text
+  changes, so a word accepted while reading would keep its old mark until the
+  paragraph was edited - and `editor.spellcheck.force()` does not help, as it
+  runs the check immediately, finds nothing changed, and checks nothing.
+  Deciding here applies the change on the next render, with no re-check and no
+  network call, to every occurrence in the document at once.
+- **Case sensitivity is yours.** Textbit passes the reported text through
+  unchanged.
+- **Acceptance is document-wide by text.** Decoration matches by searching the
+  node text rather than by offsets, so a word cannot currently be accepted at one
+  position and left marked at another, even though some spell services return
+  spans that would allow it.
 
 ---
 
@@ -885,6 +950,7 @@ const {
 } = useContextMenuHints()
 
 interface SpellingInfo {
+  id: string
   text: string
   level?: 'error' | 'suggestion'
   suggestions: Array<{
@@ -893,26 +959,47 @@ interface SpellingInfo {
   }>
   range?: Range
   apply: (replacement: string) => void
+  accepted: boolean
 }
 ```
+
+`accepted` is read off the leaf that was clicked rather than by asking
+[`isSpellingAccepted`](#accepting-spelling-errors) again, so it always describes
+the mark the user actually sees. Use it to offer "undo" on a word that is already
+accepted, instead of offering to accept it a second time.
 
 #### Example
 
 ```tsx
 function ContextMenu() {
   const { isOpen, spelling, position } = useContextMenuHints()
-  
+
   if (!isOpen || !spelling) {
     return null
   }
-  
+
   return (
     <div style={{ position: 'fixed', left: position?.x, top: position?.y }}>
-      {spelling.suggestions.map(({ text }) => (
-        <button key={text} onClick={() => spelling.apply(text)}>
-          {text}
-        </button>
-      ))}
+      {spelling.accepted
+        ? (
+          // Already accepted in this document - offer to take it back. Storing
+          // and forgetting the word is yours; textbit only reports the mark.
+          <button onClick={() => forget(spelling.text)}>
+            Stop accepting &ldquo;{spelling.text}&rdquo;
+          </button>
+        )
+        : (
+          <>
+            {spelling.suggestions.map(({ text }) => (
+              <button key={text} onClick={() => spelling.apply(text)}>
+                {text}
+              </button>
+            ))}
+            <button onClick={() => accept(spelling.text)}>
+              Accept &ldquo;{spelling.text}&rdquo; in this document
+            </button>
+          </>
+        )}
     </div>
   )
 }
@@ -1120,6 +1207,7 @@ Spelling errors are rendered with data attributes for custom styling:
 |-----------|--------|-------------|
 | `data-spelling-error` | `string` | Unique ID of spelling error. |
 | `data-spelling-level` | `"error" \| "suggestion"` | Severity level. |
+| `data-spelling-accepted` | `""` | Present when the word has been accepted via [`isSpellingAccepted`](#accepting-spelling-errors). Absent otherwise - a presence attribute, so match it as `[data-spelling-accepted]`. |
 
 #### CSS Example
 
@@ -1135,6 +1223,12 @@ Spelling errors are rendered with data attributes for custom styling:
 [data-spelling-level="suggestion"] {
   text-decoration-color: #3b82f6;
 }
+
+/* An accepted word keeps its error attributes, so this rule sits on top of the
+   styling above and has to override it. */
+[data-spelling-accepted] {
+  text-decoration: none;
+}
 ```
 
 #### Tailwind Example
@@ -1146,6 +1240,7 @@ Spelling errors are rendered with data attributes for custom styling:
     [&_[data-spelling-error]]:decoration-dotted
     [&_[data-spelling-level='error']]:decoration-red-500
     [&_[data-spelling-level='suggestion']]:decoration-blue-500
+    [&_[data-spelling-accepted]]:no-underline
   "
 />
 ```
