@@ -83,10 +83,20 @@ export function pipeFromFileInput(editor: Editor, plugins: PluginDefinition[], e
  */
 export function pipeFromDrop(editor: Editor, plugins: PluginDefinition[], e: React.DragEvent, position: number) {
   const dt = e.dataTransfer
-  const pipe = initPipeForDrop(dt)
+  const { pipe, ignored } = initPipeForDrop(dt)
   initConsumersForPipe(plugins, pipe)
 
   const aggregatedPipe = aggregateConsumersInPipe(pipe)
+
+  // Nothing but drag metadata. Swallow it rather than fall through: an
+  // unhandled drop reaches slate-react's own handler, which moves the caret to
+  // the drop point and can delete the dragged range - for a drop that carried
+  // no payload at all.
+  if (!aggregatedPipe.length && ignored) {
+    e.preventDefault()
+    e.stopPropagation()
+    return
+  }
 
   // TODO: Implement user choice of consumer when there are multiple consumers for items
 
@@ -165,6 +175,7 @@ const IGNORED_DROP_TYPES = new Set([
 
 function initPipeForDrop(dt: DataTransfer) {
   const pipe = []
+  let ignored = 0
   let handleTextPlain = true
 
   // Add text/plain as "alternate" data with uri-list and html drop data types
@@ -178,6 +189,7 @@ function initPipeForDrop(dt: DataTransfer) {
     const item = dt.items[i]
 
     if (IGNORED_DROP_TYPES.has(item.type)) {
+      ignored++
       continue
     }
 
@@ -196,7 +208,7 @@ function initPipeForDrop(dt: DataTransfer) {
     }
   }
 
-  return pipe
+  return { pipe, ignored }
 }
 
 /**

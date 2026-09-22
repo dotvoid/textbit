@@ -36,8 +36,9 @@ const insertsAnImage: ConsumeFunction = () => Promise.resolve({
 })
 
 /** Build a drop event carrying one string item per mime type. */
-function fakeDropEvent(types: string[]): { event: React.DragEvent, preventDefault: () => void } {
+function fakeDropEvent(types: string[]) {
   const preventDefault = vi.fn()
+  const stopPropagation = vi.fn()
   const items = types.map((type) => ({ kind: 'string', type })) as unknown as DataTransferItemList
   const dt = {
     types,
@@ -48,9 +49,9 @@ function fakeDropEvent(types: string[]): { event: React.DragEvent, preventDefaul
   const event = {
     dataTransfer: dt,
     preventDefault,
-    stopPropagation: () => {}
+    stopPropagation
   } as unknown as React.DragEvent
-  return { event, preventDefault }
+  return { event, preventDefault, stopPropagation }
 }
 
 async function tickMicrotasks() {
@@ -76,18 +77,37 @@ describe('initPipeForDrop — ignored drag metadata types', () => {
     expect((editor.children[1] as Element).id).toBe('img1')
   })
 
-  test('a drop of only ignored types is a no-op and leaves the event alone', async () => {
+  test('a drop of only ignored types is swallowed, not passed on', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const editor = makeEditor()
     const before = JSON.parse(JSON.stringify(editor.children))
-    const { event, preventDefault } = fakeDropEvent(['chromium/x-drag-id', 'chromium/x-renderer-taint'])
+    const { event, preventDefault, stopPropagation } = fakeDropEvent([
+      'chromium/x-drag-id',
+      'chromium/x-renderer-taint'
+    ])
 
     pipeFromDrop(editor, [imageConsumerPlugin(insertsAnImage)], event, 1)
     await tickMicrotasks()
 
     expect(warn).not.toHaveBeenCalled()
-    expect(preventDefault).not.toHaveBeenCalled()
     expect(editor.children).toEqual(before)
+    // Letting this through would reach slate-react's drop handler, which moves
+    // the caret to the drop point for a drop that carried nothing.
+    expect(preventDefault).toHaveBeenCalled()
+    expect(stopPropagation).toHaveBeenCalled()
+  })
+
+  test('a drop with no items at all is left alone', async () => {
+    const editor = makeEditor()
+    const { event, preventDefault, stopPropagation } = fakeDropEvent([])
+
+    pipeFromDrop(editor, [imageConsumerPlugin(insertsAnImage)], event, 1)
+    await tickMicrotasks()
+
+    // Nothing was filtered, so there is nothing to compensate for - this is the
+    // same fall-through as before the ignore list existed.
+    expect(preventDefault).not.toHaveBeenCalled()
+    expect(stopPropagation).not.toHaveBeenCalled()
   })
 
   test('a real type with no consumer still warns', async () => {
