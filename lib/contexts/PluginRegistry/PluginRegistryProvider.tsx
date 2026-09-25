@@ -41,11 +41,12 @@ export function PluginRegistryProvider({ children, verbose, plugins }: {
   plugins: PluginDefinition[]
   children: React.ReactNode
 }) {
-  const initPlugins = initializePlugins(initialState(), plugins, { verbose })
-  const [state, dispatch] = useReducer(reducer, {
+  // Plugins are read once, on mount. Lazy init so the registry is not
+  // rebuilt (and discarded) on every render.
+  const [state, dispatch] = useReducer(reducer, plugins, (initial) => ({
     ...initialState(),
-    ...initPlugins
-  })
+    ...initializePlugins(initialState(), initial, { verbose })
+  }))
 
   return (
     <PluginRegistryContext.Provider value={{ ...state, dispatch }}>
