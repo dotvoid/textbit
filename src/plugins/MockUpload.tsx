@@ -1,4 +1,9 @@
-import type { TBPluginDefinition, TBConsumesFunction, TBConsumeFunction } from '../../dist/main'
+import type {
+  TBPluginDefinition,
+  TBConsumesFunction,
+  TBConsumeFunction,
+  TBComponentProps
+} from '../../dist/main'
 
 /**
  * Demo plugin: pretends to "upload" any dropped file (image or other) and
@@ -53,11 +58,10 @@ export const MockUpload = (): TBPluginDefinition => ({
   name: 'example/mock-upload',
   componentEntry: {
     class: 'block',
-    component: ({ element, attributes, children }) => {
-      const label = (element as unknown as { properties?: { label?: string } }).properties?.label ?? 'uploaded'
+    component: ({ element, children }: TBComponentProps) => {
+      const label = element.properties?.label
       return (
         <div
-          {...attributes}
           contentEditable={false}
           style={{
             border: '1px solid #ccc',
@@ -69,7 +73,7 @@ export const MockUpload = (): TBPluginDefinition => ({
           }}
         >
           <div style={{ fontWeight: 600, marginBottom: 4 }}>📎 Mock upload</div>
-          <div style={{ color: '#555' }}>{label}</div>
+          <div style={{ color: '#555' }}>{typeof label === 'string' ? label : 'uploaded'}</div>
           {children}
         </div>
       )
