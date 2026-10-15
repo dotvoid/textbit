@@ -28,7 +28,8 @@ export function pasteToConsumers(editor: Editor, consumers: Consumers, input: Re
       // A throwing consume() must still settle this promise. Callers only act
       // inside their own `then()`, so an unsettled promise silently swallows
       // the paste - and every keystroke, since insertText runs this path too.
-      // Resolving undefined lets them fall back, same as an unusable result.
+      // Resolving undefined treats it as an unusable result: typing falls back
+      // to the typed text, a paste is dropped.
       console.warn(`Consumer threw when handling paste`, ex)
       resolve()
     })
