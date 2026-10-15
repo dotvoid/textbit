@@ -3,6 +3,7 @@ import { type RenderLeafProps } from 'slate-react'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 import { TextbitPlugin } from '../../utils/textbit-plugin'
 import type { SpellingError } from '../../types'
+import { getLeafMarkIds } from '../../utils/decorationMarks'
 
 /**
  * Render a leaf
@@ -62,22 +63,34 @@ export function LeafElement(props: RenderLeafProps) {
     className += ' tb-newline'
   }
 
+  // Caller decorations. Only the hook for the caller's own styling: the class
+  // and the ids, so `[data-tb-mark~="<id>"]` finds every piece of one mark.
+  const markIds = getLeafMarkIds(leaf)
+  const mark = markIds.length ? markIds.join(' ') : undefined
+  if (mark) {
+    className += ' tb-mark'
+  }
+
   if (leaf.spellingError) {
-    return <MisspelledLeaf {...props} className={className} style={style} />
+    return <MisspelledLeaf {...props} className={className} style={style} mark={mark} />
   } else if (leaf.placeholder) {
     return <EmptyLeaf {...props} className={className} style={style} />
   } else {
-    return <OrdinaryLeaf {...props} className={className} style={style} />
+    return <OrdinaryLeaf {...props} className={className} style={style} mark={mark} />
   }
 }
 
-function OrdinaryLeaf(props: RenderLeafProps & { className: string, style: CSSProperties }) {
-  const { attributes, style, className } = props
+type LeafProps = RenderLeafProps & { className: string, style: CSSProperties }
+type MarkableLeafProps = LeafProps & { mark?: string }
+
+function OrdinaryLeaf(props: MarkableLeafProps) {
+  const { attributes, style, className, mark } = props
 
   return (
     <span
       style={style}
       className={className}
+      data-tb-mark={mark}
       {...attributes}
     >
       {props.children}
@@ -85,7 +98,7 @@ function OrdinaryLeaf(props: RenderLeafProps & { className: string, style: CSSPr
   )
 }
 
-function EmptyLeaf(props: RenderLeafProps & { className: string, style: CSSProperties }) {
+function EmptyLeaf(props: LeafProps) {
   const { leaf, attributes, style, className } = props
   const placeholderRef = useRef<HTMLDivElement>(null)
   const [minWidth, setMinWidth] = useState<number | undefined>(undefined)
@@ -113,8 +126,8 @@ function EmptyLeaf(props: RenderLeafProps & { className: string, style: CSSPrope
   )
 }
 
-function MisspelledLeaf(props: RenderLeafProps & { className: string, style: CSSProperties }) {
-  const { leaf, attributes, style, className } = props
+function MisspelledLeaf(props: MarkableLeafProps) {
+  const { leaf, attributes, style, className, mark } = props
   const spellingError = leaf.spellingError as unknown as SpellingError | undefined
 
   return (
@@ -124,6 +137,7 @@ function MisspelledLeaf(props: RenderLeafProps & { className: string, style: CSS
       data-spelling-error={spellingError?.id || ''}
       data-spelling-level={spellingError?.level || undefined}
       data-spelling-accepted={leaf.spellingAccepted ? '' : undefined}
+      data-tb-mark={mark}
       {...attributes}
     >
       {props.children}

@@ -238,6 +238,7 @@ The editable content area. Must be a child of `Textbit.Root`.
 | `onFocus` | `React.FocusEventHandler<HTMLDivElement>` | - | Called when editor receives focus. |
 | `onBlur` | `React.FocusEventHandler<HTMLDivElement>` | - | Called when editor loses focus. |
 | `isSpellingAccepted` | `(error: TBSpellingError) => boolean` | - | Answer whether a reported spelling error is accepted in this document. Must be memoized. See [Accepting Spelling Errors](#accepting-spelling-errors). |
+| `decorations` | `readonly TBDecoration[]` | - | Highlight ranges of text, rendered as marked leaves. Must be memoized. See [Decorations](#decorations). |
 | `constraints` | `{ allowEdgeWhitespace?: boolean }` | - | Set `allowEdgeWhitespace` to `false` to trim leading and trailing whitespace on blur. Whitespace is kept by default. |
 | `aria-label` | `string` | - | Accessible label for the editable area. |
 | `className` | `string` | - | CSS class for editable container. |
@@ -315,6 +316,54 @@ Four things worth knowing:
   node text rather than by offsets, so a word cannot currently be accepted at one
   position and left marked at another, even though some spell services return
   spans that would allow it.
+
+#### Decorations
+
+`decorations` marks ranges of text without touching the document - review
+findings, sources, search hits. Each decoration is a caller id and a Slate range:
+
+```ts
+interface TBDecoration {
+  /** Caller's id. The same id may appear on several decorations. */
+  id: string
+  /** A Slate range in the editor's current document. */
+  range: BaseRange
+}
+```
+
+Every leaf a decoration covers renders with the class `tb-mark` and a
+`data-tb-mark` attribute holding the ids of all decorations on that leaf,
+space-separated and sorted. Textbit adds no styling of its own.
+
+- **A range spanning several text nodes or blocks** is split into one marked
+  leaf per text node, all carrying the same id. Select every piece of one mark
+  with `[data-tb-mark~="<id>"]`.
+- **Overlapping decorations** split the text at each boundary; the overlapping
+  leaf lists both ids, e.g. `data-tb-mark="a b"`.
+- **Spelling marks and leaf styles compose.** A marked word that is also
+  misspelled keeps its `data-spelling-*` attributes, and bold or other leaf
+  plugin styles stay on the same span.
+- **Ranges are not tracked through edits.** Paths and offsets refer to the
+  document as it is now; after any local or remote change the caller must
+  recompute them (for example from Yjs relative positions). Stale ranges mark
+  the wrong text rather than failing.
+- **Must be memoized.** The array takes part in the decorate callback identity,
+  so a new array re-decorates the whole editor. Pass a new array only when the
+  marks change.
+
+```tsx
+const decorations = useMemo<TBDecoration[]>(() => findings.map((f) => ({
+  id: f.id,
+  range: f.range
+})), [findings])
+
+<Textbit.Editable decorations={decorations} />
+```
+
+```css
+.tb-mark { background: color-mix(in srgb, gold 30%, transparent); }
+[data-tb-mark~="finding-1"] { background: color-mix(in srgb, tomato 30%, transparent); }
+```
 
 ---
 
@@ -1801,6 +1850,7 @@ import type {
   
   // Other types
   TBSpellingError,    // Spelling error structure
+  TBDecoration,       // Caller highlight over a range
   TBConsumeFunction,  // Consume function type
   TBConsumesFunction  // Consumes function type
 } from '@dotvoid/textbit'

@@ -11,7 +11,7 @@ import { useSlateStatic } from 'slate-react'
 import { DragStateProvider } from '../../contexts/DragStateProvider'
 import { PendingDropsProvider } from '../../contexts/PendingDropsProvider'
 import { PresenceOverlay } from '../PresenceOverlay'
-import type { SpellcheckLookupTable, SpellingError } from '../../types'
+import type { Decoration, SpellcheckLookupTable, SpellingError } from '../../types'
 import { SelectionBoundsDetails } from '../SelectionBoundsDetails'
 import { type AdjacentBlockState } from '../../contexts/AdjacentBlockContext'
 import { AdjacentBlockProvider } from '../../contexts/AdjacentBlockProvider'
@@ -37,6 +37,14 @@ interface TextbitEditableProps {
    * Must be memoized - it takes part in the decorate callback identity.
    */
   isSpellingAccepted?: (error: SpellingError) => boolean
+  /**
+   * Highlight ranges of text. Each leaf a decoration covers renders with the
+   * class `tb-mark` and `data-tb-mark` listing the ids of all decorations on it.
+   * Ranges are not tracked through edits: the caller keeps them fresh against
+   * the current document. Must be memoized - it takes part in the decorate
+   * callback identity.
+   */
+  decorations?: readonly Decoration[]
 }
 
 export function TextbitEditable(props: TextbitEditableProps) {
@@ -48,7 +56,14 @@ export function TextbitEditable(props: TextbitEditableProps) {
   const [spellingLookupTable, setSpellingLookupTable] = useState<SpellcheckLookupTable>(new Map())
   const [adjacentBlock, setAdjacentBlock] = useState<AdjacentBlockState | null>(null)
   const [blockSelection, setBlockSelection] = useState<BlockSelectionState | null>(null)
-  const { onFocus, onBlur, constraints, autoFocus = false, isSpellingAccepted } = props
+  const {
+    onFocus,
+    onBlur,
+    constraints,
+    autoFocus = false,
+    isSpellingAccepted,
+    decorations
+  } = props
 
   useEffect(() => {
     editor.allowEdgeWhitespace = constraints?.allowEdgeWhitespace !== false
@@ -136,9 +151,19 @@ export function TextbitEditable(props: TextbitEditableProps) {
       placeholders,
       placeholder,
       editorIsEmpty,
-      isSpellingAccepted
+      isSpellingAccepted,
+      decorations
     )
-  }, [editor, components, placeholders, placeholder, spellingLookupTable, editorIsEmpty, isSpellingAccepted])
+  }, [
+    editor,
+    components,
+    placeholders,
+    placeholder,
+    spellingLookupTable,
+    editorIsEmpty,
+    isSpellingAccepted,
+    decorations
+  ])
 
   const handleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
     if (constraints?.allowEdgeWhitespace !== false) {

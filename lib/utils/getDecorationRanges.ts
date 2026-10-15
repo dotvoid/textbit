@@ -1,7 +1,8 @@
 import { Editor, NodeEntry, Node, Text, Element, type Range } from 'slate'
 import { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { PlaceholdersVisibility } from '../contexts/TextbitContext'
-import { SpellcheckLookupTable, SpellingError } from '../types'
+import { Decoration, SpellcheckLookupTable, SpellingError } from '../types'
+import { getDecorationMarkRanges } from './decorationMarks'
 
 // Non-breaking space (U+00A0). Sourced from its char code so the file stays
 // ASCII and a literal NBSP is never confused with a regular space.
@@ -27,6 +28,9 @@ function escapeRegExp(string: string): string {
  * here rather than the host filtering its own `onSpellcheck` results, because
  * the lookup table is only refreshed when a node's text changes - a word
  * accepted while reading would keep its old mark until the paragraph was edited.
+ *
+ * `decorations` are the caller's marks. Each yields one piece per text node it
+ * covers, so a mark spanning several nodes or blocks is rendered on all of them.
  */
 export function getDecorationRanges(
   editor: Editor,
@@ -36,7 +40,8 @@ export function getDecorationRanges(
   placeholders?: PlaceholdersVisibility,
   placeholder?: string,
   editorIsEmpty?: boolean,
-  isSpellingAccepted?: (error: SpellingError) => boolean
+  isSpellingAccepted?: (error: SpellingError) => boolean,
+  decorations?: readonly Decoration[]
 ): Range[] {
   const [node, path] = nodeEntry
   const ranges: Range[] = []
@@ -98,6 +103,11 @@ export function getDecorationRanges(
         })
       }
     }
+  }
+
+  // Caller decorations
+  if (decorations?.length && Text.isText(node)) {
+    ranges.push(...getDecorationMarkRanges(decorations, path, node.text.length))
   }
 
   // Placeholders

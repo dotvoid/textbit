@@ -14,6 +14,23 @@ export type SpellingError = {
   }>
 }
 
+/**
+ * A caller-supplied highlight over a range of text. Rendered on every leaf it
+ * covers as `data-tb-mark` (space-separated ids) plus the class `tb-mark`.
+ */
+export interface Decoration {
+  /**
+   * Caller's id for this mark. The same id may appear on several decorations
+   * (a mark spanning blocks).
+   */
+  id: string
+  /**
+   * A Slate range in the editor's current document. Paths and offsets are not
+   * tracked through edits; the caller keeps them fresh.
+   */
+  range: BaseRange
+}
+
 export type SpellcheckLookupTable = Map<string, {
   lang: string
   text: string

@@ -1,5 +1,6 @@
 export type {
   SpellingError as TBSpellingError,
+  Decoration as TBDecoration,
   PluginDefinition as TBPluginDefinition,
   TextbitEditor as TBEditor,
   TextbitElement as TBElement,
