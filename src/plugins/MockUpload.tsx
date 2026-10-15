@@ -14,9 +14,12 @@ const UPLOAD_DELAY_MS = 4000
 const consumes: TBConsumesFunction = ({ input }) => {
   // Accept any file drop. The pipe passes one Resource per file when the
   // drop event has multiple; we consume each individually (aggregate=false).
-  const isFile = input.type.startsWith('image/')
+  // Typed text arrives as text/plain too, so the type alone is not enough.
+  const isFile = input.data instanceof File && (
+    input.type.startsWith('image/')
     || input.type === 'application/octet-stream'
     || input.type.startsWith('text/plain')
+  )
   return [isFile, 'example/mock-upload', false]
 }
 
