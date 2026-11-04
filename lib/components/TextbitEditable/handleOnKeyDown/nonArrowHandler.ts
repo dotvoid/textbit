@@ -1,6 +1,8 @@
 import { Editor, Element, Node, Range, Transforms } from 'slate'
 import type { AdjacentBlockState } from '../../../contexts/AdjacentBlockContext'
 import { resolveTargetIndex, selectStartAt, enterBlockFromStart, enterBlockFromEnd } from './blockUtils'
+import type { PluginRegistryAction } from '../../../contexts/PluginRegistry/lib/types'
+import { INSERT_NBSP_ACTION } from '../../core/NonBreakingSpace'
 
 /**
  * Handle non-arrow keys while an adjacent-block indicator is active.
@@ -12,7 +14,8 @@ export function handleNonArrowWithAdjacentBlock(
   editor: Editor,
   event: React.KeyboardEvent<HTMLDivElement>,
   adjacentBlock: AdjacentBlockState,
-  setAdjacentBlock: (state: AdjacentBlockState | null) => void
+  setAdjacentBlock: (state: AdjacentBlockState | null) => void,
+  actions: PluginRegistryAction[]
 ): boolean {
   // Enter: insert a new default text element next to the target block
   if (event.key === 'Enter') {
@@ -138,8 +141,11 @@ export function handleNonArrowWithAdjacentBlock(
     return true
   }
 
-  // Printable character: insert a new text element and let the character be typed into it
-  if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+  // Printable character, or the non-breaking space action's shortcut: insert a
+  // new text element so the character lands in it rather than inside the block
+  const isPrintable = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
+  const insertsNbsp = actions.some((a) => a.name === INSERT_NBSP_ACTION && a.isHotkey(event))
+  if (isPrintable || insertsNbsp) {
     const targetIndex = resolveTargetIndex(editor, adjacentBlock)
     if (targetIndex !== -1) {
       const insertIndex = adjacentBlock.direction === 'before' ? targetIndex : targetIndex + 1
@@ -152,8 +158,9 @@ export function handleNonArrowWithAdjacentBlock(
       Transforms.insertNodes(editor, newNode, { at: [insertIndex] })
       Transforms.select(editor, Editor.start(editor, [insertIndex]))
       setAdjacentBlock(null)
-      // Don't preventDefault — let Slate insert the character into the new node
-      return true
+      // Don't preventDefault — let Slate insert a printable character into the
+      // new node. The shortcut falls through to its action, which inserts there.
+      return isPrintable
     }
   }
 

@@ -1947,6 +1947,7 @@ Up/Down moves the indicator to the neighbouring top-level block, preserving the 
 | Backspace | Removes the block or character behind the caret position |
 | Delete | Removes the block ahead of the caret position |
 | Printable character | Inserts a new text block and types the character into it |
+| Ctrl+Shift+Space | Inserts a new text block holding a [non-breaking space](#non-breaking-spaces) |
 
 ### Block Selection (Shift+Arrow)
 
@@ -1973,6 +1974,31 @@ While the block caret is active, holding Shift and pressing any arrow key initia
 | Mouse click | Clears block selection |
 
 Selected blocks receive a `data-block-selected` attribute and a `.tb-block-selected` overlay element for styling. Text content within the selection also shows the native browser highlight. The `useBlockSelection()` hook exposes the current selection state (`anchorIndex` / `focusIndex`) to consumer components.
+
+---
+
+## Non-breaking Spaces
+
+A non-breaking space (U+00A0) keeps two words on the same line, as in `10 kr`. It
+looks exactly like a regular space, so textbit marks each one, and paste keeps them.
+
+| Platform | How to type one |
+|----------|-----------------|
+| Windows, Linux | Ctrl+Shift+Space, the same shortcut as Word |
+| macOS | Option+Space, typed natively by the OS. Textbit registers no shortcut here. |
+
+The shortcut is the `insert` action of the built-in `core/nbsp` plugin, which is
+registered even when you pass your own `plugins`. Register a plugin named
+`core/nbsp` to replace it.
+
+The marker is the `tb-nbsp` class on the leaf. Adjust it with these custom
+properties:
+
+| Property | Default |
+|----------|---------|
+| `--tb-nbsp-background` | `currentColor` at 18% |
+| `--tb-nbsp-border` | 1px inset shadow, `currentColor` at 35%. `none` removes it. |
+| `--tb-nbsp-radius` | `2px` |
 
 ---
 

@@ -117,7 +117,8 @@ export function handleOnKeyDown(
       editor,
       event,
       adjacentBlock,
-      setAdjacentBlock
+      setAdjacentBlock,
+      actions
     )
     if (handled) return
   }
