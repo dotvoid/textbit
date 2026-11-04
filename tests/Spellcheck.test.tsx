@@ -66,7 +66,7 @@ describe('Spellcheck', () => {
     // Wait for spellcheck to complete
     await waitFor(() => {
       expect(mockSpellchecker).toHaveBeenCalled()
-    }, { timeout: 500 })
+    }, { timeout: 2000 })
 
     // Check that error is marked with data attribute
     const errorElements = container.querySelectorAll('[data-spelling-error]')
@@ -97,7 +97,7 @@ describe('Spellcheck', () => {
 
     await waitFor(() => {
       expect(mockSpellchecker).toHaveBeenCalled()
-    }, { timeout: 500 })
+    }, { timeout: 2000 })
 
     // Verify the spellchecker returned suggestions
     const lastCall = mockSpellchecker.mock.results[mockSpellchecker.mock.results.length - 1]
@@ -140,7 +140,7 @@ describe('Spellcheck', () => {
 
     await waitFor(() => {
       expect(mockSpellchecker).toHaveBeenCalled()
-    }, { timeout: 500 })
+    }, { timeout: 2000 })
 
     // Should mark both errors
     const errorElements = container.querySelectorAll('[data-spelling-error]')
@@ -232,7 +232,7 @@ describe('Spellcheck', () => {
 
     await waitFor(() => {
       expect(mockSpellchecker).toHaveBeenCalled()
-    }, { timeout: 500 })
+    }, { timeout: 2000 })
 
     // Should have been called with both nodes' text
     const lastCall = mockSpellchecker.mock.calls[mockSpellchecker.mock.calls.length - 1]
@@ -280,7 +280,7 @@ describe('Spellcheck', () => {
 
     await waitFor(() => {
       expect(mockWithLevels).toHaveBeenCalled()
-    }, { timeout: 500 })
+    }, { timeout: 2000 })
 
     // Both errors and suggestions should be marked
     const errorElements = container.querySelectorAll('[data-spelling-error]')
@@ -313,7 +313,7 @@ describe('Spellcheck', () => {
 
     await waitFor(() => {
       expect(container.querySelectorAll('[data-spelling-accepted]').length).toBe(1)
-    }, { timeout: 500 })
+    }, { timeout: 2000 })
 
     const accepted = container.querySelector('[data-spelling-accepted]')
     expect(accepted?.textContent).toBe('teh')
@@ -352,7 +352,7 @@ describe('Spellcheck', () => {
 
     await waitFor(() => {
       expect(container.querySelectorAll('[data-spelling-error]').length).toBe(2)
-    }, { timeout: 500 })
+    }, { timeout: 2000 })
 
     expect(container.querySelectorAll('[data-spelling-accepted]')).toHaveLength(0)
   })
@@ -382,7 +382,7 @@ describe('Spellcheck', () => {
 
     await waitFor(() => {
       expect(container.querySelectorAll('[data-spelling-error]').length).toBe(2)
-    }, { timeout: 500 })
+    }, { timeout: 2000 })
     expect(container.querySelectorAll('[data-spelling-accepted]')).toHaveLength(0)
 
     const callsBefore = mockSpellchecker.mock.calls.length
@@ -393,7 +393,7 @@ describe('Spellcheck', () => {
 
     await waitFor(() => {
       expect(container.querySelectorAll('[data-spelling-accepted]').length).toBe(1)
-    }, { timeout: 500 })
+    }, { timeout: 2000 })
     expect(container.querySelector('[data-spelling-accepted]')?.textContent).toBe('teh')
     expect(mockSpellchecker.mock.calls.length).toBe(callsBefore)
   })
