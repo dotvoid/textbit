@@ -30,7 +30,7 @@
     "typecheck": "tsc -p tsconfig.lib.json --noEmit",
     "preview": "vite preview",
     "preversion": "vitest run && npm run build",
-    "postversion": "git push && git push --tags",
+    "postversion": "node ../../scripts/commit-version.mjs v && git push && git push --tags",
     "test": "vitest run",
     "test:ui": "vitest --ui"
   },
