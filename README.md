@@ -1893,6 +1893,7 @@ import type {
   // Other types
   TBSpellingError,    // Spelling error structure
   TBSpecialCharactersOptions, // Options for the SpecialCharacters plugin
+  TBFocusToolbarOptions, // Options for the FocusToolbar plugin
   TBDecoration,       // Caller highlight over a range
   TBConsumeFunction,  // Consume function type
   TBConsumesFunction  // Consumes function type
@@ -1980,8 +1981,8 @@ existing styling keeps working.
 | Part | Reach it with | Inside it |
 |------|---------------|-----------|
 | Context menu | Right-click, the Menu key, or the browser's context menu shortcut (usually Shift+F10 on Windows and Linux) | Up and Down move, wrapping at the ends. Home and End jump. A letter jumps to the next item starting with it. Enter or Space picks. Escape or Tab return to the editor. |
-| Gutter menu | Tab to its button, which sits in the tab order next to the editor | Enter, Space or Down opens it on the first item, Up on the last. Moving and picking as in the context menu. Escape returns to the button, Tab to the editor. |
-| Toolbar | Formatting shortcuts, e.g. ⌘B / Ctrl+B. The toolbar itself has no key of its own. | Left and Right move between buttons, Enter or Space applies, Escape returns to the editor. |
+| Gutter menu | Tab to its button, which sits in the tab order next to the editor, or Alt+F10 when nothing is selected | Enter, Space or Down opens it on the first item, Up on the last. Moving and picking as in the context menu. Escape returns to the button, Tab to the editor. |
+| Toolbar | Alt+F10 (⌥F10 on macOS) while text is selected. Formatting shortcuts, e.g. ⌘B / Ctrl+B, work without it. | Left and Right move between buttons, Enter or Space applies, Escape returns to the editor. |
 | Special characters | The context menu or the gutter menu | See [Special Characters](#special-characters). |
 
 After a menu item is used, focus returns to the editor with the caret where it
@@ -2007,6 +2008,31 @@ What is up to you:
   one of them can be replaced with an `aria-label` prop.
 - **Keep the gutter next to the editor in the page**, so Tab reaches its button
   from the editor.
+
+### The toolbar key
+
+Alt+F10 (⌥F10 on macOS) is the toolbar key in other web editors such as CKEditor
+and TinyMCE, so it is what keyboard and screen reader users try. Chrome, Edge and
+Safari do not use it, and neither do Windows or macOS. Two caveats:
+
+- **GNOME** (the default Linux desktop on Ubuntu and Fedora) uses Alt+F10 to
+  maximize the window, so there the key never reaches the page.
+- **On a Mac keyboard** F10 is the mute key, so ⌥F10 needs Fn held down.
+
+It belongs to the built-in `core/toolbar` plugin. Register that plugin again to
+change the key or remove it; plugins are replaced by name:
+
+```tsx
+import { FocusToolbar } from '@dotvoid/textbit'
+
+const plugins = [
+  ...myPlugins,
+  FocusToolbar({ hotkey: 'alt+f9' }) // or { hotkey: false } to remove it
+]
+```
+
+Pick a key no browser or operating system your users run already takes: a key
+that is taken never reaches the page.
 
 ---
 

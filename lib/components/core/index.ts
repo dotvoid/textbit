@@ -6,6 +6,7 @@ import {
 } from './Leafs'
 import { Navigation } from './Navigation'
 import { NonBreakingSpace } from './NonBreakingSpace'
+import { FocusToolbar } from './FocusToolbar'
 
 
 export const StandardPlugins = [
@@ -17,5 +18,6 @@ export const StandardPlugins = [
 
 export const basePlugins = [
   Navigation,
-  NonBreakingSpace
+  NonBreakingSpace,
+  FocusToolbar
 ]

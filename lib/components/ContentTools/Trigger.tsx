@@ -3,6 +3,7 @@ import { ReactEditor, useSlateStatic } from 'slate-react'
 import { useClickGlobal } from '../../hooks/useClickGlobal'
 import { MenuContext } from './MenuContext'
 import { GutterContext } from '../GutterProvider/GutterContext'
+import { registerToolbarFocus } from '../core/FocusToolbar'
 
 export function Trigger({ children, className }: PropsWithChildren & {
   className?: string
@@ -22,6 +23,12 @@ export function Trigger({ children, className }: PropsWithChildren & {
     }
     menuTriggerRef.current = mouseTriggerRef.current
   }, [triggerRef, updateTriggerRef, mouseTriggerRef, menuTriggerRef])
+
+  useEffect(() => registerToolbarFocus(editor, 'gutter', () => {
+    const trigger = mouseTriggerRef.current
+    trigger?.focus()
+    return !!trigger && document.activeElement === trigger
+  }), [editor, mouseTriggerRef])
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLAnchorElement>) => {
     if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {

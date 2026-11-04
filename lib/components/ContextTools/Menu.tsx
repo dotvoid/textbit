@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useContext, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { ReactEditor, useFocused, useSlateStatic } from 'slate-react'
-import { handleRovingKeys, TOOLBAR_ITEM } from '../../utils/menuKeyboard'
+import { focusItem, handleRovingKeys, TOOLBAR_ITEM } from '../../utils/menuKeyboard'
+import { registerToolbarFocus } from '../core/FocusToolbar'
 import { Editor } from 'slate'
 import { TextbitElement } from '../../utils/textbit-element'
 import { useSelectionBounds } from '../../hooks/useSelectionBounds'
@@ -34,6 +35,15 @@ function Popover({ children, className, ariaLabel }: {
   const ref = useRef<HTMLDivElement>(null)
   const contextMenuHintsContext = useContext(ContextMenuHintsContext)
   const isContextMenuOpen = contextMenuHintsContext?.menu != null
+
+  useEffect(() => registerToolbarFocus(editor, 'toolbar', () => {
+    const el = ref.current
+    if (!el || el.hasAttribute('inert')) {
+      return false
+    }
+    focusItem(el, TOOLBAR_ITEM, 'first')
+    return el.contains(document.activeElement)
+  }), [editor])
 
   const setVisibility = useCallback((visible: boolean) => {
     const el = ref.current

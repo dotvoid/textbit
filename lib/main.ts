@@ -90,6 +90,9 @@ export {
   type SpecialCharactersOptions as TBSpecialCharactersOptions
 } from './components/SpecialCharacters'
 
+// Built in, exported to change or remove its key
+export { FocusToolbar, type FocusToolbarOptions as TBFocusToolbarOptions } from './components/core/FocusToolbar'
+
 // Hooks
 export { useAction } from './hooks/useAction'
 export { usePluginRegistry } from './hooks/usePluginRegistry'
