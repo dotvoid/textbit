@@ -1,0 +1,63 @@
+.textbit-specialchars {
+  width: 22rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: #fff;
+  box-shadow: 0 3px 12px -4px hsl(240 10% 3.9% / 0.4);
+  font-family: system-ui;
+}
+
+.textbit-specialchars input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.textbit-specialchars [role='listbox'] {
+  max-height: 14rem;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+}
+
+.textbit-specialchars [role='group'] {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  margin-bottom: 0.5rem;
+}
+
+.textbit-specialchars [data-heading] {
+  grid-column: 1 / -1;
+  font-size: 0.75rem;
+  color: #666;
+}
+
+.textbit-specialchars [role='option'] {
+  display: grid;
+  place-items: center;
+  height: 2.2rem;
+  font-size: 1.2rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.textbit-specialchars [role='option'][data-invisible] {
+  font-size: 0.6rem;
+  color: #666;
+  outline: 1px dashed #aaa;
+  outline-offset: -4px;
+}
+
+.textbit-specialchars [role='option'][data-state='active'] {
+  background: hsl(210 90% 92%);
+}
+
+.textbit-specialchars [data-name],
+.textbit-specialchars [data-empty] {
+  font-size: 0.8rem;
+  color: #444;
+  min-height: 1.2rem;
+}

@@ -2,8 +2,19 @@ import './assets/app.css'
 import './assets/contextmenu.css'
 import './assets/contexttools.css'
 import './assets/toolmenu.css'
+import './assets/specialcharacters.css'
 
-import { ContextMenu, Menu, Textbit, Toolbar, useContextMenuHints, usePluginRegistry, useTextbit } from '../lib/main'
+import {
+  ContextMenu,
+  Menu,
+  Textbit,
+  Toolbar,
+  SpecialCharacters,
+  useAction,
+  useContextMenuHints,
+  usePluginRegistry,
+  useTextbit
+} from '../lib/main'
 import { document } from './assets/document'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as Y from 'yjs'
@@ -40,7 +51,8 @@ export function App() {
       }),
       Link(),
       TestBlock(),
-      MockUpload()
+      MockUpload(),
+      SpecialCharacters()
     ]
   }, [])
 
@@ -149,6 +161,7 @@ function TextbitFormatEditor({ style, headerStyle, readOnly, plugins }: {
         </Textbit.Gutter>
 
         <Textbit.Editable
+          contextMenu='always'
           style={{
             ...style,
             backgroundColor: readOnly ? '#eee' : '#fff'
@@ -158,6 +171,7 @@ function TextbitFormatEditor({ style, headerStyle, readOnly, plugins }: {
           <Textbit.DropMarker />
           <Textbit.UploadMarker className="upload-marker" />
           <EditorSpellingContextmenu />
+          <SpecialCharacterPicker />
         </Textbit.Editable>
       </div>
 
@@ -394,6 +408,11 @@ function ContentMenu() {
       <Menu.Trigger className='textbit-contenttools-trigger'>⋮</Menu.Trigger>
       <Menu.Content className='textbit-contenttools-popover'>
         <Menu.Group className='textbit-contenttools-group'>
+          <Menu.Item className='textbit-contenttools-item' action='core/specialchars/open'>
+            <Menu.Icon className='textbit-contenttools-icon' />
+            <Menu.Label className='textbit-contenttools-label' />
+            <Menu.Hotkey className='textbit-contenttools-hotkey' />
+          </Menu.Item>
           {actions.filter((action) => !['leaf', 'generic', 'inline'].includes(action.plugin.class)).map((action) => {
             return (
               <Menu.Item
@@ -452,9 +471,17 @@ function ContextTools() {
  */
 function EditorSpellingContextmenu() {
   const { spelling } = useContextMenuHints()
+  const openSpecialCharacters = useAction('core/specialchars', 'open')
 
   return (
     <ContextMenu.Root className='textbit-contextmenu'>
+      {!spelling && openSpecialCharacters && (
+        <ContextMenu.Group className='textbit-contextmenu-group' key='insert'>
+          <ContextMenu.Item className='textbit-contextmenu-item' func={() => openSpecialCharacters()}>
+            Insert special character…
+          </ContextMenu.Item>
+        </ContextMenu.Group>
+      )}
       <ContextMenu.Group className='textbit-contextmenu-group' key='spelling-suggestions'>
         {spelling?.suggestions.length === 0 && (
           <ContextMenu.Item className='textbit-contextmenu-item'>
@@ -483,5 +510,24 @@ function EditorSpellingContextmenu() {
         })}
       </ContextMenu.Group>
     </ContextMenu.Root>
+  )
+}
+
+/**
+ * Special characters pane, remembering the last few inserted characters
+ */
+function SpecialCharacterPicker() {
+  const [recent, setRecent] = useState<string[]>([])
+
+  return (
+    <Textbit.SpecialCharacterPicker
+      className='textbit-specialchars'
+      placeholder='Search characters'
+      recent={recent}
+      recentLabel='Recently used'
+      allLabel='All'
+      emptyLabel='No matching characters'
+      onInsert={(char) => setRecent((r) => [char, ...r.filter((c) => c !== char)].slice(0, 10))}
+    />
   )
 }

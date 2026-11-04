@@ -54,6 +54,27 @@ export function resolveTargetIndex(editor: Editor, adjacentBlock: AdjacentBlockS
 }
 
 /**
+ * Insert an empty text paragraph beside the block the caret is parked by and
+ * put the caret in it. Returns false when the block is no longer there.
+ */
+export function insertParagraphBeside(editor: Editor, adjacentBlock: AdjacentBlockState): boolean {
+  const targetIndex = resolveTargetIndex(editor, adjacentBlock)
+  if (targetIndex === -1) {
+    return false
+  }
+
+  const insertIndex = adjacentBlock.direction === 'before' ? targetIndex : targetIndex + 1
+  Transforms.insertNodes(editor, {
+    id: crypto.randomUUID(),
+    class: 'text',
+    type: 'core/text',
+    children: [{ text: '' }]
+  }, { at: [insertIndex] })
+  Transforms.select(editor, Editor.start(editor, [insertIndex]))
+  return true
+}
+
+/**
  * Select the start of `index` (after a node removal that may have shifted indices).
  * Falls back to the end of the last block when `index` is out of range.
  */

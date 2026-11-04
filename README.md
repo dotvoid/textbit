@@ -239,6 +239,7 @@ The editable content area. Must be a child of `Textbit.Root`.
 | `onBlur` | `React.FocusEventHandler<HTMLDivElement>` | - | Called when editor loses focus. |
 | `isSpellingAccepted` | `(error: TBSpellingError) => boolean` | - | Answer whether a reported spelling error is accepted in this document. Must be memoized. See [Accepting Spelling Errors](#accepting-spelling-errors). |
 | `decorations` | `readonly TBDecoration[]` | - | Highlight ranges of text, rendered as marked leaves. Must be memoized. See [Decorations](#decorations). |
+| `contextMenu` | `'spelling' \| 'always'` | `'spelling'` | When the context menu opens: only on misspelled words, or on any text. See [When the menu opens](#when-the-menu-opens). |
 | `constraints` | `{ allowEdgeWhitespace?: boolean }` | - | Set `allowEdgeWhitespace` to `false` to trim leading and trailing whitespace on blur. Whitespace is kept by default. |
 | `aria-label` | `string` | - | Accessible label for the editable area. |
 | `className` | `string` | - | CSS class for editable container. |
@@ -871,6 +872,45 @@ function SpellingContextMenu() {
   <SpellingContextMenu />
 </Textbit.Editable>
 ```
+
+#### When the menu opens
+
+By default the menu only opens on a misspelled word. Set `contextMenu="always"` on
+`Textbit.Editable` to open it on any text, so it can offer other actions too.
+`spelling` from `useContextMenuHints()` is then undefined unless the word is
+misspelled, so render each item only when it applies:
+
+```tsx
+function EditorContextMenu() {
+  const { spelling } = useContextMenuHints()
+  const openSpecialCharacters = useAction('core/specialchars', 'open')
+
+  return (
+    <Textbit.ContextMenu.Root className="context-menu">
+      {spelling && (
+        <Textbit.ContextMenu.Group className="context-menu-group">
+          {/* spelling suggestions as above */}
+        </Textbit.ContextMenu.Group>
+      )}
+      {openSpecialCharacters && (
+        <Textbit.ContextMenu.Group className="context-menu-group">
+          <Textbit.ContextMenu.Item className="context-menu-item" func={() => openSpecialCharacters()}>
+            Insert special character…
+          </Textbit.ContextMenu.Item>
+        </Textbit.ContextMenu.Group>
+      )}
+    </Textbit.ContextMenu.Root>
+  )
+}
+
+<Textbit.Editable contextMenu="always">
+  <EditorContextMenu />
+</Textbit.Editable>
+```
+
+A right-click on a misspelled word selects the word, so a suggestion replaces it.
+Anywhere else it puts the caret where you clicked, or keeps the selection when you
+click inside it, so a menu action works on what you would expect.
 
 ---
 
@@ -1850,6 +1890,7 @@ import type {
   
   // Other types
   TBSpellingError,    // Spelling error structure
+  TBSpecialCharactersOptions, // Options for the SpecialCharacters plugin
   TBDecoration,       // Caller highlight over a range
   TBConsumeFunction,  // Consume function type
   TBConsumesFunction  // Consumes function type
@@ -1986,6 +2027,12 @@ looks exactly like a regular space, so textbit marks each one, and paste keeps t
 |----------|-----------------|
 | Windows, Linux | Ctrl+Shift+Space, the same shortcut as Word |
 | macOS | Option+Space, typed natively by the OS. Textbit registers no shortcut here. |
+| ChromeOS | Ctrl+Shift+Space is registered, but ChromeOS uses it to switch keyboard language, so with more than one keyboard language installed it may never reach the editor. |
+
+Where the shortcut is unavailable, give users another route: call the action from
+a toolbar or menu button with `useAction('core/nbsp', 'insert')`, or add the
+[special characters](#special-characters) picker, which lists the non-breaking
+space among the others.
 
 The shortcut is the `insert` action of the built-in `core/nbsp` plugin, which is
 registered even when you pass your own `plugins`. Register a plugin named
@@ -1999,6 +2046,127 @@ properties:
 | `--tb-nbsp-background` | `currentColor` at 18% |
 | `--tb-nbsp-border` | 1px inset shadow, `currentColor` at 35%. `none` removes it. |
 | `--tb-nbsp-radius` | `2px` |
+
+---
+
+## Special Characters
+
+An opt-in pane for finding and inserting characters that are not on the keyboard:
+dashes, quotes, fractions, currency, arrows, Greek letters, and the spaces you
+cannot see, like the non-breaking and narrow no-break space.
+
+```tsx
+import { Textbit, SpecialCharacters, useAction } from '@dotvoid/textbit'
+
+const plugins = [
+  ...myPlugins,
+  SpecialCharacters()
+]
+
+function Editor() {
+  const [recent, setRecent] = useState<string[]>([])
+
+  return (
+    <Textbit.Root value={value} onChange={setValue} plugins={plugins}>
+      <Textbit.Editable contextMenu="always">
+        <Textbit.SpecialCharacterPicker
+          className="special-characters"
+          placeholder="Search characters"
+          recent={recent}
+          recentLabel="Recently used"
+          onInsert={(char) => setRecent((r) => [char, ...r.filter((c) => c !== char)].slice(0, 10))}
+        />
+      </Textbit.Editable>
+    </Textbit.Root>
+  )
+}
+```
+
+The pane opens below the caret, with the search field focused. Arrow Up and Down
+move through the results, Enter inserts, Escape closes. A click on a character
+inserts it.
+
+### Opening it
+
+Everything goes through the plugin's `open` action, titled "Insert special
+character", so the pane can be opened from either of these, or both:
+
+| From | How |
+|------|-----|
+| A menu or toolbar | `<Menu.Item action="core/specialchars/open">`, or a `Toolbar.Item` with the action |
+| The context menu | `useAction('core/specialchars', 'open')` in a `Textbit.ContextMenu.Item`, with `contextMenu="always"`. See [When the menu opens](#when-the-menu-opens). |
+
+There is no shortcut by default. The obvious candidates belong to the browser or the
+OS: Ctrl+Shift+I, for example, opens the developer tools in Chrome on Windows and
+Linux, and a page cannot take it back. Set the `hotkey` option only if you know a key
+is free for all your users.
+
+### Plugin options
+
+| Option | Type | Description |
+|--------|------|-------------|
+| `hotkey` | `string` | Shortcut that opens the pane. None by default; see [Opening it](#opening-it). |
+| `names` | `Record<string, string>` | Translated names, keyed by code point in hex. |
+| `characters` | `string[]` | Code points in hex that replace the built-in set, in the order to show them. |
+
+The built-in set has about 1,200 characters with their English Unicode names.
+Plain ASCII is left out, since it is already on the keyboard. The table only ends
+up in your bundle if you import `SpecialCharacters`; it adds about 9 kB gzipped.
+
+### Translating
+
+Textbit ships no UI text: the pane's placeholder and labels are props, and
+character names default to English. Translate the names with `names`:
+
+```tsx
+SpecialCharacters({
+  names: { '20AC': 'eurotecken', '00A0': 'hårt mellanslag' }
+})
+```
+
+Keys are code points in hex, with or without `U+`, in any case. Characters without
+a translation keep their English name. Search matches both, so a user who types
+"euro" in a translated UI still finds €.
+
+### Picker props
+
+| Name | Type | Description |
+|------|------|-------------|
+| `className` | `string` | CSS class for the pane. |
+| `placeholder` | `string` | Placeholder for the search field. |
+| `recent` | `string[]` | Recently inserted characters, shown first while nothing is searched for. Kept by you. |
+| `recentLabel` | `ReactNode` | Heading above the recent characters. |
+| `allLabel` | `ReactNode` | Heading above the other characters. |
+| `emptyLabel` | `ReactNode` | Shown when nothing matches. |
+| `onInsert` | `(char: string) => void` | Called with each inserted character. |
+| `aria-label` | `string` | Accessible name of the pane. Default: `Special characters`. |
+
+### Data attributes
+
+The pane is unstyled. Style it through `className` and these:
+
+| Selector | What |
+|----------|------|
+| `[data-tb-special-characters]` | The pane |
+| `[role="option"]` | A character. `data-state="active"` on the one Enter inserts. |
+| `[role="option"][data-invisible]` | A character that cannot be seen, shown by its code point instead |
+| `[data-section="recent"]`, `[data-section="all"]` | The groups of characters |
+| `[data-heading]` | A group heading |
+| `[data-name]` | The name of the active character |
+| `[data-empty]` | The text shown when nothing matches |
+
+### How it inserts
+
+- The character goes in exactly as picked. Plugins that rewrite typed text, like
+  typographic quotes, do not see it, so a straight `"` picked from the list stays
+  straight.
+- A selection is replaced, as typing does.
+- With the caret parked beside a block, the character goes in a new paragraph next
+  to it, as typing does.
+- Nothing opens in a read-only editor.
+
+To insert a character of your own choosing, without the pane, call the `insert`
+action: `useAction('core/specialchars', 'insert')?.({ char: '–' })`.
 
 ---
 

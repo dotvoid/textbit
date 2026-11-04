@@ -6,8 +6,16 @@ import { TextbitEditor } from '../utils/textbit-editor'
 import { type SpellingError } from '../types/slate'
 import { ContextMenuHintsContext } from '../components/ContextMenu/ContextMenuHintsContext'
 
+/**
+ * When the context menu opens. `spelling` only opens it on a misspelled word;
+ * `always` opens it on any text, with `spelling` in the hints left undefined
+ * when the word is not misspelled.
+ */
+export type ContextMenuMode = 'spelling' | 'always'
+
 export function useContextMenu(
-  preventDefault = true
+  preventDefault = true,
+  mode: ContextMenuMode = 'spelling'
 ) {
   const editor = useSlateStatic()
   const contextMenuHintsContext = useContext(ContextMenuHintsContext)
@@ -38,8 +46,12 @@ export function useContextMenu(
 
       const spelling = getSpellingHints(editor, topNode, targetElement, event)
 
-      // Update the selection and ensure the editor is focused
-      const range = getDecorationRangeFromMouseEvent(editor, event)
+      // On a misspelled word, select the word so a suggestion replaces it.
+      // Anywhere else, put the caret where the user clicked - selecting the
+      // whole text leaf there meant the next keystroke replaced all of it.
+      const range = spelling
+        ? getDecorationRangeFromMouseEvent(editor, event)
+        : getCaretRangeFromMouseEvent(editor, event)
       if (range) {
         Transforms.select(editor, range)
         ReactEditor.focus(editor)
@@ -49,9 +61,7 @@ export function useContextMenu(
         event.preventDefault()
       }
 
-      // Currently we only support spelling suggestions, as context menu, so if
-      // no spelling suggestions are available, we are done.
-      if (!spelling) {
+      if (!spelling && mode === 'spelling') {
         return
       }
 
@@ -70,7 +80,27 @@ export function useContextMenu(
     }
 
     return contextMenuHandler as unknown as MouseEventHandler<HTMLDivElement>
-  }, [contextMenuHintsContext, preventDefault, editor])
+  }, [contextMenuHintsContext, preventDefault, mode, editor])
+}
+
+/**
+ * Collapsed range at the click, or undefined to keep the current selection:
+ * when the click lands inside an expanded selection, or outside any text.
+ */
+function getCaretRangeFromMouseEvent(editor: Editor, event: MouseEvent): Range | undefined {
+  let range: Range
+  try {
+    range = ReactEditor.findEventRange(editor, event)
+  } catch {
+    return
+  }
+
+  const { selection } = editor
+  if (selection && Range.isExpanded(selection) && Range.includes(selection, range.anchor)) {
+    return
+  }
+
+  return range
 }
 
 function getSpellingHints(

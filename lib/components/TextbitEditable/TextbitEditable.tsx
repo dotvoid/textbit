@@ -6,7 +6,7 @@ import { ElementComponent } from '../Element/Element'
 import { LeafElement } from '../Element/LeafElement'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 import { useTextbit } from '../../hooks/useTextbit'
-import { useContextMenu } from '../../hooks/useContextMenu'
+import { useContextMenu, type ContextMenuMode } from '../../hooks/useContextMenu'
 import { useSlateStatic } from 'slate-react'
 import { DragStateProvider } from '../../contexts/DragStateProvider'
 import { PendingDropsProvider } from '../../contexts/PendingDropsProvider'
@@ -45,6 +45,11 @@ interface TextbitEditableProps {
    * callback identity.
    */
   decorations?: readonly Decoration[]
+  /**
+   * When the context menu opens: only on misspelled words (default), or on
+   * any text so it can offer other actions too.
+   */
+  contextMenu?: ContextMenuMode
 }
 
 export function TextbitEditable(props: TextbitEditableProps) {
@@ -52,7 +57,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
   const { placeholders, placeholder, readOnly, dir, collaborative, verbose } = useTextbit()
   const { components, actions } = usePluginRegistry()
   const isFocused = useFocused()
-  const handleContextMenu = useContextMenu()
+  const handleContextMenu = useContextMenu(true, props.contextMenu)
   const [spellingLookupTable, setSpellingLookupTable] = useState<SpellcheckLookupTable>(new Map())
   const [adjacentBlock, setAdjacentBlock] = useState<AdjacentBlockState | null>(null)
   const [blockSelection, setBlockSelection] = useState<BlockSelectionState | null>(null)
@@ -296,7 +301,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
   return (
     <>
 <BlockSelectionProvider value={blockSelection}>
-        <AdjacentBlockProvider value={adjacentBlock}>
+        <AdjacentBlockProvider value={adjacentBlock} setValue={setAdjacentBlock}>
           <DragStateProvider>
             <PendingDropsProvider editor={editor}>
             <PresenceOverlay isCollaborative={collaborative}>

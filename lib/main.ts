@@ -42,6 +42,7 @@ import { StandardPlugins } from './components/core'
 import { ContextTools } from './components/ContextTools'
 import { ContentTools } from './components/ContentTools'
 import { ContextMenu } from './components/ContextMenu/'
+import { SpecialCharacterPicker } from './components/SpecialCharacters/Picker'
 
 // Main library composed exports
 export const Textbit = {
@@ -51,7 +52,8 @@ export const Textbit = {
   DropMarker,
   UploadMarker,
   Plugins: StandardPlugins,
-  ContextMenu
+  ContextMenu,
+  SpecialCharacterPicker
 }
 
 export const Menu = {
@@ -79,6 +81,14 @@ export { UploadMarker }
 export { StandardPlugins as Plugins }
 export const Gutter = Gutter$1.Content
 export { ContextMenu }
+export { SpecialCharacterPicker }
+
+// Opt-in plugins. Kept out of the Textbit object so hosts that never use them
+// do not keep their data.
+export {
+  SpecialCharacters,
+  type SpecialCharactersOptions as TBSpecialCharactersOptions
+} from './components/SpecialCharacters'
 
 // Hooks
 export { useAction } from './hooks/useAction'

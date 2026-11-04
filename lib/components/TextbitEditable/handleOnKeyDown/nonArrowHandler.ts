@@ -1,6 +1,12 @@
 import { Editor, Element, Node, Range, Transforms } from 'slate'
 import type { AdjacentBlockState } from '../../../contexts/AdjacentBlockContext'
-import { resolveTargetIndex, selectStartAt, enterBlockFromStart, enterBlockFromEnd } from './blockUtils'
+import {
+  resolveTargetIndex,
+  selectStartAt,
+  enterBlockFromStart,
+  enterBlockFromEnd,
+  insertParagraphBeside
+} from './blockUtils'
 import type { PluginRegistryAction } from '../../../contexts/PluginRegistry/lib/types'
 import { INSERT_NBSP_ACTION } from '../../core/NonBreakingSpace'
 
@@ -19,18 +25,8 @@ export function handleNonArrowWithAdjacentBlock(
 ): boolean {
   // Enter: insert a new default text element next to the target block
   if (event.key === 'Enter') {
-    const targetIndex = resolveTargetIndex(editor, adjacentBlock)
-    if (targetIndex !== -1) {
+    if (insertParagraphBeside(editor, adjacentBlock)) {
       event.preventDefault()
-      const insertIndex = adjacentBlock.direction === 'before' ? targetIndex : targetIndex + 1
-      const newNode = {
-        id: crypto.randomUUID(),
-        class: 'text' as const,
-        type: 'core/text',
-        children: [{ text: '' }]
-      }
-      Transforms.insertNodes(editor, newNode, { at: [insertIndex] })
-      Transforms.select(editor, Editor.start(editor, [insertIndex]))
       setAdjacentBlock(null)
       return true
     }
@@ -146,17 +142,7 @@ export function handleNonArrowWithAdjacentBlock(
   const isPrintable = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
   const insertsNbsp = actions.some((a) => a.name === INSERT_NBSP_ACTION && a.isHotkey(event))
   if (isPrintable || insertsNbsp) {
-    const targetIndex = resolveTargetIndex(editor, adjacentBlock)
-    if (targetIndex !== -1) {
-      const insertIndex = adjacentBlock.direction === 'before' ? targetIndex : targetIndex + 1
-      const newNode = {
-        id: crypto.randomUUID(),
-        class: 'text' as const,
-        type: 'core/text',
-        children: [{ text: '' }]
-      }
-      Transforms.insertNodes(editor, newNode, { at: [insertIndex] })
-      Transforms.select(editor, Editor.start(editor, [insertIndex]))
+    if (insertParagraphBeside(editor, adjacentBlock)) {
       setAdjacentBlock(null)
       // Don't preventDefault — let Slate insert a printable character into the
       // new node. The shortcut falls through to its action, which inserts there.
