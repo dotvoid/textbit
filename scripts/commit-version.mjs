@@ -5,7 +5,8 @@
 //
 // Usage, from a package folder: node ../../scripts/commit-version.mjs [tag prefix]
 import { execFileSync } from 'node:child_process'
-import { join } from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join, relative, sep } from 'node:path'
 
 const prefix = process.argv[2] ?? 'v'
 const version = process.env.npm_package_version
@@ -18,7 +19,18 @@ const message = (process.env.npm_config_message || '%s').replaceAll('%s', versio
 const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim()
 const root = git('rev-parse', '--show-toplevel')
 
-git('add', 'package.json', join(root, 'package-lock.json'))
+// npm updates this package's version in the root lockfile only after
+// postversion has run, which would leave the lockfile uncommitted. Make the same
+// change now, so it is in the commit and npm's later write changes nothing.
+const lockPath = join(root, 'package-lock.json')
+const lock = JSON.parse(readFileSync(lockPath, 'utf8'))
+const entry = lock.packages?.[relative(root, process.cwd()).split(sep).join('/')]
+if (entry) {
+  entry.version = version
+  writeFileSync(lockPath, JSON.stringify(lock, null, 2) + '\n')
+}
+
+git('add', 'package.json', lockPath)
 git('commit', '-m', message)
 git('tag', '-a', `${prefix}${version}`, '-m', message)
 console.log(`${prefix}${version}`)
