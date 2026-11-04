@@ -2017,7 +2017,9 @@ Safari do not use it, and neither do Windows or macOS. Two caveats:
 
 - **GNOME** (the default Linux desktop on Ubuntu and Fedora) uses Alt+F10 to
   maximize the window, so there the key never reaches the page.
-- **On a Mac keyboard** F10 is the mute key, so ⌥F10 needs Fn held down.
+- **On a Mac keyboard** the top-row keys control the Mac by default, so F10 needs
+  Fn held down: ⌥F10 is typed as Fn+⌥+F10, unless the keyboard setting to use
+  F1, F2 and so on as standard function keys is on.
 
 It belongs to the built-in `core/toolbar` plugin. Register that plugin again to
 change the key or remove it; plugins are replaced by name:
