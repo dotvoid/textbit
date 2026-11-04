@@ -241,7 +241,7 @@ The editable content area. Must be a child of `Textbit.Root`.
 | `decorations` | `readonly TBDecoration[]` | - | Highlight ranges of text, rendered as marked leaves. Must be memoized. See [Decorations](#decorations). |
 | `contextMenu` | `'spelling' \| 'always'` | `'spelling'` | When the context menu opens: only on misspelled words, or on any text. See [When the menu opens](#when-the-menu-opens). |
 | `constraints` | `{ allowEdgeWhitespace?: boolean }` | - | Set `allowEdgeWhitespace` to `false` to trim leading and trailing whitespace on blur. Whitespace is kept by default. |
-| `aria-label` | `string` | - | Accessible label for the editable area. |
+| `aria-label` | `string` | - | Accessible name for the editable area. Set it: without one, screen readers announce an unnamed text box. See [Accessibility](#accessibility). |
 | `className` | `string` | - | CSS class for editable container. |
 | `style` | `React.CSSProperties` | - | Inline styles for editable container. |
 | `children` | `React.ReactNode` | - | Additional components (Toolbar, Gutter, etc.). |
@@ -719,6 +719,7 @@ Root component for context toolbar.
 |------|------|-------------|
 | `className` | `string` | CSS class for toolbar. |
 | `children` | `React.ReactNode` | Toolbar groups and items. |
+| `aria-label` | `string` | Accessible name for the toolbar. Default: `Formatting`. |
 
 ---
 
@@ -807,6 +808,7 @@ Root component for context menu. Automatically positions based on right-click lo
 |------|------|-------------|
 | `className` | `string` | CSS class for context menu. |
 | `children` | `React.ReactNode` | Menu groups and items. |
+| `aria-label` | `string` | Accessible name for the menu. |
 
 ---
 
@@ -1965,6 +1967,46 @@ function isMyPlugin(element: TBElement): element is TBElement & {
   return element.type === 'namespace/my-plugin'
 }
 ```
+
+---
+
+## Accessibility
+
+Textbit's menus, toolbar and pickers follow the WAI-ARIA patterns for menus,
+toolbars and comboboxes, so they work from the keyboard and with screen readers.
+The elements, classes and `data-state` attributes are the same as before, so
+existing styling keeps working.
+
+| Part | Reach it with | Inside it |
+|------|---------------|-----------|
+| Context menu | Right-click, the Menu key, or the browser's context menu shortcut (usually Shift+F10 on Windows and Linux) | Up and Down move, wrapping at the ends. Home and End jump. A letter jumps to the next item starting with it. Enter or Space picks. Escape or Tab return to the editor. |
+| Gutter menu | Tab to its button, which sits in the tab order next to the editor | Enter, Space or Down opens it on the first item, Up on the last. Moving and picking as in the context menu. Escape returns to the button, Tab to the editor. |
+| Toolbar | Formatting shortcuts, e.g. ⌘B / Ctrl+B. The toolbar itself has no key of its own. | Left and Right move between buttons, Enter or Space applies, Escape returns to the editor. |
+| Special characters | The context menu or the gutter menu | See [Special Characters](#special-characters). |
+
+After a menu item is used, focus returns to the editor with the caret where it
+was, unless the item moved focus on purpose, like opening the special characters
+picker.
+
+What screen readers are told:
+
+- Menus are `role="menu"` with `menuitem` items. Shortcuts are announced through
+  `aria-keyshortcuts` instead of being read out as symbols like ⌘⇧I.
+- Toolbar buttons are named by their action's `title`, and formatting buttons say
+  whether the formatting is on (`aria-pressed`). A hidden toolbar is `inert`, out of
+  reach for keyboards and screen readers.
+- The gutter button says it opens a menu, and whether it is open.
+
+What is up to you:
+
+- **Name the editor** with `aria-label` on `Textbit.Editable`.
+- **Give your actions a `title`.** It names toolbar buttons and labels menu items.
+  Without one, toolbar buttons fall back to the action name, `toggle-bold` becoming
+  "Toggle bold".
+- **Translate.** Default names, like the toolbar's "Formatting", are English. Every
+  one of them can be replaced with an `aria-label` prop.
+- **Keep the gutter next to the editor in the page**, so Tab reaches its button
+  from the editor.
 
 ---
 

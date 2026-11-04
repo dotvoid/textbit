@@ -1,13 +1,15 @@
-import { useContext, useLayoutEffect, useRef } from 'react'
+import { useContext, useEffect, useLayoutEffect, useRef } from 'react'
+import { ReactEditor, useSlateStatic } from 'slate-react'
 import { MenuContext } from './MenuContext'
 import { useKeydownGlobal } from '../../hooks/useKeydownGlobal'
 import { GutterContext } from '../GutterProvider/GutterContext'
+import { focusItem, handleRovingKeys, MENU_ITEM } from '../../utils/menuKeyboard'
 
 export function Content({ children, className }: {
   className?: string
   children?: React.ReactNode
 }) {
-  const [isOpen, setIsOpen] = useContext(MenuContext)
+  const { isOpen, setIsOpen } = useContext(MenuContext)
   const keyTriggerRef = useKeydownGlobal<HTMLDivElement>((e) => {
     if (isOpen && (e.key === 'Escape' || e.key === 'Tab')) {
       e.preventDefault()
@@ -30,8 +32,32 @@ function Popover({ children, className }: {
   className?: string
   children?: React.ReactNode
 }) {
+  const editor = useSlateStatic()
   const { triggerRef } = useContext(GutterContext)
+  const { setIsOpen, focusRef, contentId, triggerId, triggerRef: menuTriggerRef } = useContext(MenuContext)
   const ref = useRef<HTMLDivElement>(null)
+
+  // Opening the menu moves focus to its first item, or the last on ArrowUp
+  useEffect(() => {
+    focusItem(ref.current, MENU_ITEM, focusRef.current ?? 'first')
+  }, [focusRef])
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (handleRovingKeys(event, ref.current, MENU_ITEM, 'vertical')) {
+      return
+    }
+    if (event.key === 'Escape') {
+      // Back to the button that opened it
+      event.preventDefault()
+      event.stopPropagation()
+      setIsOpen(false)
+      menuTriggerRef.current?.focus()
+    } else if (event.key === 'Tab') {
+      event.preventDefault()
+      setIsOpen(false)
+      ReactEditor.focus(editor)
+    }
+  }
 
   useLayoutEffect(() => {
     const el = ref.current
@@ -65,7 +91,11 @@ function Popover({ children, className }: {
   return (
     <div
       ref={ref}
+      id={contentId}
+      role='menu'
+      aria-labelledby={triggerId}
       className={className}
+      onKeyDown={onKeyDown}
       style={{
         position: 'fixed',
         top: 0,

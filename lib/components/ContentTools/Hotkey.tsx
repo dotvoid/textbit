@@ -9,7 +9,8 @@ export function Hotkey({ className, children }: {
   const { action } = useContext(ItemContext)
 
   return (
-    <div className={className}>
+    // Announced through aria-keyshortcuts on the item instead of as symbols
+    <div className={className} aria-hidden='true'>
       {Children.count(children)
         ? children
         : modifier(action?.hotkey || '')

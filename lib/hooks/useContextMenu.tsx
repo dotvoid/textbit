@@ -1,5 +1,5 @@
 import { getDecorationRangeFromMouseEvent, getNodeEntryFromDomNode } from '../utils/utils'
-import { MouseEventHandler, useContext, useMemo } from 'react'
+import { type MouseEventHandler, useContext, useMemo } from 'react'
 import { Range, Editor, Element as SlateElement, Transforms } from 'slate'
 import { ReactEditor, useSlateStatic } from 'slate-react'
 import { TextbitEditor } from '../utils/textbit-editor'
@@ -23,9 +23,14 @@ export function useContextMenu(
   return useMemo(() => {
 
     const contextMenuHandler = (event: MouseEvent) => {
-      const targetElement = (event.target as Node).nodeType === Node.TEXT_NODE
-        ? (event.target as Text).parentElement
-        : (event.target as HTMLElement)
+      // The Menu key (and Shift+F10 where the OS maps it) fires the event on
+      // the editor itself rather than on the text, so use the text at the caret
+      const fromKeyboard = isEditorRoot(editor, event.target)
+      const targetElement = fromKeyboard
+        ? caretElement(editor)
+        : (event.target as Node).nodeType === Node.TEXT_NODE
+          ? (event.target as Text).parentElement
+          : (event.target as HTMLElement)
 
       if (!targetElement) {
         return
@@ -49,9 +54,12 @@ export function useContextMenu(
       // On a misspelled word, select the word so a suggestion replaces it.
       // Anywhere else, put the caret where the user clicked - selecting the
       // whole text leaf there meant the next keystroke replaced all of it.
-      const range = spelling
-        ? getDecorationRangeFromMouseEvent(editor, event)
-        : getCaretRangeFromMouseEvent(editor, event)
+      // From the keyboard the caret is already where the user wants it.
+      const range = fromKeyboard
+        ? undefined
+        : spelling
+          ? getDecorationRangeFromMouseEvent(editor, event)
+          : getCaretRangeFromMouseEvent(editor, event)
       if (range) {
         Transforms.select(editor, range)
         ReactEditor.focus(editor)
@@ -67,10 +75,9 @@ export function useContextMenu(
 
       contextMenuHintsContext?.dispatch({
         menu: {
-          position: {
-            x: event.clientX,
-            y: event.clientY
-          },
+          position: fromKeyboard
+            ? caretPosition(editor) ?? { x: event.clientX, y: event.clientY }
+            : { x: event.clientX, y: event.clientY },
           target: targetElement,
           originalEvent: event,
           nodeEntry: [targetNode, targetPath]
@@ -81,6 +88,40 @@ export function useContextMenu(
 
     return contextMenuHandler as unknown as MouseEventHandler<HTMLDivElement>
   }, [contextMenuHintsContext, preventDefault, mode, editor])
+}
+
+function isEditorRoot(editor: Editor, target: EventTarget | null): boolean {
+  try {
+    return target === ReactEditor.toDOMNode(editor, editor)
+  } catch {
+    return false
+  }
+}
+
+/** The element holding the caret, or undefined without a selection */
+function caretElement(editor: Editor): HTMLElement | undefined {
+  if (!editor.selection) {
+    return undefined
+  }
+  try {
+    const [node] = ReactEditor.toDOMPoint(editor, editor.selection.focus)
+    return node.nodeType === Node.TEXT_NODE ? node.parentElement ?? undefined : node as HTMLElement
+  } catch {
+    return undefined
+  }
+}
+
+/** Just below the caret, where a menu opened from the keyboard belongs */
+function caretPosition(editor: Editor): { x: number, y: number } | undefined {
+  if (!editor.selection) {
+    return undefined
+  }
+  try {
+    const rect = ReactEditor.toDOMRange(editor, editor.selection).getBoundingClientRect()
+    return { x: rect.left, y: rect.bottom }
+  } catch {
+    return undefined
+  }
 }
 
 /**

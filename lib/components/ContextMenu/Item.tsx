@@ -1,6 +1,6 @@
 import { Children, useContext } from 'react'
 import { ContextMenuHintsContext } from './ContextMenuHintsContext'
-import { useSlateStatic } from 'slate-react'
+import { ReactEditor, useSlateStatic } from 'slate-react'
 import { Editor } from 'slate'
 
 export function Item({
@@ -19,18 +19,38 @@ export function Item({
     return <></>
   }
 
+  const activate = (item: HTMLElement) => {
+    const menu = item.closest('[role="menu"]')
+    if (func) {
+      func(editor)
+    }
+
+    // Back to the editor, unless the item moved focus somewhere on purpose
+    const active = document.activeElement
+    if (!active || active === document.body || menu?.contains(active)) {
+      ReactEditor.focus(editor)
+    }
+
+    menuCtx?.dispatch({
+      menu: undefined,
+      spelling: undefined
+    })
+  }
+
   return (
     <a
+      role='menuitem'
+      tabIndex={-1}
       className={className}
       onMouseDown={(e) => {
         e.preventDefault()
-        if (func) {
-          func(editor)
+        activate(e.currentTarget)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          activate(e.currentTarget)
         }
-        menuCtx?.dispatch({
-          menu: undefined,
-          spelling: undefined
-        })
       }}
     >
       {children}

@@ -1,10 +1,11 @@
 import { Children } from 'react'
-import { useSlateSelection, useSlateStatic } from 'slate-react'
+import { useSlateSelection, useSlateSelector, useSlateStatic } from 'slate-react'
 import type { PluginRegistryAction } from '../../contexts/PluginRegistry/lib/types'
 import { Editor } from 'slate'
 import { TextbitElement } from '../../utils/textbit-element'
 import { hasMark } from '../../utils/hasMark'
 import { toggleLeaf } from '../../utils/toggleLeaf'
+import { ariaKeyShortcuts } from '../../utils/menuKeyboard'
 
 //
 // FIXME: This does not update selection on click (i.e links)
@@ -18,7 +19,9 @@ export function Item({ action, className, children }: {
   const editor = useSlateStatic()
   const selection = useSlateSelection()
 
-  const isActive = hasMark(editor, action.plugin.name)
+  // Follows the marks, not only the selection: toggling bold leaves the
+  // selection as it was, and the button must still show it as on
+  const isActive = useSlateSelector((e) => hasMark(e, action.plugin.name))
   const leafEntry = Editor.nodes(editor, {
     mode: 'lowest'
   }).next().value || undefined
@@ -52,30 +55,44 @@ export function Item({ action, className, children }: {
     )
   }
 
+  const activate = (event: React.MouseEvent<HTMLElement> | React.KeyboardEvent<HTMLElement>) => {
+    if (inlineNodes.length > 1) {
+      return
+    }
+
+    const defaultAccepted = action.handler({
+      editor,
+      event,
+      type: action.plugin.name,
+      options: {
+        ...action.plugin.options
+      }
+    })
+
+    if (defaultAccepted) {
+      toggleLeaf(editor, action.plugin.name)
+    }
+
+    if (!event.defaultPrevented) {
+      event.preventDefault()
+    }
+  }
+
   return (
     <div
+      role='button'
+      tabIndex={-1}
+      aria-label={action.title ?? humanize(action.name)}
+      // Formatting is on or off; other tools, like a link, are not toggles
+      aria-pressed={action.plugin.class === 'leaf' ? isActive : undefined}
+      aria-disabled={inlineNodes.length > 1 ? true : undefined}
+      aria-keyshortcuts={ariaKeyShortcuts(action.hotkey)}
       data-state={isActive ? 'active' : 'inactive'}
       className={className || ''}
-      onMouseDown={(event) => {
-        if (inlineNodes.length > 1) {
-          return
-        }
-
-        const defaultAccepted = action.handler({
-          editor,
-          event,
-          type: action.plugin.name,
-          options: {
-            ...action.plugin.options
-          }
-        })
-
-        if (defaultAccepted) {
-          toggleLeaf(editor, action.plugin.name)
-        }
-
-        if (!event.defaultPrevented) {
-          event.preventDefault()
+      onMouseDown={activate}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          activate(event)
         }
       }}
     >
@@ -84,4 +101,10 @@ export function Item({ action, className, children }: {
       </Tool>
     </div>
   )
+}
+
+/** `core/bold/toggle-bold` -> `Toggle bold`, for actions without a title */
+function humanize(name: string): string {
+  const text = (name.split('/').pop() ?? name).replace(/[-_]+/g, ' ').trim()
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }

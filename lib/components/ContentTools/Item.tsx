@@ -1,11 +1,13 @@
-import React, { type PropsWithChildren } from 'react'
-import { useSlateSelection, useSlateStatic } from 'slate-react'
+import React, { type PropsWithChildren, useContext } from 'react'
+import { ReactEditor, useSlateSelection, useSlateStatic } from 'slate-react'
 import { type BaseSelection, Editor, Element } from 'slate'
 import { pipeFromFileInput } from '../../utils/pipes'
 import { TextbitElement } from '../../utils/textbit-element'
 import type { PluginRegistryAction } from '../../contexts/PluginRegistry/lib/types'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 import { ItemContext } from './ItemContext'
+import { MenuContext } from './MenuContext'
+import { ariaKeyShortcuts } from '../../utils/menuKeyboard'
 
 export function Item({ children, className, action: actionName }: PropsWithChildren & {
   className?: string
@@ -14,6 +16,7 @@ export function Item({ children, className, action: actionName }: PropsWithChild
   const { plugins, actions } = usePluginRegistry()
   const editor = useSlateStatic()
   const selection = useSlateSelection()
+  const { setIsOpen } = useContext(MenuContext)
   const action = actions.find((a) => a.name === actionName)
 
   if (!action) {
@@ -29,30 +32,55 @@ export function Item({ children, className, action: actionName }: PropsWithChild
   return (
     <ItemContext.Provider value={{ isActive: isActive ? true : false, action }}>
       <a
+        role='menuitem'
+        tabIndex={-1}
+        aria-keyshortcuts={ariaKeyShortcuts(action.hotkey)}
         className={className}
         data-state={isActive ? 'active' : 'inactive'}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            activate(e.currentTarget)
+          }
+        }}
         onMouseDown={(e) => {
           e.preventDefault()
-          action.handler({
-            editor,
-            type: action.plugin.name,
-            options: action.plugin.options,
-            api: {
-              // FIXME: This is just to expose some functionality, but it is not a good way to give access to an api...
-              consumeFileInputChangeEvent: (
-                editor: Editor,
-                e: React.ChangeEvent<HTMLInputElement>
-              ) => {
-                pipeFromFileInput(editor, plugins, e)
-              }
-            }
-          })
+          activate(e.currentTarget)
         }}
       >
         {children}
       </a>
     </ItemContext.Provider>
   )
+
+  function activate(item: HTMLElement) {
+    if (!action) {
+      return
+    }
+
+    const menu = item.closest('[role="menu"]')
+    action.handler({
+      editor,
+      type: action.plugin.name,
+      options: action.plugin.options,
+      api: {
+        // FIXME: This is just to expose some functionality, but it is not a good way to give access to an api...
+        consumeFileInputChangeEvent: (
+          editor: Editor,
+          e: React.ChangeEvent<HTMLInputElement>
+        ) => {
+          pipeFromFileInput(editor, plugins, e)
+        }
+      }
+    })
+
+    // Back to the editor, unless the action moved focus somewhere on purpose
+    const active = document.activeElement
+    if (!active || active === document.body || menu?.contains(active)) {
+      ReactEditor.focus(editor)
+    }
+    setIsOpen(false)
+  }
 }
 
 

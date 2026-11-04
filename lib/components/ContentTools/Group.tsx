@@ -9,7 +9,7 @@ export function Group({ children, className }: {
   return (
     <>
       {hasChildren
-        ? <div className={className}>{children}</div>
+        ? <div role='group' className={className}>{children}</div>
         : <></>
       }
     </>

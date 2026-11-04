@@ -162,6 +162,7 @@ function TextbitFormatEditor({ style, headerStyle, readOnly, plugins }: {
 
         <Textbit.Editable
           contextMenu='always'
+          aria-label='Article text'
           style={{
             ...style,
             backgroundColor: readOnly ? '#eee' : '#fff'

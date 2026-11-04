@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useContext, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { useFocused, useSlateStatic } from 'slate-react'
+import { ReactEditor, useFocused, useSlateStatic } from 'slate-react'
+import { handleRovingKeys, TOOLBAR_ITEM } from '../../utils/menuKeyboard'
 import { Editor } from 'slate'
 import { TextbitElement } from '../../utils/textbit-element'
 import { useSelectionBounds } from '../../hooks/useSelectionBounds'
@@ -8,21 +9,23 @@ import { useBlockSelection } from '../../hooks/useBlockSelection'
 import { ContextMenuHintsContext } from '../ContextMenu/ContextMenuHintsContext'
 import type { SelectionBounds } from '../../contexts/SelectionBoundsContext'
 
-export function Menu({ children, className }: {
+export function Menu({ children, className, 'aria-label': ariaLabel = 'Formatting' }: {
   className?: string
   children?: React.ReactNode
+  'aria-label'?: string
 }) {
   return createPortal(
-    <Popover className={className}>
+    <Popover className={className} ariaLabel={ariaLabel}>
       {children}
     </Popover>,
     document.body
   )
 }
 
-function Popover({ children, className }: {
+function Popover({ children, className, ariaLabel }: {
   className?: string
   children?: React.ReactNode
+  ariaLabel: string
 }) {
   const editor = useSlateStatic()
   const bounds = useSelectionBounds()
@@ -37,6 +40,8 @@ function Popover({ children, className }: {
     if (el) {
       el.style.opacity = visible ? '1' : '0'
       el.style.pointerEvents = visible ? 'auto' : 'none'
+      // A hidden toolbar is out of reach for keyboards and screen readers too
+      el.toggleAttribute('inert', !visible)
     }
   }, [])
 
@@ -136,7 +141,19 @@ function Popover({ children, className }: {
   return (
     <div
       ref={ref}
+      role='toolbar'
+      aria-label={ariaLabel}
+      inert
       className={className}
+      onKeyDown={(event) => {
+        if (handleRovingKeys(event, ref.current, TOOLBAR_ITEM, 'horizontal')) {
+          return
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault()
+          ReactEditor.focus(editor)
+        }
+      }}
       style={{
         position: 'fixed',
         top: 0,
