@@ -40,7 +40,10 @@ Override any token on `:root`, or on an element around one editor.
 
 | Token | Use |
 |-------|-----|
-| `--tb-font`, `--tb-font-mono` | Text and code fonts |
+| `--tb-font-text` | Body text: serif, Iowan Old Style on macOS |
+| `--tb-font-heading` | Headings: sans serif, Avenir Next on macOS |
+| `--tb-font-ui` | Menus, labels and captions: the system's sans serif |
+| `--tb-font-mono` | Code |
 | `--tb-radius`, `--tb-gap` | Corner radius, space between blocks |
 | `--tb-text`, `--tb-muted` | Text, secondary text |
 | `--tb-surface`, `--tb-subtle`, `--tb-border` | Popover background, quiet background, lines |
