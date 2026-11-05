@@ -14,9 +14,10 @@ export function imageNode({ src, width, height, alt }: ImageUpload, caption = ''
     id: crypto.randomUUID(),
     class: 'block',
     type: 'core/image',
-    properties: { src, alt: alt ?? '', ...(width ? { width } : {}), ...(height ? { height } : {}) },
+    properties: { src, ...(width ? { width } : {}), ...(height ? { height } : {}) },
     children: [
       { id: crypto.randomUUID(), class: 'void', type: 'core/image/content', children: [{ text: '' }] },
+      { id: crypto.randomUUID(), class: 'text', type: 'core/image/alt', children: [{ text: alt ?? '' }] },
       { id: crypto.randomUUID(), class: 'text', type: 'core/image/caption', children: [{ text: caption }] }
     ]
   }

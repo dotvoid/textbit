@@ -124,8 +124,10 @@ textbit's upload marker shows it, if you place `Textbit.UploadMarker` in the edi
 | `maxSize` | Largest file, in bytes. |
 | `labels` | Action name, caption hint and other text. |
 
-Images have alternative text, edited in a field under the image, so screen
-readers can describe them. Only `http`, `https`, `blob` and image or audio `data`
+Images have alternative text, so screen readers can describe them. It is a text
+field in the document (`core/image/alt`) between the image and its caption: the
+caret moves in and out of it like any other text, and no `<input>` captures
+the keyboard. Images without the field get an empty one when normalized. Only `http`, `https`, `blob` and image or audio `data`
 addresses are rendered.
 
 `imageNode()` and `audioNode()` build a complete block, for inserting media you

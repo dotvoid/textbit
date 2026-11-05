@@ -17,8 +17,8 @@ function consumerOf(plugin: TBPluginDefinition): { consumes: TBConsumesFunction,
   return plugin.consumer
 }
 
-const withImage = (props: Record<string, unknown>): Descendant[] => [{
-  ...imageNode({ src: '' }),
+const withImage = ({ alt, ...props }: Record<string, unknown>): Descendant[] => [{
+  ...imageNode({ src: '', alt: typeof alt === 'string' ? alt : undefined }),
   properties: props
 } as Descendant]
 
@@ -42,14 +42,31 @@ describe('Image', () => {
     expect(container.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Image not available')
   })
 
-  test('the alternative text can be edited', () => {
+  test('the alternative text is a text field in the document, not an input', async () => {
     const { editor, container } = renderEditor([Text(), Image()], withImage({ src: 'https://example.com/a.jpg', alt: '' }))
-    const input = container.querySelector('input[aria-label="Alternative text"]') as HTMLInputElement
+    expect(container.querySelector('input')).toBeNull()
 
-    fireEvent.change(input, { target: { value: 'A harbour at dusk' } })
-    fireEvent.blur(input)
+    act(() => Transforms.insertText(editor, 'A harbour at dusk', { at: Editor.start(editor, [0, 1]) }))
+    await settle()
 
-    expect((editor.children[0] as Element).properties?.alt).toBe('A harbour at dusk')
+    expect(Node.string(editor.children[0])).toBe('A harbour at dusk')
+    expect(container.querySelector('img')!.getAttribute('alt')).toBe('A harbour at dusk')
+  })
+
+  test('an image without the alt field gets one', () => {
+    const old = { ...imageNode({ src: 'https://example.com/a.jpg' }) }
+    old.children = old.children.filter((c) => (c as Element).type !== 'core/image/alt')
+    const { editor } = renderEditor([Text(), Image()], [old as Descendant])
+    act(() => Editor.normalize(editor, { force: true }))
+
+    expect((editor.children[0] as Element).children.map((c) => (c as Element).type))
+      .toEqual(['core/image/content', 'core/image/alt', 'core/image/caption'])
+  })
+
+  test('clicking the field label puts the caret in the field', () => {
+    const { editor, container } = renderEditor([Text(), Image()], withImage({ src: 'https://example.com/a.jpg', alt: 'Boats' }))
+    fireEvent.mouseDown(container.querySelector('.tb-image-alt-label')!)
+    expect(editor.selection?.anchor).toEqual({ path: [0, 1, 0], offset: 5 })
   })
 
   test('files go to the upload function, and its answer becomes the image', async () => {
@@ -62,7 +79,7 @@ describe('Image', () => {
 
     expect(upload).toHaveBeenCalledWith(input.data)
     expect(result?.type).toBe('core/image')
-    expect((result?.data as Element).properties).toEqual({ src: 'https://cdn.example/1.png', alt: '', width: 800, height: 600 })
+    expect((result?.data as Element).properties).toEqual({ src: 'https://cdn.example/1.png', width: 800, height: 600 })
   })
 
   test('declined uploads insert nothing', async () => {
