@@ -7,6 +7,7 @@ import { handleArrowWithAdjacentBlock, handleArrowNoAdjacentBlock, handleVertica
 import { handleNonArrowWithAdjacentBlock } from './nonArrowHandler'
 import { isAtAccessibleEnd, isAtAccessibleStart } from './blockUtils'
 import { enterBlockSelectionFromAdjacentCaret, handleBlockSelectionKeyDown } from './blockSelectionHandler'
+import { typesCharacter } from '../../../utils/menuKeyboard'
 
 /*
  * Match key events to registered actions keyboard shortcuts. Then either
@@ -123,8 +124,19 @@ export function handleOnKeyDown(
     if (handled) return
   }
 
+  // AltGr reaches the page as Ctrl+Alt on Windows: AltGr+2 types @ on a
+  // Swedish keyboard and would otherwise trigger a ctrl+alt+2 shortcut
+  if (event.ctrlKey && event.altKey && typesCharacter(event.nativeEvent ?? event)) {
+    return
+  }
+
   for (const action of actions) {
     if (!action.isHotkey(event)) {
+      continue
+    }
+
+    // Not this action's context: let the next action with the same key try
+    if (action.when && !action.when(editor)) {
       continue
     }
 

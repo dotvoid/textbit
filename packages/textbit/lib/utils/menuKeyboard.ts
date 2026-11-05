@@ -82,6 +82,18 @@ export function ariaKeyShortcuts(hotkey: string | undefined, mac = isMac()): str
     .join('+')
 }
 
+/**
+ * True when the key types a character: no Ctrl or Cmd held, except for AltGr,
+ * which Windows reports as Ctrl+Alt. Option (macOS) and AltGr characters such
+ * as @, $ and { are typing, never shortcuts.
+ */
+export function typesCharacter(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaKey' | 'getModifierState'>): boolean {
+  if (event.key.length !== 1 || event.metaKey) {
+    return false
+  }
+  return !event.ctrlKey || event.getModifierState?.('AltGraph') === true
+}
+
 function items(container: HTMLElement, selector: string): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(selector))
     .filter((item) => item.getAttribute('aria-disabled') !== 'true')

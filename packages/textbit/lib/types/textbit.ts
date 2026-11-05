@@ -126,6 +126,12 @@ export interface Action {
   tool?: ToolComponent | [ToolComponent, ToolComponent]
   handler: ActionHandler
   visibility?: (element: Element, rootElement?: Element) => [boolean, boolean, boolean] // visible, enabled, active
+  /**
+   * When given, the action only takes its hotkey while this returns true.
+   * Otherwise the key goes on to the next action with the same hotkey, so
+   * several plugins can share a key like Tab or Enter, each in its own context.
+   */
+  when?: (editor: Editor) => boolean
 }
 
 

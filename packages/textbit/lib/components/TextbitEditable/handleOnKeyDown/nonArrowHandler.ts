@@ -9,6 +9,7 @@ import {
 } from './blockUtils'
 import type { PluginRegistryAction } from '../../../contexts/PluginRegistry/lib/types'
 import { INSERT_NBSP_ACTION } from '../../core/NonBreakingSpace'
+import { typesCharacter } from '../../../utils/menuKeyboard'
 
 /**
  * Handle non-arrow keys while an adjacent-block indicator is active.
@@ -139,7 +140,8 @@ export function handleNonArrowWithAdjacentBlock(
 
   // Printable character, or the non-breaking space action's shortcut: insert a
   // new text element so the character lands in it rather than inside the block
-  const isPrintable = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey
+  // Includes characters typed with Option or AltGr, like @ and {
+  const isPrintable = typesCharacter(event.nativeEvent ?? event)
   const insertsNbsp = actions.some((a) => a.name === INSERT_NBSP_ACTION && a.isHotkey(event))
   if (isPrintable || insertsNbsp) {
     if (insertParagraphBeside(editor, adjacentBlock)) {

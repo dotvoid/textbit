@@ -1743,6 +1743,29 @@ function CaptionComponent({ children }: TBComponentProps) {
 export { Image }
 ```
 
+### Sharing a Key Between Plugins
+
+Only one action handles a key press: the first one whose `hotkey` matches. Give an
+action a `when` condition to claim the key only in its own context; when it returns
+false, the key goes on to the next action with the same hotkey. That lets a code
+block and a table both use Tab without knowing about each other:
+
+```tsx
+actions: [{
+  name: 'indent',
+  hotkey: 'tab',
+  when: (editor) => isInCodeBlock(editor),
+  handler: ({ editor, event }) => {
+    event?.preventDefault()
+    editor.insertText('  ')
+  }
+}]
+```
+
+Characters typed with AltGr never trigger shortcuts. Windows reports AltGr as
+Ctrl+Alt, so on a Swedish keyboard AltGr+2, which types @, would otherwise match a
+`ctrl+alt+2` hotkey.
+
 ### Using Actions in Components
 
 Use the `useAction` hook to call plugin actions from within components:
