@@ -8,7 +8,10 @@ An unstyled, plugin-based rich text editor component for React applications. Bui
 npm install @dotvoid/textbit
 ```
 
-Ready to use plugins and a default look are separate packages:
+On its own, textbit is a plain text editor: paragraphs and nothing else, which
+is enough for a simple text field. Formatting, headings, lists, tables, images
+and the rest are plugins. Ready to use plugins and a default look are separate
+packages:
 
 ```bash
 npm install @dotvoid/textbit-plugins @dotvoid/textbit-styles
@@ -149,7 +152,7 @@ function SimpleEditor() {
 **Structured Mode**
 
 ```tsx
-import { Bold, Italic, Heading } from './plugins'
+import { Text, Bold, Italic } from '@dotvoid/textbit-plugins'
 
 const initialValue = Descendant[] = [
   {
@@ -187,7 +190,7 @@ function RichTextEditor() {
     <Textbit.Root
       value={value}
       onChange={setValue}
-      plugins={[Bold(), Italic(), Heading()]}
+      plugins={[Text(), Bold(), Italic()]}
     >
       <Textbit.Editable />
     </Textbit.Root>
@@ -540,21 +543,31 @@ function UploadStatusBar() {
 
 ### Textbit.Plugins
 
-Array of standard plugins included with Textbit.
+What an editor gets when you pass no plugins: a plain paragraph (`core/text`),
+enough for a simple text field. It has no formatting. Core also uses
+`core/text` whenever it needs a new text block, e.g. on Enter or paste.
 
 ```tsx
 import { Textbit } from '@dotvoid/textbit'
 
-// Use default plugins
-<Textbit.Root plugins={Textbit.Plugins}>
+// A plain text field
+<Textbit.Root value={text} onChange={setText}>
   <Textbit.Editable />
 </Textbit.Root>
 
-// Use custom plugins
-<Textbit.Root plugins={[...Textbit.Plugins, MyCustomPlugin()]}>
+// The plain paragraph plus your own plugins
+<Textbit.Root value={text} onChange={setText} plugins={[...Textbit.Plugins, MyCustomPlugin()]}>
   <Textbit.Editable />
 </Textbit.Root>
 ```
+
+#### Upgrading from 1.x
+
+Bold, italic and underline are no longer built in. Documents keep their
+`core/bold`, `core/italic` and `core/underline` marks, but nothing renders or
+toggles them until you register a plugin by those names, e.g. `Bold()`,
+`Italic()` and `Underline()` from `@dotvoid/textbit-plugins`, which use the
+same names. Its `Text()` replaces the plain paragraph and adds headings.
 
 ---
 

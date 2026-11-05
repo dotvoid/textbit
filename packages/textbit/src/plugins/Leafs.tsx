@@ -1,4 +1,4 @@
-import type { PluginInitFunction } from '../../../types'
+import type { PluginInitFunction } from '../../lib/types'
 
 const Bold: PluginInitFunction = () => {
   return {

@@ -22,6 +22,7 @@ import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from 'y-protoc
 import { slateNodesToInsertDelta } from '@slate-yjs/core'
 import { spellChecker } from './spellChecker'
 import { Link } from './plugins/Link'
+import { Bold, Italic, Underline } from './plugins/Leafs'
 import { MockUpload } from './plugins/MockUpload'
 import { TestBlock } from './TestBlock'
 import type { TBPluginDefinition } from '../dist/main'
@@ -49,6 +50,9 @@ export function App() {
         }
         return def
       }),
+      Bold(),
+      Italic(),
+      Underline(),
       Link(),
       TestBlock(),
       MockUpload(),

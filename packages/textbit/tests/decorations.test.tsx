@@ -7,6 +7,8 @@ import { getDecorationRanges } from '../lib/utils/getDecorationRanges'
 import { getLeafMarkIds } from '../lib/utils/decorationMarks'
 import type { Decoration, SpellcheckLookupTable, SpellingError } from '../lib/types'
 import type { PluginRegistryComponent } from '../lib/contexts/PluginRegistry/lib/types'
+import { Text as TextPlugin } from '../lib/components/core/Text'
+import { Bold } from './_leafs'
 
 const emptySpellcheck: SpellcheckLookupTable = new Map()
 const emptyComponents: Map<string, PluginRegistryComponent> = new Map()
@@ -166,7 +168,7 @@ describe('getDecorationRanges - caller decorations', () => {
 describe('Textbit.Editable decorations', () => {
   function editable(value: Descendant[], decorations?: Decoration[]) {
     return (
-      <TextbitRoot value={value} onChange={() => {}}>
+      <TextbitRoot value={value} onChange={() => {}} plugins={[TextPlugin(), Bold()]}>
         <TextbitEditable decorations={decorations} />
       </TextbitRoot>
     )

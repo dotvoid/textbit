@@ -30,7 +30,10 @@ npm skips its own commit and tag for packages in a workspace;
 `@dotvoid/textbit-plugins` relies on textbit features that are not in 1.9.0: actions
 sharing a key through `when()`, and AltGr typing never triggering shortcuts. Release
 the editor first, then raise the plugins' peer dependency on `@dotvoid/textbit` to
-that version, then release the plugins. The styles can go at any time.
+that version, then release the plugins.
+
+The next editor release must be 2.0.0: bold, italic and underline are no longer
+built in (see "Upgrading from 1.x" in its README). The styles can go at any time.
 
 ## The first release of a new package
 
