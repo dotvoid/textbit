@@ -15,17 +15,20 @@ export type ListOptions = {
   title?: string
   /** Hint in an empty list item */
   placeholder?: string
-  /** Replace the default shortcut, or remove it with `false` */
+  /**
+   * Replace the default shortcut, or remove it with `false`. Defaults, as in
+   * Google Docs: Ctrl/⌘+Shift+8 for bullets, Ctrl/⌘+Shift+7 for numbers.
+   */
   hotkey?: string | false
 }
 
 /** A bullet list. Use it with OrderedList to switch a list between the two. */
 export const UnorderedList = (options: ListOptions = {}): TBPluginDefinition =>
-  listPlugin(UNORDERED, options.title ?? 'Bullet list', () => <ListIcon />, hotkeyOption(options.hotkey), options)
+  listPlugin(UNORDERED, options.title ?? 'Bullet list', () => <ListIcon />, hotkeyOption(options.hotkey, 'mod+shift+8'), options)
 
 /** A numbered list. Use it with UnorderedList to switch a list between the two. */
 export const OrderedList = (options: ListOptions = {}): TBPluginDefinition =>
-  listPlugin(ORDERED, options.title ?? 'Numbered list', () => <OrderedListIcon />, hotkeyOption(options.hotkey), options)
+  listPlugin(ORDERED, options.title ?? 'Numbered list', () => <OrderedListIcon />, hotkeyOption(options.hotkey, 'mod+shift+7'), options)
 
 function listPlugin(
   type: string,

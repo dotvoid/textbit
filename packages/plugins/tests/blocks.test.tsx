@@ -49,6 +49,13 @@ describe('lists', () => {
     expect(editor.selection?.anchor.path).toEqual([1, 0])
   })
 
+  test('default shortcuts are those of Google Docs, and can be replaced or removed', () => {
+    const toggle = (plugin: ReturnType<typeof UnorderedList>) => plugin.actions!.find((a) => a.name === 'toggle')!
+    expect(toggle(UnorderedList()).hotkey).toBe('mod+shift+8')
+    expect(toggle(OrderedList()).hotkey).toBe('mod+shift+7')
+    expect(toggle(OrderedList({ hotkey: false })).hotkey).toBeUndefined()
+  })
+
   test('outside a list, Enter is left alone', () => {
     const enter = UnorderedList().actions!.find((a) => a.name === 'enter')!
     const { editor } = renderEditor(plugins(), paragraphs('One'))
