@@ -117,6 +117,7 @@ function Popover({ children, className, ariaLabel }: {
       role='menu'
       aria-label={ariaLabel}
       className={className}
+      data-tb='context-menu'
       onKeyDown={onKeyDown}
       style={{
         position: 'fixed',

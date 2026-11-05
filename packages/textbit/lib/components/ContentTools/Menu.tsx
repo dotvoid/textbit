@@ -86,6 +86,7 @@ export function Menu({ children, className, style: inStyle = {} }: {
       <div
         ref={ref}
         className={className}
+        data-tb='menu'
         data-state={isOpen ? 'open' : 'closed'}
         onFocus={() => setHasFocus(true)}
         onBlur={(event) => {

@@ -95,6 +95,7 @@ function Popover({ children, className }: {
       role='menu'
       aria-labelledby={triggerId}
       className={className}
+      data-tb='menu-content'
       onKeyDown={onKeyDown}
       style={{
         position: 'fixed',

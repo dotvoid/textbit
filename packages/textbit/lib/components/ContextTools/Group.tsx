@@ -41,7 +41,7 @@ export function Group({ children, className }: {
   return (
     <>
       {hasChildren
-        ? <div className={className || ''}>{children}</div>
+        ? <div className={className || ''} data-tb='toolbar-group'>{children}</div>
         : <></>
       }
     </>

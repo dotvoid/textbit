@@ -230,6 +230,7 @@ function Pane({
       aria-label={ariaLabel}
       className={className}
       data-tb-special-characters=''
+      data-tb='special-characters'
       style={{ position: 'fixed', top: 0, left: 0, zIndex: 9702 }}
     >
       <input

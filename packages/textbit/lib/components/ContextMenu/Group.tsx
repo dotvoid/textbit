@@ -7,7 +7,7 @@ export function Group({ children, className }: {
   return (
     <>
       {Children.count(children) > 0 && (
-        <div role='group' className={className}>{children}</div>
+        <div role='group' data-tb='context-menu-group' className={className}>{children}</div>
       )}
     </>
   )

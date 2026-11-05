@@ -155,6 +155,7 @@ function Popover({ children, className, ariaLabel }: {
       aria-label={ariaLabel}
       inert
       className={className}
+      data-tb='toolbar'
       onKeyDown={(event) => {
         if (handleRovingKeys(event, ref.current, TOOLBAR_ITEM, 'horizontal')) {
           return

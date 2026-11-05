@@ -42,6 +42,7 @@ export function Item({
       role='menuitem'
       tabIndex={-1}
       className={className}
+      data-tb='context-menu-item'
       onMouseDown={(e) => {
         e.preventDefault()
         activate(e.currentTarget)

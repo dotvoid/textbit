@@ -12,7 +12,7 @@ export function Icon({ children, className }: {
 
   if (Tool && !Children.count(children)) {
     return (
-      <div className={className} aria-hidden='true'>
+      <div className={className} data-tb='menu-icon' aria-hidden='true'>
         {isActive && '✓'}
         {!isActive && Tool && <Tool editor={editor} />}
       </div>
@@ -20,7 +20,7 @@ export function Icon({ children, className }: {
   }
 
   return (
-    <div className={className} aria-hidden='true'>
+    <div className={className} data-tb='menu-icon' aria-hidden='true'>
       {children}
     </div>
   )

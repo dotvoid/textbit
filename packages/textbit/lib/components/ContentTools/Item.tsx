@@ -36,6 +36,7 @@ export function Item({ children, className, action: actionName }: PropsWithChild
         tabIndex={-1}
         aria-keyshortcuts={ariaKeyShortcuts(action.hotkey)}
         className={className}
+        data-tb='menu-item'
         data-state={isActive ? 'active' : 'inactive'}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {

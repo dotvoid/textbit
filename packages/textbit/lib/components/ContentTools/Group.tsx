@@ -9,7 +9,7 @@ export function Group({ children, className }: {
   return (
     <>
       {hasChildren
-        ? <div role='group' className={className}>{children}</div>
+        ? <div role='group' data-tb='menu-group' className={className}>{children}</div>
         : <></>
       }
     </>

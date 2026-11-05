@@ -89,6 +89,7 @@ export function Item({ action, className, children }: {
       aria-keyshortcuts={ariaKeyShortcuts(action.hotkey)}
       data-state={isActive ? 'active' : 'inactive'}
       className={className || ''}
+      data-tb='toolbar-item'
       onMouseDown={activate}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {

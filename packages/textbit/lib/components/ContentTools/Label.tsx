@@ -8,7 +8,7 @@ export function Label({ children, className }: {
   const { action } = useContext(ItemContext)
 
   return (
-    <div className={className}>
+    <div className={className} data-tb='menu-label'>
       {Children.count(children)
         ? children
         : action?.title || ''

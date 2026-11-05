@@ -200,6 +200,13 @@ describe('context menu', () => {
     await openFromKeyboard()
     expect(await axeViolations(screen.getByRole('menu'))).toEqual([])
   })
+
+  test('carries data-tb hooks for a stylesheet to target', async () => {
+    await openFromKeyboard()
+    const menu = screen.getByRole('menu')
+    expect(menu.getAttribute('data-tb')).toBe('context-menu')
+    expect(new Set([...menu.querySelectorAll('[data-tb]')].map((n) => n.getAttribute('data-tb')))).toEqual(new Set(['context-menu-group', 'context-menu-item']))
+  })
 })
 
 describe('gutter menu', () => {
@@ -308,6 +315,17 @@ describe('gutter menu', () => {
     await screen.findByRole('menu')
     expect(await axeViolations(container)).toEqual([])
   })
+
+  test('carries data-tb hooks for a stylesheet to target', async () => {
+    const { trigger, container } = await setup()
+    act(() => {
+      fireEvent.keyDown(trigger, { key: 'Enter' })
+    })
+    await screen.findByRole('menu')
+    expect(new Set([...container.querySelectorAll('[data-tb]')].map((n) => n.getAttribute('data-tb')))).toEqual(new Set([
+      'menu-trigger', 'menu-content', 'menu-group', 'menu-item', 'menu-icon', 'menu-label', 'menu-hotkey'
+    ]))
+  })
 })
 
 describe('toolbar', () => {
@@ -374,5 +392,11 @@ describe('toolbar', () => {
     const { toolbar } = setup()
     toolbar.removeAttribute('inert')
     expect(await axeViolations(toolbar)).toEqual([])
+  })
+
+  test('carries data-tb hooks for a stylesheet to target', () => {
+    const { toolbar } = setup()
+    expect(toolbar.getAttribute('data-tb')).toBe('toolbar')
+    expect(new Set([...toolbar.querySelectorAll('[data-tb]')].map((n) => n.getAttribute('data-tb')))).toEqual(new Set(['toolbar-group', 'toolbar-item']))
   })
 })

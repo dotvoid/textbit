@@ -53,6 +53,7 @@ export function Trigger({ children, className }: PropsWithChildren & {
       aria-expanded={isOpen}
       aria-controls={isOpen ? contentId : undefined}
       className={className}
+      data-tb='menu-trigger'
       onMouseDown={(e) => {
         e.preventDefault()
         setIsOpen(!isOpen)
