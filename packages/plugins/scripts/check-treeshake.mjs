@@ -25,7 +25,10 @@ const markers = {
   CodeBlock: 'core/code-block',
   Table: 'core/table',
   Link: 'core/link',
-  LocalizedQuotationMarks: 'core/localized-quotation-marks'
+  LocalizedQuotationMarks: 'core/localized-quotation-marks',
+  Image: 'core/image',
+  Audio: 'core/audio',
+  Blockquote: 'core/blockquote'
 }
 
 let failed = false
