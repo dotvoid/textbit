@@ -1,0 +1,168 @@
+/*
+ * The plugins in @dotvoid/textbit-plugins, targeted through their tb-* classes.
+ * Needs variables.css.
+ */
+
+.tb-child-placeholder {
+  color: var(--tb-muted);
+  opacity: 0.7;
+}
+
+/* Text */
+.tb-text {
+  margin: 0 0 var(--tb-gap);
+}
+
+.tb-heading-1 { font-size: 2em; line-height: 1.2; }
+.tb-heading-2 { font-size: 1.5em; line-height: 1.25; }
+.tb-heading-3 { font-size: 1.25em; line-height: 1.3; }
+.tb-heading-4 { font-size: 1.1em; line-height: 1.35; }
+.tb-heading-5, .tb-heading-6 { font-size: 1em; }
+
+/* Inline code */
+.tb-code {
+  padding: 0.1em 0.3em;
+  font-family: var(--tb-font-mono);
+  font-size: 0.9em;
+  background: var(--tb-subtle);
+  border-radius: 3px;
+}
+
+/* Lists */
+.tb-list {
+  margin: 0 0 var(--tb-gap);
+  padding-left: 1.5em;
+}
+
+.tb-list-item + .tb-list-item {
+  margin-top: 0.25em;
+}
+
+/* Code block */
+.tb-code-block {
+  margin: 0 0 var(--tb-gap);
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  background: var(--tb-subtle);
+  border: 1px solid var(--tb-border);
+  border-radius: var(--tb-radius);
+}
+
+.tb-code-block-body {
+  font-family: var(--tb-font-mono);
+  font-size: 0.9em;
+}
+
+/* Table */
+.tb-table {
+  width: 100%;
+  margin: 0 0 var(--tb-gap);
+  border-collapse: collapse;
+}
+
+.tb-table-cell {
+  min-width: 4em;
+  padding: 0.4em 0.6em;
+  vertical-align: top;
+  border: 1px solid var(--tb-border);
+}
+
+/* Link */
+.tb-link {
+  color: var(--tb-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tb-link[data-invalid] {
+  color: inherit;
+  text-decoration-style: wavy;
+  text-decoration-color: var(--tb-spelling-error-line);
+}
+
+.tb-link-editor {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tb-link-address {
+  min-width: 14rem;
+  padding: 0.25rem 0.5rem;
+  color: inherit;
+  background: var(--tb-subtle);
+  border: 1px solid var(--tb-border);
+  border-radius: calc(var(--tb-radius) - 2px);
+  font: inherit;
+}
+
+.tb-link-remove,
+.tb-link-open {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: calc(var(--tb-radius) - 2px);
+  cursor: pointer;
+}
+
+.tb-link-remove:hover,
+.tb-link-open:hover {
+  background: var(--tb-subtle);
+}
+
+/* Figures: image, audio, quote */
+.tb-image,
+.tb-audio,
+.tb-blockquote {
+  margin: 0 0 var(--tb-gap);
+}
+
+.tb-image-content img {
+  border-radius: var(--tb-radius);
+}
+
+.tb-image-missing,
+.tb-audio-missing {
+  display: grid;
+  place-items: center;
+  min-height: 6rem;
+  color: var(--tb-muted);
+  background: var(--tb-subtle);
+  border-radius: var(--tb-radius);
+}
+
+.tb-image-alt {
+  box-sizing: border-box;
+  width: 100%;
+  margin-top: 0.375rem;
+  padding: 0.25rem 0.5rem;
+  color: inherit;
+  background: transparent;
+  border: 1px dashed var(--tb-border);
+  border-radius: calc(var(--tb-radius) - 2px);
+  font: inherit;
+  font-size: 0.8em;
+}
+
+.tb-image-caption,
+.tb-audio-caption,
+.tb-blockquote-citation {
+  margin-top: 0.375rem;
+  color: var(--tb-muted);
+  font-size: 0.875em;
+}
+
+.tb-blockquote {
+  padding-left: 1em;
+  border-left: 3px solid var(--tb-border);
+}
+
+.tb-blockquote-body {
+  font-size: 1.1em;
+  font-style: italic;
+}

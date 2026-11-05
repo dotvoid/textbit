@@ -1,0 +1,27 @@
+/*
+ * Design tokens for @dotvoid/textbit-styles. Override any of them on :root, or
+ * on an element wrapping one editor. Colours follow the page's color-scheme:
+ * set `color-scheme: dark` (or `light dark`) and they switch.
+ */
+:root {
+  --tb-font: inherit;
+  --tb-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --tb-radius: 6px;
+  --tb-gap: 0.75em;
+
+  --tb-text: light-dark(#1f2328, #e6e8eb);
+  --tb-muted: light-dark(#59636e, #9da7b3);
+  --tb-surface: light-dark(#ffffff, #1b1f24);
+  --tb-subtle: light-dark(#f3f4f6, #262b31);
+  --tb-border: light-dark(#d1d9e0, #3d444d);
+  --tb-accent: light-dark(#0969da, #4493f8);
+  --tb-accent-subtle: light-dark(#ddf4ff, #12263f);
+  --tb-shadow: 0 4px 16px light-dark(rgb(31 35 40 / 0.14), rgb(0 0 0 / 0.5));
+  --tb-focus: 2px solid var(--tb-accent);
+
+  /* Spelling: errors and suggestions differ in line shape, not only in colour */
+  --tb-spelling-error-line: light-dark(#cf222e, #ff8182);
+  --tb-spelling-error-tint: light-dark(rgb(207 34 46 / 0.12), rgb(255 129 130 / 0.18));
+  --tb-spelling-suggestion-line: light-dark(#0969da, #79c0ff);
+  --tb-spelling-suggestion-tint: light-dark(rgb(9 105 218 / 0.1), rgb(121 192 255 / 0.15));
+}

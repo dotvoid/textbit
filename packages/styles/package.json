@@ -1,0 +1,40 @@
+{
+  "name": "@dotvoid/textbit-styles",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "A default look for @dotvoid/textbit and @dotvoid/textbit-plugins, in plain CSS with custom properties.",
+  "author": {
+    "name": "Danne Lundqvist"
+  },
+  "type": "module",
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "exports": {
+    ".": "./css/index.css",
+    "./variables.css": "./css/variables.css",
+    "./editor.css": "./css/editor.css",
+    "./plugins.css": "./css/plugins.css"
+  },
+  "files": [
+    "css"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotvoid/textbit.git",
+    "directory": "packages/styles"
+  },
+  "homepage": "https://github.com/dotvoid/textbit/tree/main/packages/styles#readme",
+  "bugs": {
+    "url": "https://github.com/dotvoid/textbit/issues"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "preversion": "vitest run",
+    "postversion": "node ../../scripts/commit-version.mjs textbit-styles@ && git push && git push --tags"
+  },
+  "devDependencies": {
+    "postcss": "*",
+    "vitest": "^4.0.8"
+  }
+}
