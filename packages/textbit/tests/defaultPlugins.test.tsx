@@ -23,12 +23,12 @@ describe('core without plugins', () => {
   test('is a plain text field: a paragraph, and no formatting', () => {
     const { names, container } = registered()
 
-    expect(names).toContain('core/text')
-    expect(names.filter((n) => ['core/bold', 'core/italic', 'core/underline'].includes(n))).toEqual([])
+    expect(names).toContain('base/text')
+    expect(names.filter((n) => ['base/bold', 'base/italic', 'base/underline'].includes(n))).toEqual([])
     expect(container.textContent).toContain('A simple field')
   })
 
   test('Textbit.Plugins is only the plain paragraph', () => {
-    expect(Plugins.map((p) => p().name)).toEqual(['core/text'])
+    expect(Plugins.map((p) => p().name)).toEqual(['base/text'])
   })
 })

@@ -34,8 +34,8 @@ function makeEditor(children: Descendant[]): Editor {
 
 function content(): Descendant[] {
   return [
-    { id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'aaa' }] } as Descendant,
-    { id: 'b', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'bbb' }] } as Descendant
+    { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'aaa' }] } as Descendant,
+    { id: 'b', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'bbb' }] } as Descendant
   ]
 }
 

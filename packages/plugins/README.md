@@ -33,20 +33,24 @@ checks this for every plugin against its ES modules output.
 
 ## Plugins
 
+Every type and mark is named `base/*`, the namespace for standard content. To
+build your own version of a plugin, register it under the same name; give a new
+kind of content a namespace of your own.
+
 | Plugin | Element types | Default shortcut |
 |--------|---------------|------------------|
-| `Text` | `core/text`, role `heading-1` to `heading-6` | Ctrl+Alt+0 to 4 (⌘⌥0 to 4) |
-| `Bold`, `Italic`, `Underline` | marks `core/bold`, `core/italic`, `core/underline` | Ctrl/⌘+B, I, U |
-| `Strikethrough` | mark `core/strikethrough` | none |
-| `Code` | mark `core/code` | none |
-| `UnorderedList`, `OrderedList` | `core/unordered-list`, `core/ordered-list` | Ctrl/⌘+Shift+8, Ctrl/⌘+Shift+7 |
-| `CodeBlock` | `core/code-block` | none |
-| `Table` | `core/table` | none |
-| `Link` | inline `core/link` | Ctrl/⌘+K |
+| `Text` | `base/text`, role `heading-1` to `heading-6` | Ctrl+Alt+0 to 4 (⌘⌥0 to 4) |
+| `Bold`, `Italic`, `Underline` | marks `base/bold`, `base/italic`, `base/underline` | Ctrl/⌘+B, I, U |
+| `Strikethrough` | mark `base/strikethrough` | none |
+| `Code` | mark `base/code` | none |
+| `UnorderedList`, `OrderedList` | `base/unordered-list`, `base/ordered-list` | Ctrl/⌘+Shift+8, Ctrl/⌘+Shift+7 |
+| `CodeBlock` | `base/code-block` | none |
+| `Table` | `base/table` | none |
+| `Link` | inline `base/link` | Ctrl/⌘+K |
 | `LocalizedQuotationMarks` | none, it changes typed quotes | none |
-| `Image` | `core/image` | none |
-| `Audio` | `core/audio` | none |
-| `Blockquote` | `core/blockquote` | none |
+| `Image` | `base/image` | none |
+| `Audio` | `base/audio` | none |
+| `Blockquote` | `base/blockquote` | none |
 
 `Text`, `Bold`, `Italic` and `Underline` replace textbit's built-in plugins of the
 same name and keep their document format, so existing documents keep working.
@@ -125,7 +129,7 @@ textbit's upload marker shows it, if you place `Textbit.UploadMarker` in the edi
 | `labels` | Action name, caption hint and other text. |
 
 Images have alternative text, so screen readers can describe them. It is a text
-field in the document (`core/image/alt`) between the image and its caption: the
+field in the document (`base/image/alt`) between the image and its caption: the
 caret moves in and out of it like any other text, and no `<input>` captures
 the keyboard. Images without the field get an empty one when normalized. Only `http`, `https`, `blob` and image or audio `data`
 addresses are rendered.

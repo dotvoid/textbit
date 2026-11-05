@@ -14,7 +14,7 @@ const emptySpellcheck: SpellcheckLookupTable = new Map()
 const emptyComponents: Map<string, PluginRegistryComponent> = new Map()
 
 function block(id: string, text: string): Descendant {
-  return { type: 'core/text', class: 'text', id, properties: {}, children: [{ text }] }
+  return { type: 'base/text', class: 'text', id, properties: {}, children: [{ text }] }
 }
 
 function makeEditor(value: Descendant[]): Editor {
@@ -201,11 +201,11 @@ describe('Textbit.Editable decorations', () => {
 
   test('keeps leaf plugin styles on a marked leaf', () => {
     const value: Descendant[] = [{
-      type: 'core/text',
+      type: 'base/text',
       class: 'text',
       id: 'a',
       properties: {},
-      children: [{ text: 'plain ' }, { text: 'bold', 'core/bold': true }]
+      children: [{ text: 'plain ' }, { text: 'bold', 'base/bold': true }]
     }]
     const { container } = render(editable(value, [
       decoration('m1', [[0, 0], 3], [[0, 1], 2])

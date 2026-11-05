@@ -44,7 +44,7 @@ describe('Spellcheck', () => {
   test('marks spelling errors in text', async () => {
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'spell-1',
         properties: {},
@@ -76,7 +76,7 @@ describe('Spellcheck', () => {
   test('provides spelling suggestions', async () => {
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'spell-3',
         properties: {},
@@ -119,7 +119,7 @@ describe('Spellcheck', () => {
   test('handles multiple spelling errors in same node', async () => {
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'spell-4',
         properties: {},
@@ -150,7 +150,7 @@ describe('Spellcheck', () => {
   test('does not spellcheck when onSpellcheck is not provided', async () => {
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'spell-5',
         properties: {},
@@ -174,7 +174,7 @@ describe('Spellcheck', () => {
   test('handles empty text nodes', async () => {
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'spell-7',
         properties: {},
@@ -204,14 +204,14 @@ describe('Spellcheck', () => {
   test('spellcheck works across multiple nodes', async () => {
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'spell-8',
         properties: {},
         children: [{ text: 'First teh' }]
       },
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'spell-9',
         properties: {},
@@ -259,7 +259,7 @@ describe('Spellcheck', () => {
 
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'spell-10',
         properties: {},
@@ -289,7 +289,7 @@ describe('Spellcheck', () => {
   test('marks an accepted word without removing its spelling error', async () => {
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'accept-1',
         properties: {},
@@ -331,7 +331,7 @@ describe('Spellcheck', () => {
   test('omits the attribute entirely when nothing is accepted', async () => {
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'accept-2',
         properties: {},
@@ -359,7 +359,7 @@ describe('Spellcheck', () => {
   test('changing the accepted answer re-marks without re-running spellcheck', async () => {
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'accept-3',
         properties: {},

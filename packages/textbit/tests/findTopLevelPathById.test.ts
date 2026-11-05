@@ -10,7 +10,7 @@ function makeEditor(value: Descendant[]): Editor {
 
 const block = (id: string): Descendant => ({
   id,
-  type: 'core/text',
+  type: 'base/text',
   class: 'text',
   properties: {},
   children: [{ text: id }]

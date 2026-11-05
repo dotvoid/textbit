@@ -46,7 +46,7 @@ describe('getDecorationRanges — non-breaking spaces', () => {
   test('emits one range per NBSP in a text leaf', () => {
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'a',
         properties: {},
@@ -64,7 +64,7 @@ describe('getDecorationRanges — non-breaking spaces', () => {
   test('emits multiple ranges when several NBSPs are present', () => {
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'a',
         properties: {},
@@ -80,7 +80,7 @@ describe('getDecorationRanges — non-breaking spaces', () => {
   test('emits no NBSP ranges when the text contains only regular spaces', () => {
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'a',
         properties: {},
@@ -97,7 +97,7 @@ describe('getDecorationRanges — newlines (soft breaks)', () => {
   test('emits one range per `\\n` in a text leaf', () => {
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'a',
         properties: {},
@@ -122,7 +122,7 @@ describe('getDecorationRanges — newlines (soft breaks)', () => {
   test('emits multiple ranges for multiple `\\n`s', () => {
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'a',
         properties: {},
@@ -145,7 +145,7 @@ describe('getDecorationRanges — newlines (soft breaks)', () => {
   test('emits both NBSP and newline ranges when mixed', () => {
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'a',
         properties: {},
@@ -172,7 +172,7 @@ describe('getDecorationRanges — newlines (soft breaks)', () => {
   test('emits no newline ranges when the text has no `\\n`', () => {
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'a',
         properties: {},
@@ -196,7 +196,7 @@ describe("getDecorationRanges — 'single' placeholder", () => {
   test('emits placeholder when the editor is entirely empty', () => {
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'only-block',
         properties: {},
@@ -215,14 +215,14 @@ describe("getDecorationRanges — 'single' placeholder", () => {
     // block already contains text — the editor as a whole is not empty.
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'empty-first',
         properties: {},
         children: [{ text: '' }]
       },
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'has-content',
         properties: {},
@@ -237,7 +237,7 @@ describe("getDecorationRanges — 'single' placeholder", () => {
   test('omits placeholder when the first block has content', () => {
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'only-block',
         properties: {},
@@ -264,7 +264,7 @@ function spellingRangesFor(
   isSpellingAccepted?: (error: SpellingError) => boolean
 ) {
   const editor = makeEditor([
-    { type: 'core/text', class: 'text', id: 'a', properties: {}, children: [{ text }] }
+    { type: 'base/text', class: 'text', id: 'a', properties: {}, children: [{ text }] }
   ])
   const node = Node.get(editor, [0, 0])
   return getDecorationRanges(

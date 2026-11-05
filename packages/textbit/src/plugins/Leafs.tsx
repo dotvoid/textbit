@@ -3,7 +3,7 @@ import type { PluginInitFunction } from '../../lib/types'
 const Bold: PluginInitFunction = () => {
   return {
     class: 'leaf',
-    name: 'core/bold',
+    name: 'base/bold',
     actions: [{
       name: 'toggle-bold',
       title: 'Bold',
@@ -22,7 +22,7 @@ const Bold: PluginInitFunction = () => {
 const Italic: PluginInitFunction = () => {
   return {
     class: 'leaf',
-    name: 'core/italic',
+    name: 'base/italic',
     actions: [{
       name: 'toggle-italic',
       title: 'Italic',
@@ -41,7 +41,7 @@ const Italic: PluginInitFunction = () => {
 const Underline: PluginInitFunction = () => {
   return {
     class: 'leaf',
-    name: 'core/underline',
+    name: 'base/underline',
     actions: [{
       name: 'toggle-underline',
       title: 'Underline',

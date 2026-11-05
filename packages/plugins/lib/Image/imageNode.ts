@@ -13,12 +13,12 @@ export function imageNode({ src, width, height, alt }: ImageUpload, caption = ''
   return {
     id: crypto.randomUUID(),
     class: 'block',
-    type: 'core/image',
+    type: 'base/image',
     properties: { src, ...(width ? { width } : {}), ...(height ? { height } : {}) },
     children: [
-      { id: crypto.randomUUID(), class: 'void', type: 'core/image/content', children: [{ text: '' }] },
-      { id: crypto.randomUUID(), class: 'text', type: 'core/image/alt', children: [{ text: alt ?? '' }] },
-      { id: crypto.randomUUID(), class: 'text', type: 'core/image/caption', children: [{ text: caption }] }
+      { id: crypto.randomUUID(), class: 'void', type: 'base/image/content', children: [{ text: '' }] },
+      { id: crypto.randomUUID(), class: 'text', type: 'base/image/alt', children: [{ text: alt ?? '' }] },
+      { id: crypto.randomUUID(), class: 'text', type: 'base/image/caption', children: [{ text: caption }] }
     ]
   }
 }

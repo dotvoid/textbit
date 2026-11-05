@@ -31,18 +31,18 @@ function makeEditor(
 
 function imageBlock(id: string, caption: string): Descendant {
   return {
-    type: 'core/image',
+    type: 'base/image',
     id,
     class: 'block',
     children: [
       {
-        type: 'core/image/image',
+        type: 'base/image/image',
         class: 'void',
         children: [{ text: '' }]
       },
       {
         id: `${id}-caption`,
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         properties: {},
         children: [{ text: caption }]
@@ -73,7 +73,7 @@ describe('withInsertFragment — block into text paragraph', () => {
     expect(first.children).toMatchObject([{ text: 'Bef' }])
 
     const inserted = editor.children[1] as Element
-    expect(inserted.type).toBe('core/image')
+    expect(inserted.type).toBe('base/image')
     expect(inserted.class).toBe('block')
     expect(inserted.children).toHaveLength(2)
     expect(inserted.children[0]).toMatchObject({ class: 'void' })
@@ -91,7 +91,7 @@ describe('withInsertFragment — block into text paragraph', () => {
 
     // Expected: [pasted, para-before, block-1, block-2, para-after]
     expect(editor.children).toHaveLength(5)
-    expect((editor.children[0] as Element).type).toBe('core/image')
+    expect((editor.children[0] as Element).type).toBe('base/image')
     expect((editor.children[1] as Element).class).toBe('text')
     expect((editor.children[1] as Element).children).toMatchObject([{ text: 'Before' }])
   })
@@ -106,7 +106,7 @@ describe('withInsertFragment — block into text paragraph', () => {
     expect(editor.children).toHaveLength(5)
     expect((editor.children[0] as Element).class).toBe('text')
     expect((editor.children[0] as Element).children).toMatchObject([{ text: 'Before' }])
-    expect((editor.children[1] as Element).type).toBe('core/image')
+    expect((editor.children[1] as Element).type).toBe('base/image')
   })
 
   test('preserves void child in the inserted block', () => {
@@ -117,7 +117,7 @@ describe('withInsertFragment — block into text paragraph', () => {
 
     const inserted = editor.children[1] as Element
     const voidChild = inserted.children[0] as Element
-    expect(voidChild.type).toBe('core/image/image')
+    expect(voidChild.type).toBe('base/image/image')
     expect(voidChild.class).toBe('void')
 
     const captionChild = inserted.children[1] as Element
@@ -150,8 +150,8 @@ describe('withInsertFragment — block into text paragraph', () => {
     // Expected: ["Bef", img-1, img-2, "ore", block-1, block-2, para-after]
     expect(editor.children).toHaveLength(7)
     expect((editor.children[0] as Element).children).toMatchObject([{ text: 'Bef' }])
-    expect((editor.children[1] as Element).type).toBe('core/image')
-    expect((editor.children[2] as Element).type).toBe('core/image')
+    expect((editor.children[1] as Element).type).toBe('base/image')
+    expect((editor.children[2] as Element).type).toBe('base/image')
     expect((editor.children[3] as Element).children).toMatchObject([{ text: 'ore' }])
   })
 
@@ -168,7 +168,7 @@ describe('withInsertFragment — block into text paragraph', () => {
     // "B" + pasted-img + "re" (selected "efo" was deleted, then split at cursor)
     expect(editor.children).toHaveLength(6)
     expect((editor.children[0] as Element).children).toMatchObject([{ text: 'B' }])
-    expect((editor.children[1] as Element).type).toBe('core/image')
+    expect((editor.children[1] as Element).type).toBe('base/image')
     expect((editor.children[2] as Element).children).toMatchObject([{ text: 're' }])
   })
 })
@@ -188,11 +188,11 @@ describe('withInsertFragment — wrapped text fragment', () => {
     // caption: figure block with only the caption child, caption has a
     // single text leaf.
     const fragment: Descendant[] = [{
-      type: 'core/image',
+      type: 'base/image',
       id: 'wrapped',
       class: 'block',
       children: [{
-        type: 'core/text',
+        type: 'base/text',
         id: 'wrapped-caption',
         class: 'text',
         properties: {},
@@ -213,11 +213,11 @@ describe('withInsertFragment — wrapped text fragment', () => {
     Transforms.select(editor, { anchor: { path: [0, 0], offset: 3 }, focus: { path: [0, 0], offset: 3 } })
 
     const fragment: Descendant[] = [{
-      type: 'core/image',
+      type: 'base/image',
       id: 'wrapped',
       class: 'block',
       children: [{
-        type: 'core/text',
+        type: 'base/text',
         id: 'wrapped-caption',
         class: 'text',
         properties: {},
@@ -247,15 +247,15 @@ describe('withInsertFragment — wrapped text fragment', () => {
     // Shape produced by Editor.fragment for a partial selection inside a
     // table cell: table → row → cell → {text}.
     const fragment: Descendant[] = [{
-      type: 'core/table',
+      type: 'base/table',
       id: 'wrapped-table',
       class: 'block',
       children: [{
-        type: 'core/table/row',
+        type: 'base/table/row',
         id: 'wrapped-row',
         class: 'block',
         children: [{
-          type: 'core/table/row/cell',
+          type: 'base/table/row/cell',
           id: 'wrapped-cell',
           class: 'text',
           children: [{ text: 'cell text' }]
@@ -279,7 +279,7 @@ describe('withInsertFragment — wrapped text fragment', () => {
     editor.insertFragment([imageBlock('pasted', 'Pasted caption')])
 
     expect(editor.children).toHaveLength(6)
-    expect((editor.children[1] as Element).type).toBe('core/image')
+    expect((editor.children[1] as Element).type).toBe('base/image')
     expect((editor.children[1] as Element).children).toHaveLength(2)
   })
 
@@ -288,11 +288,11 @@ describe('withInsertFragment — wrapped text fragment', () => {
     Transforms.select(editor, { anchor: { path: [0, 0], offset: 3 }, focus: { path: [0, 0], offset: 3 } })
 
     const fragment: Descendant[] = [{
-      type: 'core/image',
+      type: 'base/image',
       id: 'wrapped',
       class: 'block',
       children: [{
-        type: 'core/text',
+        type: 'base/text',
         id: 'wrapped-caption',
         class: 'text',
         properties: {},
@@ -318,11 +318,11 @@ describe('withInsertFragment — wrapped text fragment', () => {
     })
 
     const fragment: Descendant[] = [{
-      type: 'core/image',
+      type: 'base/image',
       id: 'wrapped',
       class: 'block',
       children: [{
-        type: 'core/text',
+        type: 'base/text',
         id: 'wrapped-caption',
         class: 'text',
         properties: {},
@@ -350,19 +350,19 @@ describe('withInsertFragment — wrapped text fragment', () => {
     Transforms.select(editor, { anchor: { path: [0, 0], offset: 3 }, focus: { path: [0, 0], offset: 3 } })
 
     const fragment: Descendant[] = [{
-      type: 'core/factbox',
+      type: 'base/factbox',
       id: 'fb',
       class: 'block',
       children: [
         {
-          type: 'core/factbox/title',
+          type: 'base/factbox/title',
           id: 'fb-title',
           class: 'text',
           properties: {},
           children: [{ text: 'Title' }]
         },
         {
-          type: 'core/factbox/body',
+          type: 'base/factbox/body',
           id: 'fb-body',
           class: 'text',
           properties: {},
@@ -376,7 +376,7 @@ describe('withInsertFragment — wrapped text fragment', () => {
     // Inserted as a top-level sibling block — not flattened.
     expect(editor.children).toHaveLength(6)
     const inserted = editor.children[1] as Element
-    expect(inserted.type).toBe('core/factbox')
+    expect(inserted.type).toBe('base/factbox')
     expect(inserted.class).toBe('block')
     expect(inserted.children).toHaveLength(2)
   })
@@ -391,7 +391,7 @@ describe('withInsertFragment — wrapped text fragment', () => {
 
 const imageWithCaptionPlugin: PluginDefinition = {
   class: 'block',
-  name: 'core/image',
+  name: 'base/image',
   componentEntry: {
     class: 'block',
     component: ({ children, attributes }) => <figure {...attributes}>{children}</figure>,
@@ -416,26 +416,26 @@ describe('withInsertFragment — wrapped text pasted into caption', () => {
   function captionContent(): Descendant[] {
     return [
       {
-        type: 'core/text',
+        type: 'base/text',
         id: 'para',
         class: 'text',
         properties: {},
         children: [{ text: 'Lead' }]
       } as Descendant,
       {
-        type: 'core/image',
+        type: 'base/image',
         id: 'img-1',
         class: 'block',
         children: [
           {
             id: 'img-1-image',
-            type: 'core/image/image',
+            type: 'base/image/image',
             class: 'void',
             children: [{ text: '' }]
           },
           {
             id: 'img-1-caption',
-            type: 'core/image/caption',
+            type: 'base/image/caption',
             class: 'text',
             properties: {},
             children: [{ text: 'Caption' }]
@@ -454,11 +454,11 @@ describe('withInsertFragment — wrapped text pasted into caption', () => {
     })
 
     const fragment: Descendant[] = [{
-      type: 'core/image',
+      type: 'base/image',
       id: 'wrapped',
       class: 'block',
       children: [{
-        type: 'core/image/caption',
+        type: 'base/image/caption',
         id: 'wrapped-caption',
         class: 'text',
         properties: {},
@@ -471,7 +471,7 @@ describe('withInsertFragment — wrapped text pasted into caption', () => {
     // Top-level still has [paragraph, image] — no extra block was inserted.
     expect(editor.children).toHaveLength(2)
     const image = editor.children[1] as Element
-    expect(image.type).toBe('core/image')
+    expect(image.type).toBe('base/image')
     expect(image.children).toHaveLength(2)
 
     const caption = image.children[1] as Element
@@ -490,7 +490,7 @@ describe('withInsertFragment — text-only fragment passthrough', () => {
     Transforms.select(editor, { anchor: { path: [0, 0], offset: 3 }, focus: { path: [0, 0], offset: 3 } })
 
     const textFragment: Descendant[] = [{
-      type: 'core/text',
+      type: 'base/text',
       id: 'frag-text',
       class: 'text',
       properties: {},

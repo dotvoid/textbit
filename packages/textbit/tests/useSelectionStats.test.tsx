@@ -13,7 +13,7 @@ import { useSelectionStats } from '../lib/hooks/useSelectionStats'
 const content: Descendant[] = [
   {
     id: 'p1',
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     properties: {},
     children: [{ text: 'first paragraph' }]
@@ -39,7 +39,7 @@ const content: Descendant[] = [
   },
   {
     id: 'p2',
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     properties: {},
     children: [{ text: 'second paragraph' }]

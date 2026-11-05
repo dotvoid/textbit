@@ -5,7 +5,7 @@ import { ChildPlaceholder } from '../shared/ChildPlaceholder'
 import { hotkeyOption } from '../shared/hotkey'
 import { insertBlockAfterCaret, textNode } from '../shared/insertBlock'
 
-const TYPE = 'core/code-block'
+const TYPE = 'base/code-block'
 
 export type CodeBlockOptions = {
   /** Spaces Tab inserts. Default: 2. */

@@ -12,7 +12,7 @@ import {
 } from '../shared/icons'
 import { insertBlockAfterCaret } from '../shared/insertBlock'
 
-const TYPE = 'core/table'
+const TYPE = 'base/table'
 const ROW = `${TYPE}/row`
 const CELL = `${TYPE}/row/cell`
 

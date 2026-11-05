@@ -31,7 +31,7 @@ function makeEditor(
   return withInsertSoftBreak(editor, components)
 }
 
-function paragraph(text: string, type = 'core/text'): Descendant {
+function paragraph(text: string, type = 'base/text'): Descendant {
   return {
     id: 'p1',
     type,
@@ -43,7 +43,7 @@ function paragraph(text: string, type = 'core/text'): Descendant {
 
 describe('withInsertSoftBreak', () => {
   test('inserts a \\n at the cursor when the current element opts in', () => {
-    const components = componentsMap([{ type: 'core/text', allowSoftBreak: true }])
+    const components = componentsMap([{ type: 'base/text', allowSoftBreak: true }])
     const editor = makeEditor([paragraph('hello world')], components)
 
     editor.selection = {
@@ -58,7 +58,7 @@ describe('withInsertSoftBreak', () => {
   })
 
   test('no-op when the current element does not opt in (unset)', () => {
-    const components = componentsMap([{ type: 'core/text' }])
+    const components = componentsMap([{ type: 'base/text' }])
     const editor = makeEditor([paragraph('hello world')], components)
     const before = JSON.parse(JSON.stringify(editor.children))
 
@@ -73,7 +73,7 @@ describe('withInsertSoftBreak', () => {
   })
 
   test('no-op when the current element explicitly denies', () => {
-    const components = componentsMap([{ type: 'core/text', allowSoftBreak: false }])
+    const components = componentsMap([{ type: 'base/text', allowSoftBreak: false }])
     const editor = makeEditor([paragraph('hello world')], components)
     const before = JSON.parse(JSON.stringify(editor.children))
 
@@ -120,7 +120,7 @@ describe('withInsertSoftBreak', () => {
   })
 
   test('no-op when there is no selection', () => {
-    const components = componentsMap([{ type: 'core/text', allowSoftBreak: true }])
+    const components = componentsMap([{ type: 'base/text', allowSoftBreak: true }])
     const editor = makeEditor([paragraph('hello')], components)
 
     editor.selection = null
@@ -131,7 +131,7 @@ describe('withInsertSoftBreak', () => {
   })
 
   test('replaces the selection when expanded before inserting the break', () => {
-    const components = componentsMap([{ type: 'core/text', allowSoftBreak: true }])
+    const components = componentsMap([{ type: 'base/text', allowSoftBreak: true }])
     const editor = makeEditor([paragraph('hello world')], components)
 
     // Select "world" (positions 6-11)

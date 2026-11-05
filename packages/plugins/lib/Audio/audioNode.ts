@@ -10,11 +10,11 @@ export function audioNode({ src, title }: AudioUpload, caption = ''): Element {
   return {
     id: crypto.randomUUID(),
     class: 'block',
-    type: 'core/audio',
+    type: 'base/audio',
     properties: { src, title: title ?? '' },
     children: [
-      { id: crypto.randomUUID(), class: 'void', type: 'core/audio/content', children: [{ text: '' }] },
-      { id: crypto.randomUUID(), class: 'text', type: 'core/audio/caption', children: [{ text: caption }] }
+      { id: crypto.randomUUID(), class: 'void', type: 'base/audio/content', children: [{ text: '' }] },
+      { id: crypto.randomUUID(), class: 'text', type: 'base/audio/caption', children: [{ text: caption }] }
     ]
   }
 }

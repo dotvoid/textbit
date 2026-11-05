@@ -26,7 +26,7 @@ const curlyQuotes: PluginDefinition = {
 }
 
 function setup({
-  content = [{ id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'ab' }] }],
+  content = [{ id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'ab' }] }],
   options,
   readOnly = false,
   withPlugin = true,
@@ -177,7 +177,7 @@ describe('special characters picker', () => {
 
   test('replaces a selection, as typing does', async () => {
     const { editor } = setup({
-      content: [{ id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: '10 kr' }] }]
+      content: [{ id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: '10 kr' }] }]
     })
     await openAt(editor, { anchor: { path: [0, 0], offset: 2 }, focus: { path: [0, 0], offset: 3 } })
 

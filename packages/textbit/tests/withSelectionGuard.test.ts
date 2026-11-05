@@ -11,14 +11,14 @@ function makeGuardedEditor(children: Descendant[]): Editor {
 const flatChildren: Descendant[] = [
   {
     id: 'a',
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     properties: {},
     children: [{ text: 'hello' }]
   },
   {
     id: 'b',
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     properties: {},
     children: [{ text: 'world' }]
@@ -28,7 +28,7 @@ const flatChildren: Descendant[] = [
 const nestedChildren: Descendant[] = [
   {
     id: 'a',
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     properties: {},
     children: [{ text: 'aaa' }]

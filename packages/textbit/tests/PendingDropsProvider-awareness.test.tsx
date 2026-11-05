@@ -10,9 +10,9 @@ import { usePendingDrops } from '../lib/hooks/usePendingDrops'
 
 function seed(): Descendant[] {
   return [
-    { id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'aaa' }] } as Descendant,
-    { id: 'b', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'bbb' }] } as Descendant,
-    { id: 'c', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'ccc' }] } as Descendant
+    { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'aaa' }] } as Descendant,
+    { id: 'b', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'bbb' }] } as Descendant,
+    { id: 'c', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'ccc' }] } as Descendant
   ]
 }
 

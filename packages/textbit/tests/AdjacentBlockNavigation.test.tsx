@@ -131,7 +131,7 @@ describe('Enter with adjacent block state', () => {
 
     expect(editor.children).toHaveLength(4)
     // New text node pushed in at index 1; non-text block moves to index 2
-    expect(editor.children[1]).toMatchObject({ type: 'core/text', class: 'text' })
+    expect(editor.children[1]).toMatchObject({ type: 'base/text', class: 'text' })
     expect(editor.children[2]).toMatchObject({ id: 'non-text-block' })
     expect(setAdjacentBlock).toHaveBeenCalledWith(null)
   })
@@ -146,7 +146,7 @@ describe('Enter with adjacent block state', () => {
     expect(editor.children).toHaveLength(4)
     // Non-text block stays at index 1; new text node at index 2
     expect(editor.children[1]).toMatchObject({ id: 'non-text-block' })
-    expect(editor.children[2]).toMatchObject({ type: 'core/text', class: 'text' })
+    expect(editor.children[2]).toMatchObject({ type: 'base/text', class: 'text' })
     // Original 'text-after-block' shifts to index 3
     expect(editor.children[3]).toMatchObject({ id: 'text-after-block' })
     expect(setAdjacentBlock).toHaveBeenCalledWith(null)

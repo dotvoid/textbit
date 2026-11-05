@@ -60,7 +60,7 @@ describe('ParentElement wrapper attributes', () => {
     test('emits data-id from element.id and data-type from element.type', () => {
       const { container } = renderEditor([
         {
-          type: 'core/text',
+          type: 'base/text',
           class: 'text',
           id: 'attr-basic',
           properties: {},
@@ -70,7 +70,7 @@ describe('ParentElement wrapper attributes', () => {
 
       const wrapper = container.querySelector('[data-slate-node="element"][data-id="attr-basic"]')
       expect(wrapper).not.toBeNull()
-      expect(wrapper?.getAttribute('data-type')).toBe('core/text')
+      expect(wrapper?.getAttribute('data-type')).toBe('base/text')
     })
   })
 
@@ -78,7 +78,7 @@ describe('ParentElement wrapper attributes', () => {
     test('emits data-role when properties.role is a non-empty string', () => {
       const { container } = renderEditor([
         {
-          type: 'core/text',
+          type: 'base/text',
           class: 'text',
           id: 'role-set',
           properties: { role: 'heading-1' },
@@ -93,7 +93,7 @@ describe('ParentElement wrapper attributes', () => {
     test('omits data-role when properties.role is missing', () => {
       const { container } = renderEditor([
         {
-          type: 'core/text',
+          type: 'base/text',
           class: 'text',
           id: 'role-missing',
           properties: {},
@@ -108,7 +108,7 @@ describe('ParentElement wrapper attributes', () => {
     test('omits data-role when properties.role is an empty string', () => {
       const { container } = renderEditor([
         {
-          type: 'core/text',
+          type: 'base/text',
           class: 'text',
           id: 'role-empty',
           properties: { role: '' },
@@ -125,7 +125,7 @@ describe('ParentElement wrapper attributes', () => {
     test('uses element.lang when set', () => {
       const { container } = renderEditor([
         {
-          type: 'core/text',
+          type: 'base/text',
           class: 'text',
           id: 'lang-element',
           lang: 'sv-se',
@@ -142,7 +142,7 @@ describe('ParentElement wrapper attributes', () => {
       const { container } = renderEditor(
         [
           {
-            type: 'core/text',
+            type: 'base/text',
             class: 'text',
             id: 'lang-editor',
             properties: {},
@@ -161,14 +161,14 @@ describe('ParentElement wrapper attributes', () => {
     test('defaults to inactive when the block is not focused', () => {
       const { container } = renderEditor([
         {
-          type: 'core/text',
+          type: 'base/text',
           class: 'text',
           id: 'state-a',
           properties: {},
           children: [{ text: 'First' }]
         },
         {
-          type: 'core/text',
+          type: 'base/text',
           class: 'text',
           id: 'state-b',
           properties: {},

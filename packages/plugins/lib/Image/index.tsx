@@ -6,7 +6,7 @@ import { ChildPlaceholder } from '../shared/ChildPlaceholder'
 import { pickFiles, safeMediaSrc, uploadConsumer } from '../shared/media'
 import { imageNode, type ImageUpload } from './imageNode'
 
-const TYPE = 'core/image'
+const TYPE = 'base/image'
 
 export type ImageLabels = {
   /** The insert action's name in menus and for screen readers */

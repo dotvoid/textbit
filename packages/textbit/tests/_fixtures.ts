@@ -5,7 +5,7 @@ import type { Descendant } from 'slate'
  */
 export const basicEditorContent: Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     id: 'be0ec554-839d-413c-9140-c408cb213f1e',
     class: 'text',
     children: [
@@ -16,7 +16,7 @@ export const basicEditorContent: Descendant[] = [
     }
   },
   {
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     id: 'fc542b22-6046-49d8-8eae-56a8597599a3',
     children: [{ text: 'This is paragraph' }],
@@ -29,7 +29,7 @@ export const basicEditorContent: Descendant[] = [
  */
 export const simpleTextContent: Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     id: 'simple-text-1',
     properties: {},
@@ -42,7 +42,7 @@ export const simpleTextContent: Descendant[] = [
  */
 export const unicodeTextContent: Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     id: 'unicode-text-1',
     properties: {},
@@ -55,7 +55,7 @@ export const unicodeTextContent: Descendant[] = [
  */
 export const vignetteContent: Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     id: 'vignette-1',
     properties: { role: 'vignette' },
@@ -68,14 +68,14 @@ export const vignetteContent: Descendant[] = [
  */
 export const multipleNodesContent: Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     id: 'multi-1',
     properties: {},
     children: [{ text: 'One' }]
   },
   {
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     id: 'multi-2',
     properties: {},
@@ -88,7 +88,7 @@ export const multipleNodesContent: Descendant[] = [
  */
 export const nonWordCharsContent: Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     id: 'non-word-1',
     properties: {},
@@ -101,7 +101,7 @@ export const nonWordCharsContent: Descendant[] = [
  */
 export const nonTextClassContent: Descendant[] = [
   {
-    type: 'core/image',
+    type: 'base/image',
     class: 'block',
     id: 'image-1',
     children: [{ text: 'test' }]
@@ -113,7 +113,7 @@ export const nonTextClassContent: Descendant[] = [
  */
 export const imageWithTextClassContent: Descendant[] = [
   {
-    type: 'core/image',
+    type: 'base/image',
     class: 'text',
     id: 'image-text-1',
     children: [{ text: 'test' }]
@@ -127,7 +127,7 @@ export const factboxContent: Descendant[] = [
   {
     id: 'd653b9ff-fe7e-469c-8438-4e00c4b75570',
     class: 'text',
-    type: 'core/factbox/title',
+    type: 'base/factbox/title',
     children: [
       {
         text: 'Fakta: Schimpans'
@@ -137,11 +137,11 @@ export const factboxContent: Descendant[] = [
   {
     id: 'a73c880b-3a63-4138-906c-d039b0dbd9af',
     class: 'block',
-    type: 'core/factbox/body',
+    type: 'base/factbox/body',
     children: [
       {
         id: 'ef166300-2d05-4182-ab9b-235310562914',
-        type: 'core/text',
+        type: 'base/text',
         properties: {},
         class: 'text',
         children: [
@@ -159,7 +159,7 @@ export const factboxContent: Descendant[] = [
  */
 export const emptyEditorContent: Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     id: 'empty-node',
     properties: {},
@@ -172,20 +172,20 @@ export const emptyEditorContent: Descendant[] = [
  */
 export const adjacentBlockContent: Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     id: 'text-before-block',
     class: 'text',
     properties: {},
     children: [{ text: 'Before' }]
   },
   {
-    type: 'core/image',
+    type: 'base/image',
     id: 'non-text-block',
     class: 'block',
     children: [
       {
         id: 'non-text-block-body',
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         properties: {},
         children: [{ text: 'Block content' }]
@@ -193,7 +193,7 @@ export const adjacentBlockContent: Descendant[] = [
     ]
   },
   {
-    type: 'core/text',
+    type: 'base/text',
     id: 'text-after-block',
     class: 'text',
     properties: {},
@@ -206,30 +206,30 @@ export const adjacentBlockContent: Descendant[] = [
  * sandwiched by text blocks. Mirrors a real image plugin structure where
  * the first child is void (the image) and the second is editable text (the caption).
  *
- * Using core/text as the text child type so editor.isVoid returns false for it
+ * Using base/text as the text child type so editor.isVoid returns false for it
  * in the test environment (where only standard plugins are registered).
  */
 export const consecutiveBlocksContent: Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     id: 'para-before',
     class: 'text',
     properties: {},
     children: [{ text: 'Before' }]
   },
   {
-    type: 'core/image',
+    type: 'base/image',
     id: 'block-1',
     class: 'block',
     children: [
       {
-        type: 'core/image/image',
+        type: 'base/image/image',
         class: 'void',
         children: [{ text: '' }]
       },
       {
         id: 'block-1-text',
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         properties: {},
         children: [{ text: 'Caption 1' }]
@@ -237,18 +237,18 @@ export const consecutiveBlocksContent: Descendant[] = [
     ]
   },
   {
-    type: 'core/image',
+    type: 'base/image',
     id: 'block-2',
     class: 'block',
     children: [
       {
-        type: 'core/image/image',
+        type: 'base/image/image',
         class: 'void',
         children: [{ text: '' }]
       },
       {
         id: 'block-2-text',
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         properties: {},
         children: [{ text: 'Caption 2' }]
@@ -256,7 +256,7 @@ export const consecutiveBlocksContent: Descendant[] = [
     ]
   },
   {
-    type: 'core/text',
+    type: 'base/text',
     id: 'para-after',
     class: 'text',
     properties: {},
@@ -269,7 +269,7 @@ export const consecutiveBlocksContent: Descendant[] = [
  */
 export const formattedTextContent: Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     id: 'formatted-1',
     properties: {},

@@ -71,7 +71,7 @@ const insertTestBlock = ({ editor }: ActionHandlerArgs): boolean => {
     children: [
       {
         id: crypto.randomUUID(),
-        type: 'core/text',
+        type: 'base/text',
         class: 'text' as const,
         children: [{ text: 'This is editable text inside the test block. Use arrow keys to navigate around this block!' }]
       }

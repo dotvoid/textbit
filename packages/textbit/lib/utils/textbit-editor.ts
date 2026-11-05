@@ -12,6 +12,7 @@ import {
   type Descendant,
 } from 'slate'
 import { TextbitElement } from './textbit-element'
+import { TEXT_TYPE } from './textType'
 
 interface TextbitEditorInterface extends EditorInterface {
   position: (editor: Editor) => number
@@ -229,7 +230,7 @@ export const TextbitEditor: TextbitEditorInterface = {
    * @todo Store selection and restore it after transforms
    *
    * @param editor Editor
-   * @param type string i.e core/text
+   * @param type string i.e base/text
    * @param role string e.g heading-1, preamble (or even undefined for body text) - Optional
    */
   convertToTextNode(editor, type, role = undefined) {
@@ -253,7 +254,7 @@ export const TextbitEditor: TextbitEditorInterface = {
       for (let n = 0; n < targetNodes.length; n++) {
         const [child, childPath] = targetNodes[n]
 
-        if (!TextbitElement.isOfType(child, 'core/text') && TextbitElement.isText(child)) {
+        if (!TextbitElement.isOfType(child, TEXT_TYPE) && TextbitElement.isText(child)) {
           const id = child.id
           Transforms.removeNodes(editor, { at: childPath })
 
@@ -270,10 +271,10 @@ export const TextbitEditor: TextbitEditorInterface = {
               { at: childPath }
             )
             editor.select({ anchor: { path: childPath.concat(0), offset: 0 }, focus: { path: childPath.concat(0), offset: 0 } })
-        } else if (TextbitElement.isOfType(child, 'core/text')) {
+        } else if (TextbitElement.isOfType(child, TEXT_TYPE)) {
           Transforms.setNodes(
             editor,
-            { type: 'core/text', properties: role ? { role } : {} },
+            { type: TEXT_TYPE, properties: role ? { role } : {} },
             { at: childPath }
           )
         }

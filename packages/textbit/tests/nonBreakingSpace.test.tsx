@@ -17,7 +17,7 @@ const NBSP = String.fromCharCode(0xa0)
 const ctrlShiftSpace = { key: ' ', code: 'Space', keyCode: 32, which: 32, ctrlKey: true, shiftKey: true }
 
 function makeEditor(content: Descendant[] = [
-  { id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'ab' }] }
+  { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'ab' }] }
 ], plugins?: PluginDefinition[]) {
   let editor: Editor | undefined
   function Capture() {
@@ -82,7 +82,7 @@ describe('Ctrl+Shift+Space - non-breaking space', () => {
 
   test('replaces a selection, the same as typing does', () => {
     const { editor, editable } = makeEditor([
-      { id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: '10 kr' }] }
+      { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: '10 kr' }] }
     ])
     act(() => Transforms.select(editor, {
       anchor: { path: [0, 0], offset: 2 },
@@ -132,7 +132,7 @@ describe('Ctrl+Shift+Space - non-breaking space', () => {
   })
 
   test('a host plugin named core/nbsp replaces it', () => {
-    // Passing plugins drops the standard set, so core/text is added back
+    // Passing plugins drops the standard set, so base/text is added back
     const { editor, editable } = makeEditor(undefined, [
       ...StandardPlugins.map((p) => p()),
       { class: 'generic', name: 'core/nbsp' }

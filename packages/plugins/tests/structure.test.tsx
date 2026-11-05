@@ -3,23 +3,23 @@ import type { Descendant } from 'slate'
 import { Audio, Blockquote, Image, OrderedList, Table, Text, UnorderedList, audioNode, imageNode } from '../lib'
 import { renderEditor } from './_editor'
 
-const cell = (t: string) => ({ id: crypto.randomUUID(), type: 'core/table/row/cell', class: 'text', children: [{ text: t }] })
+const cell = (t: string) => ({ id: crypto.randomUUID(), type: 'base/table/row/cell', class: 'text', children: [{ text: t }] })
 
 const doc: Descendant[] = [
-  { id: 'ul', type: 'core/unordered-list', class: 'text', children: [
-    { id: 'li', type: 'core/unordered-list/list-item', class: 'text', children: [{ text: 'One' }] }
+  { id: 'ul', type: 'base/unordered-list', class: 'text', children: [
+    { id: 'li', type: 'base/unordered-list/list-item', class: 'text', children: [{ text: 'One' }] }
   ] },
-  { id: 'ol', type: 'core/ordered-list', class: 'text', children: [
-    { id: 'li2', type: 'core/ordered-list/list-item', class: 'text', children: [{ text: 'Two' }] }
+  { id: 'ol', type: 'base/ordered-list', class: 'text', children: [
+    { id: 'li2', type: 'base/ordered-list/list-item', class: 'text', children: [{ text: 'Two' }] }
   ] },
-  { id: 't', type: 'core/table', class: 'block', children: [
-    { id: 'r', type: 'core/table/row', class: 'block', children: [cell('a'), cell('b')] }
+  { id: 't', type: 'base/table', class: 'block', children: [
+    { id: 'r', type: 'base/table/row', class: 'block', children: [cell('a'), cell('b')] }
   ] },
   imageNode({ src: 'https://example.com/a.jpg', alt: 'A' }, 'Caption'),
   audioNode({ src: 'https://example.com/a.mp3' }, 'Caption'),
-  { id: 'q', type: 'core/blockquote', class: 'block', children: [
-    { id: 'qb', type: 'core/blockquote/body', class: 'text', children: [{ text: 'Quote' }] },
-    { id: 'qc', type: 'core/blockquote/citation', class: 'text', children: [{ text: 'Source' }] }
+  { id: 'q', type: 'base/blockquote', class: 'block', children: [
+    { id: 'qb', type: 'base/blockquote/body', class: 'text', children: [{ text: 'Quote' }] },
+    { id: 'qc', type: 'base/blockquote/citation', class: 'text', children: [{ text: 'Source' }] }
   ] }
 ] as Descendant[]
 
@@ -48,7 +48,7 @@ describe('valid HTML structure', () => {
   test('media blocks render the spacer Slate puts the caret on', () => {
     // Without it, selecting an image leaves no caret, and keys act elsewhere
     const container = render()
-    for (const type of ['core/image/content', 'core/audio/content']) {
+    for (const type of ['base/image/content', 'base/audio/content']) {
       expect(container.querySelector(`[data-type="${type}"] [data-slate-spacer]`)).not.toBeNull()
     }
   })
@@ -56,6 +56,6 @@ describe('valid HTML structure', () => {
   test('the elements still carry the editor\'s attributes', () => {
     const td = render().querySelector('td')!
     expect(td.getAttribute('data-slate-node')).toBe('element')
-    expect(td.getAttribute('data-type')).toBe('core/table/row/cell')
+    expect(td.getAttribute('data-type')).toBe('base/table/row/cell')
   })
 })

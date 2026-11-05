@@ -1,12 +1,13 @@
 import { Editor, Element, Node } from 'slate'
 import type { NodeEntry } from 'slate'
 import type { TextbitStats } from '../contexts/TextbitContext'
+import { TEXT_TYPE } from './textType'
 
 export function calculateStats(editor: Editor): TextbitStats {
   const textNodesArticle = Array.from(Editor.nodes(editor, {
     at: [],
     match: (n, path) => Element.isElement(n)
-      && ['core/text'].includes(n.type || '')
+      && [TEXT_TYPE].includes(n.type || '')
       && n.properties?.role !== 'vignette' // FIXME: This is userland conditions
       && path.length === 1
   }))

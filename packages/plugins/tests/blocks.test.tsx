@@ -5,7 +5,7 @@ import { CodeBlock, Link, LocalizedQuotationMarks, OrderedList, Table, Text, Uno
 import { pressKey, renderEditor, settle } from './_editor'
 
 const paragraphs = (...texts: string[]): Descendant[] =>
-  texts.map((text, i) => ({ id: `p${i}`, type: 'core/text', class: 'text', properties: {}, children: [{ text }] }))
+  texts.map((text, i) => ({ id: `p${i}`, type: 'base/text', class: 'text', properties: {}, children: [{ text }] }))
 
 const types = (editor: Editor) => editor.children.map((n) => (n as Element).type)
 const editableOf = (container: HTMLElement) => container.querySelector('[data-slate-editor]') as HTMLElement
@@ -17,17 +17,17 @@ describe('lists', () => {
     const { editor, container, run } = renderEditor(plugins(), paragraphs('One'))
     act(() => Transforms.select(editor, Editor.end(editor, [0])))
 
-    run('core/unordered-list/toggle')
+    run('base/unordered-list/toggle')
     await settle()
-    expect(types(editor)).toEqual(['core/unordered-list'])
+    expect(types(editor)).toEqual(['base/unordered-list'])
     expect(container.querySelector('ul li')?.textContent).toBe('One')
 
-    run('core/ordered-list/toggle')
+    run('base/ordered-list/toggle')
     await settle()
     expect(container.querySelector('ol li')?.textContent).toBe('One')
 
-    run('core/ordered-list/toggle')
-    expect(types(editor)).toEqual(['core/text'])
+    run('base/ordered-list/toggle')
+    expect(types(editor)).toEqual(['base/text'])
   })
 
   test('Enter on the last item adds an item; on an empty last item leaves the list', async () => {
@@ -35,8 +35,8 @@ describe('lists', () => {
     const editable = editableOf(container)
     act(() => Transforms.select(editor, Editor.end(editor, [0])))
     act(() => {
-      Transforms.setNodes(editor, { type: 'core/unordered-list/list-item' })
-      Transforms.wrapNodes(editor, { id: 'l', class: 'text', type: 'core/unordered-list', children: [] })
+      Transforms.setNodes(editor, { type: 'base/unordered-list/list-item' })
+      Transforms.wrapNodes(editor, { id: 'l', class: 'text', type: 'base/unordered-list', children: [] })
     })
     act(() => Transforms.select(editor, Editor.end(editor, [0, 0])))
 
@@ -44,7 +44,7 @@ describe('lists', () => {
     expect((editor.children[0] as Element).children).toHaveLength(2)
 
     pressKey(editable, 'Enter')
-    expect(types(editor)).toEqual(['core/unordered-list', 'core/text'])
+    expect(types(editor)).toEqual(['base/unordered-list', 'base/text'])
     expect((editor.children[0] as Element).children).toHaveLength(1)
     expect(editor.selection?.anchor.path).toEqual([1, 0])
   })
@@ -72,11 +72,11 @@ describe('code block and table share Tab', () => {
     const editable = editableOf(container)
     act(() => Transforms.select(editor, Editor.end(editor, [0])))
 
-    run('core/code-block/insert')
-    run('core/table/insert')
+    run('base/code-block/insert')
+    run('base/table/insert')
     await settle()
     // Inserting moves the caret into the new block, so the table follows the code block
-    expect(types(editor)).toEqual(['core/text', 'core/code-block', 'core/table'])
+    expect(types(editor)).toEqual(['base/text', 'base/code-block', 'base/table'])
 
     // In the code block
     act(() => Transforms.select(editor, Editor.start(editor, [1])))
@@ -95,7 +95,7 @@ describe('code block and table share Tab', () => {
     const { editor, container, run } = renderEditor(plugins(), paragraphs('Hello'))
     const editable = editableOf(container)
     act(() => Transforms.select(editor, Editor.end(editor, [0])))
-    run('core/table/insert')
+    run('base/table/insert')
     await settle()
 
     act(() => Transforms.select(editor, Editor.start(editor, [1, 1, 1])))
@@ -120,7 +120,7 @@ describe('table', () => {
   test('a new table is 2 by 2, or the size asked for', async () => {
     const { editor, run } = renderEditor([Text(), Table({ rows: 3, columns: 4 })], paragraphs('Hello'))
     act(() => Transforms.select(editor, Editor.end(editor, [0])))
-    run('core/table/insert')
+    run('base/table/insert')
     const table = editor.children[1] as Element
     expect(table.children).toHaveLength(3)
     expect((table.children[0] as Element).children).toHaveLength(4)
@@ -128,49 +128,49 @@ describe('table', () => {
 
   test('row and column actions show with the caret in a cell', () => {
     const rowAbove = Table().actions!.find((a) => a.name === 'row-above')!
-    const table = { type: 'core/table' } as Element
-    const cell = { type: 'core/table/row/cell' } as Element
+    const table = { type: 'base/table' } as Element
+    const cell = { type: 'base/table/row/cell' } as Element
     expect(rowAbove.visibility!(table, cell)).toEqual([true, true, false])
-    expect(rowAbove.visibility!({ type: 'core/text' } as Element)).toEqual([false, false, false])
+    expect(rowAbove.visibility!({ type: 'base/text' } as Element)).toEqual([false, false, false])
   })
 
   test('rows and columns can be added and removed, never the last one', async () => {
     const { editor, run } = renderEditor([Text(), Table()], paragraphs('Hello'))
     act(() => Transforms.select(editor, Editor.end(editor, [0])))
-    run('core/table/insert')
+    run('base/table/insert')
     const table = () => editor.children[1] as Element
     const width = () => (table().children[0] as Element).children.length
     act(() => Transforms.select(editor, Editor.start(editor, [1, 0, 0])))
 
-    run('core/table/row-below')
-    run('core/table/column-right')
+    run('base/table/row-below')
+    run('base/table/column-right')
     expect([table().children.length, width()]).toEqual([3, 3])
 
-    run('core/table/delete-row')
-    run('core/table/delete-row')
-    run('core/table/delete-row')
-    run('core/table/delete-column')
-    run('core/table/delete-column')
-    run('core/table/delete-column')
+    run('base/table/delete-row')
+    run('base/table/delete-row')
+    run('base/table/delete-row')
+    run('base/table/delete-column')
+    run('base/table/delete-column')
+    run('base/table/delete-column')
     expect([table().children.length, width()]).toEqual([1, 1])
   })
 
   test('the actions do nothing outside a table', () => {
     const { editor, run } = renderEditor([Text(), Table()], paragraphs('Hello'))
     act(() => Transforms.select(editor, Editor.end(editor, [0])))
-    run('core/table/row-below')
-    expect(types(editor)).toEqual(['core/text'])
+    run('base/table/row-below')
+    expect(types(editor)).toEqual(['base/text'])
   })
 
   test('short rows are padded to the widest', () => {
     const { editor } = renderEditor([Text(), Table()], [{
-      id: 't', class: 'block', type: 'core/table', children: [
-        { id: 'r1', class: 'block', type: 'core/table/row', children: [
-          { id: 'c1', class: 'text', type: 'core/table/row/cell', children: [{ text: 'a' }] },
-          { id: 'c2', class: 'text', type: 'core/table/row/cell', children: [{ text: 'b' }] }
+      id: 't', class: 'block', type: 'base/table', children: [
+        { id: 'r1', class: 'block', type: 'base/table/row', children: [
+          { id: 'c1', class: 'text', type: 'base/table/row/cell', children: [{ text: 'a' }] },
+          { id: 'c2', class: 'text', type: 'base/table/row/cell', children: [{ text: 'b' }] }
         ] },
-        { id: 'r2', class: 'block', type: 'core/table/row', children: [
-          { id: 'c3', class: 'text', type: 'core/table/row/cell', children: [{ text: 'c' }] }
+        { id: 'r2', class: 'block', type: 'base/table/row', children: [
+          { id: 'c3', class: 'text', type: 'base/table/row/cell', children: [{ text: 'c' }] }
         ] }
       ]
     } as Descendant])
@@ -181,9 +181,9 @@ describe('table', () => {
 
 describe('link', () => {
   const linked = (href: string): Descendant[] => [{
-    id: 'p', type: 'core/text', class: 'text', properties: {}, children: [
+    id: 'p', type: 'base/text', class: 'text', properties: {}, children: [
       { text: 'See ' },
-      { id: 'l', class: 'inline', type: 'core/link', properties: { href }, children: [{ text: 'this' }] },
+      { id: 'l', class: 'inline', type: 'base/link', properties: { href }, children: [{ text: 'this' }] },
       { text: '' }
     ]
   } as Descendant]
@@ -210,7 +210,7 @@ describe('link', () => {
     vi.useFakeTimers()
     const { editor, container, run } = renderEditor([Text(), Link()], paragraphs('Hello world'))
     act(() => Transforms.select(editor, { anchor: { path: [0, 0], offset: 0 }, focus: { path: [0, 0], offset: 5 } }))
-    run('core/link/edit')
+    run('base/link/edit')
     act(() => vi.runAllTimers())
     vi.useRealTimers()
     await settle()

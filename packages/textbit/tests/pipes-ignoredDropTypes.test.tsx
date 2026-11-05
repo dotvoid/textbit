@@ -7,7 +7,7 @@ import { pipeFromDrop } from '../lib/utils/pipes'
 function makeEditor(): Editor {
   const editor = withReact(createEditor())
   editor.children = [
-    { id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'aaa' }] } as Descendant
+    { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'aaa' }] } as Descendant
   ]
   return editor
 }
@@ -15,7 +15,7 @@ function makeEditor(): Editor {
 function imageConsumerPlugin(consume: ConsumeFunction) {
   return {
     class: 'block' as const,
-    name: 'core/image',
+    name: 'base/image',
     componentEntry: {
       class: 'block' as const,
       component: () => null,
@@ -23,7 +23,7 @@ function imageConsumerPlugin(consume: ConsumeFunction) {
     },
     consumer: {
       consumes: ({ input }: { input: { type: string } }) =>
-        [input.type.startsWith('image/'), 'core/image', false] as [boolean, string, boolean],
+        [input.type.startsWith('image/'), 'base/image', false] as [boolean, string, boolean],
       consume
     }
   }
@@ -31,8 +31,8 @@ function imageConsumerPlugin(consume: ConsumeFunction) {
 
 const insertsAnImage: ConsumeFunction = () => Promise.resolve({
   source: 'test',
-  type: 'core/image',
-  data: { id: 'img1', type: 'core/image', class: 'block', properties: {}, children: [{ text: '' }] } as Element
+  type: 'base/image',
+  data: { id: 'img1', type: 'base/image', class: 'block', properties: {}, children: [{ text: '' }] } as Element
 })
 
 /** Build a drop event carrying one string item per mime type. */

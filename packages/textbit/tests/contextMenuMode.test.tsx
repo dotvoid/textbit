@@ -9,7 +9,7 @@ import type { ContextMenuMode } from '../lib/hooks/useContextMenu'
 import type { SpellingError } from '../lib/types'
 
 const content: Descendant[] = [
-  { id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'This is teh text' }] }
+  { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'This is teh text' }] }
 ]
 
 // Marks "teh" as misspelled

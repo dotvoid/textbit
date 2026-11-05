@@ -36,7 +36,7 @@ export function App() {
         // demonstrates Shift+Enter producing a `\n` (rendered by the
         // newline visualization).
         const def = p()
-        if (def.name === 'core/text' && def.componentEntry) {
+        if (def.name === 'base/text' && def.componentEntry) {
           return {
             ...def,
             componentEntry: {

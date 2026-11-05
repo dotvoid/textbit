@@ -7,7 +7,7 @@ import { LinkIcon, LinkOffIcon } from '../shared/icons'
 import { hotkeyOption } from '../shared/hotkey'
 import { isValidLink, sanitizeLink } from './isValidLink'
 
-const TYPE = 'core/link'
+const TYPE = 'base/link'
 
 export type LinkLabels = {
   /** The action's name in menus and for screen readers */
