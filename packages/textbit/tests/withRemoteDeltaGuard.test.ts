@@ -16,7 +16,7 @@ import { withRemoteDeltaGuard } from '../lib/with/withRemoteDeltaGuard'
 function paragraph(id: string, text: string): Descendant {
   return {
     id,
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     properties: {},
     children: [{ text }]

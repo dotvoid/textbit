@@ -1,5 +1,6 @@
 import { Editor, Element, type Point, Transforms } from 'slate'
 import type { AdjacentBlockState } from '../../../contexts/AdjacentBlockContext'
+import { TEXT_TYPE } from '../../../utils/textType'
 
 // ---------------------------------------------------------------------------
 // Child-index helpers
@@ -67,7 +68,7 @@ export function insertParagraphBeside(editor: Editor, adjacentBlock: AdjacentBlo
   Transforms.insertNodes(editor, {
     id: crypto.randomUUID(),
     class: 'text',
-    type: 'core/text',
+    type: TEXT_TYPE,
     children: [{ text: '' }]
   }, { at: [insertIndex] })
   Transforms.select(editor, Editor.start(editor, [insertIndex]))

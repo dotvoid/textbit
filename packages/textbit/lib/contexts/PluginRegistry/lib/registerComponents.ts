@@ -67,7 +67,7 @@ const registerComponent = (
 
     registerComponent(
       components,
-      `${componentType}/${childComponent.type}`, // Aggregated type identifier (e.g. core/image/caption)
+      `${componentType}/${childComponent.type}`, // Aggregated type identifier (e.g. base/image/caption)
       childComponent,
       {
         verbose: options.verbose,

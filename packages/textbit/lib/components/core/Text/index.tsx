@@ -1,11 +1,12 @@
 import { TextbitEditor } from '../../../utils/textbit-editor'
 import { PluginInitFunction, ComponentProps } from '../../../types'
+import { TEXT_TYPE } from '../../../utils/textType'
 
 
 export const Text: PluginInitFunction = () => {
   return {
     class: 'text',
-    name: 'core/text',
+    name: TEXT_TYPE,
     componentEntry: {
       class: 'text',
       component: TextComponent,
@@ -15,13 +16,13 @@ export const Text: PluginInitFunction = () => {
       name: 'set-text',
       title: 'Text',
       handler: ({ editor }) => {
-        TextbitEditor.convertToTextNode(editor, 'core/text')
+        TextbitEditor.convertToTextNode(editor, TEXT_TYPE)
       },
       visibility: (element) => {
         return [
-          element.type === 'core/text',
+          element.type === TEXT_TYPE,
           true,
-          element.type === 'core/text' && !element?.properties?.role
+          element.type === TEXT_TYPE && !element?.properties?.role
         ]
       }
     }]

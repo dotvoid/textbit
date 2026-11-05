@@ -309,10 +309,10 @@ describe('child constraints — normalizer (ordering)', () => {
 // ---------------------------------------------------------------------------
 
 describe('child constraints — no constraints means no interference', () => {
-  test('top-level core/text paragraphs are unaffected', () => {
+  test('top-level base/text paragraphs are unaffected', () => {
     const content: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         id: 'p1',
         class: 'text',
         properties: {},
@@ -322,7 +322,7 @@ describe('child constraints — no constraints means no interference', () => {
     const editor = makeEditor(content, [])
 
     expect(editor.children).toHaveLength(1)
-    expect((editor.children[0] as Element).type).toBe('core/text')
+    expect((editor.children[0] as Element).type).toBe('base/text')
   })
 })
 
@@ -410,7 +410,7 @@ describe('child constraints — paste flattening', () => {
 
   test('pasting a block fragment into a top-level paragraph still splits (existing behavior)', () => {
     const content: Descendant[] = [
-      { type: 'core/text', id: 'p1', class: 'text', properties: {}, children: [{ text: 'BeforeAfter' }] }
+      { type: 'base/text', id: 'p1', class: 'text', properties: {}, children: [{ text: 'BeforeAfter' }] }
     ]
     const editor = makeEditor(content, [])
 
@@ -421,14 +421,14 @@ describe('child constraints — paste flattening', () => {
 
     const fragment: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'block',
         properties: {},
         children: [{ text: 'MID' }]
       },
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'block-x',
         properties: {},
@@ -561,7 +561,7 @@ describe('child constraints — intent coverage', () => {
 
     const textFragment: Descendant[] = [
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'f1',
         properties: {},

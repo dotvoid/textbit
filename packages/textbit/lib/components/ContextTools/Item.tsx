@@ -104,7 +104,7 @@ export function Item({ action, className, children }: {
   )
 }
 
-/** `core/bold/toggle-bold` -> `Toggle bold`, for actions without a title */
+/** `base/bold/toggle-bold` -> `Toggle bold`, for actions without a title */
 function humanize(name: string): string {
   const text = (name.split('/').pop() ?? name).replace(/[-_]+/g, ' ').trim()
   return text.charAt(0).toUpperCase() + text.slice(1)

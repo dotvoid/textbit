@@ -306,7 +306,7 @@ export type GetLeafStyle = () => React.CSSProperties | string
  * Definition of a function that should answer whether the plugin wants to handle input data.
  * Returns an array with one, two or three values.
  * 1: Boolean: whether it consumes data or not
- * 2: string | null: Definition of what consumer function will produce (e.g core/image),
+ * 2: string | null: Definition of what consumer function will produce (e.g base/image),
  *  undefined if first value is false, can be null if nothing is produced.
  * 3. Boolean: whether it wants to consume data in bulk (true) or individually (default).
  *

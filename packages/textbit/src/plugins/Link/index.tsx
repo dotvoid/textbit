@@ -16,7 +16,7 @@ import { actionHandler as handler } from './lib/actionHandler'
 const Link: TBPluginInitFunction = () => {
   return {
     class: 'inline',
-    name: 'core/link',
+    name: 'base/link',
     componentEntry: {
       class: 'inline',
       component: LinkComponent

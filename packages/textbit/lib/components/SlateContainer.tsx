@@ -27,6 +27,7 @@ import { withInsertFragment } from '../with/withInsertFragment'
 import { withTrimWhitespace } from '../with/withTrimWhitespace'
 import { withSelectionGuard } from '../with/withSelectionGuard'
 import { withRemoteDeltaGuard } from '../with/withRemoteDeltaGuard'
+import { TEXT_TYPE } from '../utils/textType'
 
 interface SlateContainerBaseProps {
   children: React.ReactNode
@@ -202,7 +203,7 @@ function stringToDescentant(value: string): Descendant[] {
   return value.split('\n').map((text) => {
     return {
       id: crypto.randomUUID(),
-      type: 'core/text',
+      type: TEXT_TYPE,
       class: 'text',
       children: [{ text }]
     }

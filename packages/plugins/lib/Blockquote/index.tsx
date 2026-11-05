@@ -4,7 +4,7 @@ import { ChildPlaceholder } from '../shared/ChildPlaceholder'
 import { hotkeyOption } from '../shared/hotkey'
 import { insertBlockAfterCaret, textNode } from '../shared/insertBlock'
 
-const TYPE = 'core/blockquote'
+const TYPE = 'base/blockquote'
 
 export type BlockquoteLabels = {
   /** The insert action's name in menus and for screen readers */

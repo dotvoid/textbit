@@ -1,5 +1,5 @@
 import type { TBPluginDefinition, TBComponentProps } from '@dotvoid/textbit'
-import { TextbitEditor } from '@dotvoid/textbit'
+import { TextbitEditor, TEXT_TYPE } from '@dotvoid/textbit'
 import type { Element } from 'slate'
 import {
   ParagraphIcon,
@@ -35,7 +35,7 @@ const ICONS: Partial<Record<TextRole, () => React.ReactNode>> = {
 }
 
 /**
- * Paragraphs and headings. Replaces the editor's built-in `core/text` plugin and
+ * Paragraphs and headings. Replaces the editor's built-in `base/text` plugin and
  * keeps its document format: a paragraph has no role, a heading has the role
  * `heading-1` to `heading-6`, and renders as the matching h1 to h6.
  */
@@ -45,7 +45,7 @@ export const Text = (options: TextOptions = {}): TBPluginDefinition => {
 
   return {
     class: 'text',
-    name: 'core/text',
+    name: TEXT_TYPE,
     componentEntry: {
       class: 'text',
       component: TextComponent,
@@ -63,10 +63,10 @@ export const Text = (options: TextOptions = {}): TBPluginDefinition => {
       hotkey: hotkeyOption(options.hotkeys?.[role], `mod+alt+${role === 'paragraph' ? 0 : role.slice(-1)}`),
       visibility: (element: Element, innerElement?: Element) => {
         const target = innerElement ?? element
-        return [target.type === 'core/text', true, target.type === 'core/text' && roleOf(target) === role]
+        return [target.type === TEXT_TYPE, true, target.type === TEXT_TYPE && roleOf(target) === role]
       },
       handler: ({ editor }) => {
-        TextbitEditor.convertToTextNode(editor, 'core/text', role === 'paragraph' ? undefined : role)
+        TextbitEditor.convertToTextNode(editor, TEXT_TYPE, role === 'paragraph' ? undefined : role)
       }
     }))
   }

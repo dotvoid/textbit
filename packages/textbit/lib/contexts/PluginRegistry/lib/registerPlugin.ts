@@ -5,7 +5,7 @@ import type { PluginDefinition } from '../../../types'
  *
  * Replacement is a contract, not an accident: the last plugin
  * registered under a name wins and takes the earlier one's position.
- * Consumers rely on it to swap a base plugin (`core/text`) for their
+ * Consumers rely on it to swap a base plugin (`base/text`) for their
  * own, so it is reported only in verbose mode.
  *
  * @param registryPlugins PluginDefinition[]

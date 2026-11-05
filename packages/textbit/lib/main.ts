@@ -93,6 +93,9 @@ export {
 // Built in, exported to change or remove its key
 export { FocusToolbar, type FocusToolbarOptions as TBFocusToolbarOptions } from './components/core/FocusToolbar'
 
+// The type of a plain text block, which core creates on Enter, paste and more
+export { TEXT_TYPE } from './utils/textType'
+
 // Hooks
 export { useAction } from './hooks/useAction'
 export { usePluginRegistry } from './hooks/usePluginRegistry'

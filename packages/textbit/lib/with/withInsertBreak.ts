@@ -9,6 +9,7 @@ import {
 } from 'slate'
 import { type PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { TextbitElement } from '../utils/textbit-element'
+import { TEXT_TYPE } from '../utils/textType'
 
 export function withInsertBreak(editor: Editor, components: Map<string, PluginRegistryComponent>) {
   const { insertBreak } = editor
@@ -48,7 +49,7 @@ export function withInsertBreak(editor: Editor, components: Map<string, PluginRe
       Transforms.insertNodes(editor, {
         id: crypto.randomUUID(),
         class: 'text',
-        type: 'core/text',
+        type: TEXT_TYPE,
         children: [{ text: '' }]
       }, next ? { at: next } : undefined)
 

@@ -1,6 +1,7 @@
 import { Editor, Element, Transforms, type Descendant } from 'slate'
 import type { AdjacentBlockState } from '../contexts/AdjacentBlockContext'
 import type { BlockSelectionState } from '../contexts/BlockSelectionContext'
+import { TEXT_TYPE } from './textType'
 
 /**
  * Result describing how the paste should proceed after block-aware
@@ -92,7 +93,7 @@ export function prepareBlockAwarePaste(
     }
     const placeholder: Descendant = {
       id: crypto.randomUUID(),
-      type: 'core/text',
+      type: TEXT_TYPE,
       class: 'text',
       properties: {},
       children: [{ text: '' }]

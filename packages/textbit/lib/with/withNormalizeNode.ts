@@ -2,6 +2,7 @@ import { Editor, Element, Transforms, type NodeEntry, type Descendant } from 'sl
 import type { PluginDefinition, ChildComponentEntry } from '../types/textbit'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { TextbitElement } from '../utils/textbit-element'
+import { TEXT_TYPE } from '../utils/textType'
 
 export function withNormalizeNode(editor: Editor, _: PluginDefinition[], components: Map<string, PluginRegistryComponent>) {
   const { normalizeNode } = editor
@@ -21,19 +22,19 @@ export function withNormalizeNode(editor: Editor, _: PluginDefinition[], compone
       // (delete/merge or stray-text wrapping at the document root) or read back
       // from a Y.XmlText block that carries no `type` attribute. It renders as
       // "UNKNOWN OBJECT" and makes the document unsaveable. Coerce it to
-      // core/text - but only when it holds no block-level children (inline
+      // base/text - but only when it holds no block-level children (inline
       // nodes and text are fine); a node containing blocks is a container we
       // must not flatten. A node with an unknown *named* type is left untouched
       // so we never destroy content whose plugin merely isn't registered.
       if (
         path.length === 1
         && !node.type
-        && components.has('core/text')
+        && components.has(TEXT_TYPE)
         && hasNoBlockChildren(node)
       ) {
         Transforms.setNodes(
           editor,
-          { type: 'core/text', class: 'text', properties: {} },
+          { type: TEXT_TYPE, class: 'text', properties: {} },
           { at: path }
         )
         return
@@ -193,8 +194,8 @@ function rankForChildNode(fullChildType: string, childDefs: ChildComponentEntry[
 /**
  * True when none of the element's children is a block-level node - i.e. every
  * child is a text leaf or an inline element. Such content is safe to host
- * inside a core/text paragraph, so a typeless node holding only this can be
- * repaired to core/text without flattening any nested block structure.
+ * inside a base/text paragraph, so a typeless node holding only this can be
+ * repaired to base/text without flattening any nested block structure.
  */
 function hasNoBlockChildren(node: Element): boolean {
   return node.children.every(

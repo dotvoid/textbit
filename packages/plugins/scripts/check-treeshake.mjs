@@ -14,21 +14,21 @@ const external = Object.keys({ ...pkg.dependencies, ...pkg.peerDependencies })
 // types name each other on purpose, to switch a list between them, so they are
 // told apart by their titles.
 const markers = {
-  Bold: 'core/bold',
-  Italic: 'core/italic',
-  Underline: 'core/underline',
-  Strikethrough: 'core/strikethrough',
+  Bold: 'base/bold',
+  Italic: 'base/italic',
+  Underline: 'base/underline',
+  Strikethrough: 'base/strikethrough',
   Code: 'toggle-code',
   Text: 'set-paragraph',
   UnorderedList: 'Bullet list',
   OrderedList: 'Numbered list',
-  CodeBlock: 'core/code-block',
-  Table: 'core/table',
-  Link: 'core/link',
-  LocalizedQuotationMarks: 'core/localized-quotation-marks',
-  Image: 'core/image',
-  Audio: 'core/audio',
-  Blockquote: 'core/blockquote'
+  CodeBlock: 'base/code-block',
+  Table: 'base/table',
+  Link: 'base/link',
+  LocalizedQuotationMarks: 'base/localized-quotation-marks',
+  Image: 'base/image',
+  Audio: 'base/audio',
+  Blockquote: 'base/blockquote'
 }
 
 let failed = false

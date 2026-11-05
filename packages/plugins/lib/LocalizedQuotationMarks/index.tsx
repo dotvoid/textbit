@@ -10,7 +10,7 @@ import { consume } from './consume'
  */
 export const LocalizedQuotationMarks = (): TBPluginDefinition => ({
   class: 'generic',
-  name: 'core/localized-quotation-marks',
+  name: 'base/localized-quotation-marks',
   consumer: {
     consumes,
     consume

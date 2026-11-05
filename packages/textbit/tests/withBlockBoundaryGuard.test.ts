@@ -14,7 +14,7 @@ function makeChildren(): Descendant[] {
   return [
     {
       id: 'a',
-      type: 'core/text',
+      type: 'base/text',
       class: 'text',
       properties: {},
       children: [{ text: 'outside' }]
@@ -132,7 +132,7 @@ describe('withBlockBoundaryGuard - delete strips text, keeps structure', () => {
       ...makeChildren(),
       {
         id: 'tail',
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         properties: {},
         children: [{ text: 'tail' }]
@@ -322,14 +322,14 @@ describe('withBlockBoundaryGuard - non-crossing selections edit normally', () =>
     const editor = makeEditor([
       {
         id: 'a',
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         properties: {},
         children: [{ text: 'hello' }]
       },
       {
         id: 'b',
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         properties: {},
         children: [{ text: 'world' }]

@@ -6,7 +6,7 @@ import { ChildPlaceholder } from '../shared/ChildPlaceholder'
 import { pickFiles, safeMediaSrc, uploadConsumer } from '../shared/media'
 import { audioNode, type AudioUpload } from './audioNode'
 
-const TYPE = 'core/audio'
+const TYPE = 'base/audio'
 
 export type AudioLabels = {
   /** The insert action's name in menus and for screen readers */

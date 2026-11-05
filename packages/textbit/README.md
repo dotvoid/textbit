@@ -42,7 +42,7 @@ import type { TBElement } from '@dotvoid/textbit'
 
 const initialValue: TBElement[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     id: crypto.randomUUID(),
     class: 'text',
     children: [{ text: 'Hello world!' }]
@@ -156,7 +156,7 @@ import { Text, Bold, Italic } from '@dotvoid/textbit-plugins'
 
 const initialValue = Descendant[] = [
   {
-    type: 'core/text',
+    type: 'base/text',
     id: '538345e5-bacc-48f9-8ef1-a219891b6011',
     class: 'text',
     properties: {
@@ -167,14 +167,14 @@ const initialValue = Descendant[] = [
     ]
   },
   {
-    type: 'core/text',
+    type: 'base/text',
     id: '538345e5-bacc-48f9-8ef0-1219891b6024',
     class: 'text',
     children: [
       { text: 'This text editor was built on an island in the ' },
       {
         text: 'Baltic Sea',
-        'core/bold': true
+        'base/bold': true
       },
       {
         text: '.'
@@ -469,7 +469,7 @@ The marker is ephemeral, it lives in local React state (via `PendingDropsProvide
 | Attribute | Values | Description |
 |-----------|--------|-------------|
 | `data-source` | `"own" \| "peer"` | Whether this marker was initiated by this session (`"own"`) or received from another peer via awareness (`"peer"`). |
-| `data-kind` | `string` | The `produces` type declared by the plugin consumer (e.g. `"core/image"`) — free-form. |
+| `data-kind` | `string` | The `produces` type declared by the plugin consumer (e.g. `"base/image"`) — free-form. |
 
 #### PendingDrop
 
@@ -543,9 +543,9 @@ function UploadStatusBar() {
 
 ### Textbit.Plugins
 
-What an editor gets when you pass no plugins: a plain paragraph (`core/text`),
+What an editor gets when you pass no plugins: a plain paragraph (`base/text`),
 enough for a simple text field. It has no formatting. Core also uses
-`core/text` whenever it needs a new text block, e.g. on Enter or paste.
+`base/text` whenever it needs a new text block, e.g. on Enter or paste.
 
 ```tsx
 import { Textbit } from '@dotvoid/textbit'
@@ -563,11 +563,49 @@ import { Textbit } from '@dotvoid/textbit'
 
 #### Upgrading from 1.x
 
-Bold, italic and underline are no longer built in. Documents keep their
-`core/bold`, `core/italic` and `core/underline` marks, but nothing renders or
-toggles them until you register a plugin by those names, e.g. `Bold()`,
-`Italic()` and `Underline()` from `@dotvoid/textbit-plugins`, which use the
-same names. Its `Text()` replaces the plain paragraph and adds headings.
+Two things changed in 2.0, and both change what documents contain:
+
+- **Names.** Text, marks and the standard blocks are named `base/*`, not `core/*`:
+  `base/text`, `base/bold`, `base/italic`, `base/underline` and so on. `core/*`
+  is left for textbit's own features, which are never stored in a document.
+- **Formatting is a plugin.** Bold, italic and underline are no longer built in.
+  Register `Bold()`, `Italic()` and `Underline()` from `@dotvoid/textbit-plugins`.
+  Its `Text()` replaces the plain paragraph and adds headings.
+
+A 1.x document needs its names converted once, e.g. when it is loaded:
+
+```ts
+import type { Descendant } from 'slate'
+
+const rename = (name: string) => name.startsWith('core/') ? `base/${name.slice(5)}` : name
+
+/** Rename core/* types and marks in a textbit 1.x document to base/* */
+export function fromTextbit1(nodes: Descendant[]): Descendant[] {
+  return nodes.map((node) => {
+    // Marks are keys on text nodes, types are values on elements
+    const renamed = Object.fromEntries(Object.entries(node).map(([key, value]) => [
+      rename(key),
+      key === 'type' && typeof value === 'string'
+        ? rename(value)
+        : key === 'children' && Array.isArray(value) ? fromTextbit1(value) : value
+    ]))
+    return renamed as Descendant
+  })
+}
+```
+
+### Names
+
+Every element type and mark stored in a document has a namespace:
+
+| Namespace | Used for |
+|-----------|----------|
+| `base/*` | Text, marks and the standard blocks, from core and `@dotvoid/textbit-plugins` |
+| `core/*` | Textbit's own features, such as `core/nbsp`. Never stored in a document. |
+| your own | Your plugins, e.g. `acme/factbox`. Do not use `base/` or `core/`. |
+
+`TEXT_TYPE` (`base/text`) is the plain text block core creates on Enter, on
+paste, for an empty document and when it repairs a block without a type.
 
 ---
 
@@ -964,7 +1002,7 @@ interface TextbitStats {
 
 #### Statistics
 
-Full statistics includes all nodes of class `'text'` regardless of level. Short statistics only include top nodes of type `'core/text'`.
+Full statistics includes all nodes of class `'text'` regardless of level. Short statistics only include top nodes of type `'base/text'`.
 
 #### Example
 
@@ -1024,7 +1062,7 @@ function PluginList() {
 Get a specific action function from a plugin. Useful for programmatic control.
 
 ```typescript
-const myAction = useAction('core/image', 'upload-image')
+const myAction = useAction('base/image', 'upload-image')
 
 // Call it with optional arguments
 myAction({ file: imageFile, url: 'https://...' })
@@ -1034,7 +1072,7 @@ myAction({ file: imageFile, url: 'https://...' })
 
 ```tsx
 function ImageUploader() {
-  const uploadImage = useAction('core/image', 'insert-image')
+  const uploadImage = useAction('base/image', 'insert-image')
   
   const handleFileSelect = async (file: File) => {
     const url = await uploadToServer(file)
@@ -1303,7 +1341,7 @@ Every rendered element wrapper carries the element's type as a data attribute, e
 
 | Attribute | Values | Description |
 |-----------|--------|-------------|
-| `data-type` | `string` | The element's `type` (e.g. `core/image`, `core/image/caption`). Present on both top-level block wrappers and child element wrappers. |
+| `data-type` | `string` | The element's `type` (e.g. `base/image`, `base/image/caption`). Present on both top-level block wrappers and child element wrappers. |
 | `data-role` | `string` | Optional. The element's `properties.role` (e.g. `heading-1`, `preamble`). Emitted on text-class element wrappers (both top-level blocks and named child slots) when `properties.role` is a non-empty string. An absent `data-role` means the element is regular text. `asOwnElement` plugin components receive it via spreadable `attributes` under the same condition. |
 
 ```css
@@ -1318,7 +1356,7 @@ Every rendered element wrapper carries the element's type as a data attribute, e
 }
 
 /* Style a text block by its role */
-[data-type="core/text"][data-role="heading-1"] {
+[data-type="base/text"][data-role="heading-1"] {
   font-size: 2rem;
   font-weight: 700;
 }
@@ -1598,7 +1636,7 @@ import type { TBPluginInitFunction, TBComponentProps } from '@dotvoid/textbit'
 const Bold: TBPluginInitFunction = () => {
   return {
     class: 'leaf',
-    name: 'core/bold',
+    name: 'base/bold',
     
     actions: [{
       name: 'toggle-bold',
@@ -1630,7 +1668,7 @@ import { Editor, Transforms } from 'slate'
 const Link: TBPluginInitFunction = () => {
   return {
     class: 'inline',
-    name: 'core/link',
+    name: 'base/link',
     
     actions: [{
       name: 'insert-link',
@@ -1642,7 +1680,7 @@ const Link: TBPluginInitFunction = () => {
         if (!url) return false
         
         const link = {
-          type: 'core/link',
+          type: 'base/link',
           url,
           children: [{ text: url }]
         }
@@ -1690,7 +1728,7 @@ import { Transforms } from '@dotvoid/textbit'
 const Image: TBPluginInitFunction = () => {
   return {
     class: 'block',
-    name: 'core/image',
+    name: 'base/image',
     
     actions: [{
       name: 'insert-image',
@@ -1702,13 +1740,13 @@ const Image: TBPluginInitFunction = () => {
         if (!url) return false
         
         const image = {
-          type: 'core/image',
+          type: 'base/image',
           class: 'block',
           id: crypto.randomUUID(),
           properties: { src: url },
           children: [
             {
-              type: 'core/image/caption',
+              type: 'base/image/caption',
               class: 'text',
               children: [{ text: '' }]
             }
@@ -1809,7 +1847,7 @@ import { useAction } from '@dotvoid/textbit'
 import type { TBComponentProps } from '@dotvoid/textbit'
 
 function ImageComponent({ element }: TBComponentProps) {
-  const deleteImage = useAction('core/image', 'delete-image')
+  const deleteImage = useAction('base/image', 'delete-image')
   
   return (
     <figure contentEditable={false}>
@@ -1907,12 +1945,12 @@ Helper utilities for working with the editor:
 import { TextbitEditor, TextbitElement, TextbitPlugin } from '@dotvoid/textbit'
 
 // Check if element is a certain type
-if (TextbitElement.isOfType(element, 'core/text')) {
+if (TextbitElement.isOfType(element, 'base/text')) {
   console.log('This is a core text element')
 }
 
 // Get plugin by type
-const plugin = TextbitPlugin.get(plugins, 'core/bold')
+const plugin = TextbitPlugin.get(plugins, 'base/bold')
 
 ```
 
@@ -2305,7 +2343,7 @@ Textbit elements are based on Slate elements with additional conventions:
 
 ```typescript
 {
-  type: 'core/text',
+  type: 'base/text',
   id: '538345e5-bacc-48f9-8ef1-a219891b60eb',
   class: 'text',
   properties: {
@@ -2322,15 +2360,15 @@ Textbit elements are based on Slate elements with additional conventions:
 
 ```typescript
 {
-  type: 'core/text',
+  type: 'base/text',
   id: '538345e5-bacc-48f9-8ef0-1219891b60ef',
   class: 'text',
   children: [
     { text: 'An example paragraph with ' },
     {
       text: 'stronger',
-      'core/bold': true,
-      'core/italic': true
+      'base/bold': true,
+      'base/italic': true
     },
     { text: ' text.' }
   ]
@@ -2343,7 +2381,7 @@ Textbit elements are based on Slate elements with additional conventions:
 {
   id: '538345e5-bacc-48f9-8ef0-1219891b60ef',
   class: 'block',
-  type: 'core/image',
+  type: 'base/image',
   properties: {
     src: 'https://example.com/image.png',
     alt: 'Description',
@@ -2352,7 +2390,7 @@ Textbit elements are based on Slate elements with additional conventions:
   },
   children: [
     {
-      type: 'core/image/caption',
+      type: 'base/image/caption',
       class: 'text',
       children: [{ text: 'An image of people taken 2001' }]
     }

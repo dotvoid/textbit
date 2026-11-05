@@ -15,26 +15,26 @@ function makeEditor(children: Descendant[]): Editor {
 
 function twoParagraphs(): Descendant[] {
   return [
-    { id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'aaa' }] } as Descendant,
-    { id: 'b', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'bbb' }] } as Descendant
+    { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'aaa' }] } as Descendant,
+    { id: 'b', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'bbb' }] } as Descendant
   ]
 }
 
 /**
- * Build a plugin that acts as a consumer for `image/*` produces `core/image`.
+ * Build a plugin that acts as a consumer for `image/*` produces `base/image`.
  * Test controls whether `consume` resolves, rejects, or opts out.
  */
 function imageConsumerPlugin(consume: ConsumeFunction) {
   return {
     class: 'block' as const,
-    name: 'core/image',
+    name: 'base/image',
     componentEntry: {
       class: 'block' as const,
       component: () => null,
       constraints: {}
     },
     consumer: {
-      consumes: () => [true, 'core/image', false] as [boolean, string, boolean],
+      consumes: () => [true, 'base/image', false] as [boolean, string, boolean],
       consume
     }
   }
@@ -81,13 +81,13 @@ describe('executePipeItem — pending drops store integration', () => {
     })
     // Marker appears
     expect(latest).toHaveLength(1)
-    expect(latest[0].kind).toBe('core/image')
+    expect(latest[0].kind).toBe('base/image')
 
     // Consumer resolves with a real element
     await act(async () => {
       resolveConsume({
-        type: 'core/image',
-        data: { id: 'img1', type: 'core/image', class: 'block', properties: {}, children: [{ text: '' }] } as Element
+        type: 'base/image',
+        data: { id: 'img1', type: 'base/image', class: 'block', properties: {}, children: [{ text: '' }] } as Element
       })
       await tickMicrotasks()
     })
@@ -96,8 +96,8 @@ describe('executePipeItem — pending drops store integration', () => {
     expect(latest).toHaveLength(0)
     // Result inserted at position 1
     expect((editor.children[1] as Element).id).toBe('img1')
-    // No stray core/loader node anywhere
-    expect(editor.children.some((c) => (c as Element).type === 'core/loader')).toBe(false)
+    // No stray base/loader node anywhere
+    expect(editor.children.some((c) => (c as Element).type === 'base/loader')).toBe(false)
   })
 
   test('consume that throws clears the marker and leaves the document untouched', async () => {
@@ -146,7 +146,7 @@ describe('executePipeItem — pending drops store integration', () => {
     expect(editor.children).toEqual(before)
   })
 
-  test('never inserts a core/loader placeholder into the document', async () => {
+  test('never inserts a base/loader placeholder into the document', async () => {
     let resolveConsume: (v: unknown) => void = () => {}
     const consume: ConsumeFunction = () => new Promise((res) => { resolveConsume = res })
     const plugin = imageConsumerPlugin(consume)
@@ -158,16 +158,16 @@ describe('executePipeItem — pending drops store integration', () => {
       pipeFromDrop(editor, [plugin], fakeDropEvent('image/png', 'blob'), 1)
     })
     // Pending — no loader in the document.
-    expect(editor.children.some((c) => (c as Element).type === 'core/loader')).toBe(false)
+    expect(editor.children.some((c) => (c as Element).type === 'base/loader')).toBe(false)
 
     await act(async () => {
       resolveConsume({
-        type: 'core/image',
-        data: { id: 'img1', type: 'core/image', class: 'block', properties: {}, children: [{ text: '' }] } as Element
+        type: 'base/image',
+        data: { id: 'img1', type: 'base/image', class: 'block', properties: {}, children: [{ text: '' }] } as Element
       })
       await tickMicrotasks()
     })
     // After success — still no loader.
-    expect(editor.children.some((c) => (c as Element).type === 'core/loader')).toBe(false)
+    expect(editor.children.some((c) => (c as Element).type === 'base/loader')).toBe(false)
   })
 })

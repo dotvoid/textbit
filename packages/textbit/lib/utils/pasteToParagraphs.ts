@@ -3,6 +3,7 @@ import { componentConstraints } from './componentConstraints'
 import { TextbitEditor } from './textbit-editor'
 import { normalizeWhitespace } from './normalizeWhitespace'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
+import { TEXT_TYPE } from './textType'
 
 
 export function pasteToParagraphs(
@@ -48,7 +49,7 @@ export function pasteToParagraphs(
 
   // If we have a longer path, paste happens in a child node, all
   // new nodes should be of the same type then
-  let nodeType = 'core/text'
+  let nodeType = TEXT_TYPE
   let properties: {
     [key: string]: string | number | boolean | undefined
     role?: string

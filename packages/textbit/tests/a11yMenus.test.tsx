@@ -16,7 +16,7 @@ import { Text } from '../lib/components/core/Text'
 import { Bold, Italic } from './_leafs'
 
 const content: Descendant[] = [
-  { id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'Hello world' }] }
+  { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'Hello world' }] }
 ]
 
 const plugins = [Text(), Bold(), Italic()]
@@ -219,12 +219,12 @@ describe('gutter menu', () => {
     const focusRef = useRef<'first' | 'last' | undefined>(undefined)
     const triggerRef = useRef<HTMLElement | null>(null)
     const { actions } = usePluginRegistry()
-    const bold = actions.find((a) => a.name === 'core/bold/toggle-bold')!
+    const bold = actions.find((a) => a.name === 'base/bold/toggle-bold')!
     bold.handler = () => {
       onAction()
     }
     bold.visibility = () => [true, true, false]
-    const italic = actions.find((a) => a.name === 'core/italic/toggle-italic')!
+    const italic = actions.find((a) => a.name === 'base/italic/toggle-italic')!
     italic.visibility = () => [true, true, false]
     const value: MenuState = {
       isOpen,
@@ -243,12 +243,12 @@ describe('gutter menu', () => {
         <ContentTools.Trigger>⋮</ContentTools.Trigger>
         <ContentTools.Content>
           <ContentTools.Group>
-            <ContentTools.Item action='core/bold/toggle-bold'>
+            <ContentTools.Item action='base/bold/toggle-bold'>
               <ContentTools.Icon />
               <ContentTools.Label />
               <ContentTools.Hotkey />
             </ContentTools.Item>
-            <ContentTools.Item action='core/italic/toggle-italic'>
+            <ContentTools.Item action='base/italic/toggle-italic'>
               <ContentTools.Label />
             </ContentTools.Item>
           </ContentTools.Group>
@@ -367,7 +367,7 @@ describe('toolbar', () => {
     act(() => Transforms.select(editor, { anchor: { path: [0, 0], offset: 0 }, focus: { path: [0, 0], offset: 5 } }))
     await act(async () => {})
     // Toggling a mark leaves the selection as it was
-    act(() => Editor.addMark(editor, 'core/bold', true))
+    act(() => Editor.addMark(editor, 'base/bold', true))
     await act(async () => {})
 
     expect(bold.getAttribute('aria-pressed')).toBe('true')
@@ -389,7 +389,7 @@ describe('toolbar', () => {
       fireEvent.keyDown(document.activeElement!, { key: 'Enter' })
     })
     await act(async () => {})
-    expect(Editor.marks(editor)?.['core/italic']).toBe(true)
+    expect(Editor.marks(editor)?.['base/italic']).toBe(true)
   })
 
   test('has no accessibility violations', async () => {

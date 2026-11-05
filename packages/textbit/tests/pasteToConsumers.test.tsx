@@ -12,11 +12,11 @@ import type { PluginDefinition, ConsumeFunction } from '../lib/types'
  * A real editor, composed the way TextbitRoot composes it, so typing goes
  * through every wrapper rather than a copy of withInsertText's logic.
  * Passing `plugins` replaces the standard set, so they are added back -
- * without core/text the paragraph cannot be typed into at all.
+ * without base/text the paragraph cannot be typed into at all.
  */
 function makeEditor(plugins: PluginDefinition[]): Editor {
   const content: Descendant[] = [
-    { id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'ab' }] }
+    { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'ab' }] }
   ]
   function Wrapper({ children }: PropsWithChildren) {
     return (

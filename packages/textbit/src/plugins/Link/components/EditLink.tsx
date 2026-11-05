@@ -98,6 +98,6 @@ export const EditLink = ({ entry }: TBToolComponentProps) => {
 
 const deleteLink = (editor: Editor): void => {
   Transforms.unwrapNodes(editor, {
-    match: n => !Editor.isEditor(n) && Element.isElement(n) && n.type === 'core/link'
+    match: n => !Editor.isEditor(n) && Element.isElement(n) && n.type === 'base/link'
   })
 }

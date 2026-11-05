@@ -15,7 +15,7 @@ describe('withUniqueIds — top-level node', () => {
       type: 'insert_node',
       path: [0],
       node: {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         children: [{ text: 'a' }]
       } as Descendant
@@ -29,14 +29,14 @@ describe('withUniqueIds — top-level node', () => {
 
   test('rewrites id when inserted node collides with an existing id', () => {
     const editor = makeEditor([
-      { type: 'core/text', class: 'text', id: 'dup', properties: {}, children: [{ text: 'x' }] }
+      { type: 'base/text', class: 'text', id: 'dup', properties: {}, children: [{ text: 'x' }] }
     ])
 
     editor.apply({
       type: 'insert_node',
       path: [1],
       node: {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'dup',
         properties: {},
@@ -53,14 +53,14 @@ describe('withUniqueIds — top-level node', () => {
 
   test('keeps id when the inserted node has a unique id', () => {
     const editor = makeEditor([
-      { type: 'core/text', class: 'text', id: 'one', properties: {}, children: [{ text: 'x' }] }
+      { type: 'base/text', class: 'text', id: 'one', properties: {}, children: [{ text: 'x' }] }
     ])
 
     editor.apply({
       type: 'insert_node',
       path: [1],
       node: {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'two',
         properties: {},
@@ -77,13 +77,13 @@ describe('withUniqueIds — nested children', () => {
   test('rewrites a colliding CHILD id while preserving the top-level id', () => {
     const editor = makeEditor([
       {
-        type: 'core/image',
+        type: 'base/image',
         class: 'block',
         id: 'outer',
         children: [
           {
             id: 'inner',
-            type: 'core/text',
+            type: 'base/text',
             class: 'text',
             properties: {},
             children: [{ text: 'original caption' }]
@@ -97,13 +97,13 @@ describe('withUniqueIds — nested children', () => {
       type: 'insert_node',
       path: [1],
       node: {
-        type: 'core/image',
+        type: 'base/image',
         class: 'block',
         id: 'outer-2',
         children: [
           {
             id: 'inner',
-            type: 'core/text',
+            type: 'base/text',
             class: 'text',
             properties: {},
             children: [{ text: 'pasted caption' }]
@@ -132,13 +132,13 @@ describe('withUniqueIds — nested children', () => {
   test('rewrites BOTH top-level id and colliding child id when both collide', () => {
     const editor = makeEditor([
       {
-        type: 'core/image',
+        type: 'base/image',
         class: 'block',
         id: 'blk',
         children: [
           {
             id: 'cap',
-            type: 'core/text',
+            type: 'base/text',
             class: 'text',
             properties: {},
             children: [{ text: 'original' }]
@@ -151,13 +151,13 @@ describe('withUniqueIds — nested children', () => {
       type: 'insert_node',
       path: [1],
       node: {
-        type: 'core/image',
+        type: 'base/image',
         class: 'block',
         id: 'blk',
         children: [
           {
             id: 'cap',
-            type: 'core/text',
+            type: 'base/text',
             class: 'text',
             properties: {},
             children: [{ text: 'pasted' }]
@@ -185,13 +185,13 @@ describe('withUniqueIds — nested children', () => {
       type: 'insert_node',
       path: [0],
       node: {
-        type: 'core/image',
+        type: 'base/image',
         class: 'block',
         id: 'has-id',
         children: [
           // child without id
           {
-            type: 'core/text',
+            type: 'base/text',
             class: 'text',
             properties: {},
             children: [{ text: 'caption' }]
@@ -216,13 +216,13 @@ describe('withUniqueIds — nested children', () => {
       type: 'insert_node',
       path: [0],
       node: {
-        type: 'core/image',
+        type: 'base/image',
         class: 'block',
         id: 'twin',
         children: [
           {
             id: 'twin',
-            type: 'core/text',
+            type: 'base/text',
             class: 'text',
             properties: {},
             children: [{ text: 'inner with same id' }]
@@ -241,17 +241,17 @@ describe('withUniqueIds — nested children', () => {
 
   test('does not modify the caller-provided node object when rewriting', () => {
     const editor = makeEditor([
-      { type: 'core/text', class: 'text', id: 'dup', properties: {}, children: [{ text: 'x' }] }
+      { type: 'base/text', class: 'text', id: 'dup', properties: {}, children: [{ text: 'x' }] }
     ])
 
     const input = {
-      type: 'core/image',
+      type: 'base/image',
       class: 'block',
       id: 'dup',
       children: [
         {
           id: 'dup',
-          type: 'core/text',
+          type: 'base/text',
           class: 'text',
           properties: {},
           children: [{ text: 'inner' }]
@@ -271,7 +271,7 @@ describe('withUniqueIds — split_node', () => {
   test('rewrites the split id when it collides', () => {
     const editor = makeEditor([
       {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'split-me',
         properties: {},
@@ -284,7 +284,7 @@ describe('withUniqueIds — split_node', () => {
       path: [0],
       position: 5,
       properties: {
-        type: 'core/text',
+        type: 'base/text',
         class: 'text',
         id: 'split-me',
         properties: {}

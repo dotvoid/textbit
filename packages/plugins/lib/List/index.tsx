@@ -5,8 +5,8 @@ import { ListIcon, OrderedListIcon } from '../shared/icons'
 import { ChildPlaceholder } from '../shared/ChildPlaceholder'
 import { hotkeyOption } from '../shared/hotkey'
 
-const UNORDERED = 'core/unordered-list'
-const ORDERED = 'core/ordered-list'
+const UNORDERED = 'base/unordered-list'
+const ORDERED = 'base/ordered-list'
 const LIST_TYPES = [UNORDERED, ORDERED]
 const ITEM_TYPES = LIST_TYPES.map((type) => `${type}/list-item`)
 
@@ -49,7 +49,7 @@ function listPlugin(
         visibility: (element, innerElement) => {
           const target = innerElement ?? element
           return [
-            ['core/text', ...LIST_TYPES, ...ITEM_TYPES].includes(target.type),
+            ['base/text', ...LIST_TYPES, ...ITEM_TYPES].includes(target.type),
             true,
             target.type === type || target.type === `${type}/list-item`
           ]
@@ -152,7 +152,7 @@ function enterOnLastItem(editor: Editor, type: string): void {
     Transforms.insertNodes(editor, {
       id: crypto.randomUUID(),
       class: 'text',
-      type: 'core/text',
+      type: 'base/text',
       children: [{ text: '' }]
     }, { at })
     Transforms.select(editor, Editor.start(editor, at))
@@ -179,7 +179,7 @@ function toggleList(editor: Editor, type: string): void {
     const itemType = `${list.type}/list-item`
     Editor.withoutNormalizing(editor, () => {
       if (list.type === type) {
-        Transforms.setNodes(editor, { type: 'core/text', properties: {} },
+        Transforms.setNodes(editor, { type: 'base/text', properties: {} },
           { at: listPath, match: (n) => Element.isElement(n) && n.type === itemType })
         Transforms.unwrapNodes(editor, { at: listPath })
       } else {

@@ -26,7 +26,7 @@ describe('Image', () => {
   test('without an upload function it only renders images, and offers no insert', () => {
     const plugin = Image()
     expect('consumer' in plugin && plugin.consumer).toBeFalsy()
-    expect(plugin.actions![0].visibility!({ type: 'core/text' } as Element)).toEqual([false, false, false])
+    expect(plugin.actions![0].visibility!({ type: 'base/text' } as Element)).toEqual([false, false, false])
   })
 
   test('renders the image with its alternative text', () => {
@@ -55,12 +55,12 @@ describe('Image', () => {
 
   test('an image without the alt field gets one', () => {
     const old = { ...imageNode({ src: 'https://example.com/a.jpg' }) }
-    old.children = old.children.filter((c) => (c as Element).type !== 'core/image/alt')
+    old.children = old.children.filter((c) => (c as Element).type !== 'base/image/alt')
     const { editor } = renderEditor([Text(), Image()], [old as Descendant])
     act(() => Editor.normalize(editor, { force: true }))
 
     expect((editor.children[0] as Element).children.map((c) => (c as Element).type))
-      .toEqual(['core/image/content', 'core/image/alt', 'core/image/caption'])
+      .toEqual(['base/image/content', 'base/image/alt', 'base/image/caption'])
   })
 
   test('clicking the field label puts the caret in the field', () => {
@@ -74,11 +74,11 @@ describe('Image', () => {
     const { consumes, consume } = consumerOf(Image({ upload }))
     const input = { source: 'drop', type: 'image/png', data: file('a.png', 'image/png') }
 
-    expect(consumes({ input })).toEqual([true, 'core/image', false])
+    expect(consumes({ input })).toEqual([true, 'base/image', false])
     const result = await consume({ input, editor: {} as Editor })
 
     expect(upload).toHaveBeenCalledWith(input.data)
-    expect(result?.type).toBe('core/image')
+    expect(result?.type).toBe('base/image')
     expect((result?.data as Element).properties).toEqual({ src: 'https://cdn.example/1.png', width: 800, height: 600 })
   })
 
@@ -105,7 +105,7 @@ describe('Image', () => {
     })
     const action = Image({ upload: async () => undefined }).actions![0]
 
-    action.handler({ editor: {} as Editor, type: 'core/image', api: { consumeFileInputChangeEvent: consume } })
+    action.handler({ editor: {} as Editor, type: 'base/image', api: { consumeFileInputChangeEvent: consume } })
 
     expect(consume).toHaveBeenCalled()
     click.mockRestore()
@@ -138,11 +138,11 @@ describe('Blockquote', () => {
     const { editor, container, run } = renderEditor([Text(), Blockquote()], 'Hello')
     act(() => Transforms.select(editor, Editor.end(editor, [0])))
 
-    run('core/blockquote/insert')
+    run('base/blockquote/insert')
     await settle()
 
     expect((editor.children[1] as Element).children.map((c) => (c as Element).type))
-      .toEqual(['core/blockquote/body', 'core/blockquote/citation'])
+      .toEqual(['base/blockquote/body', 'base/blockquote/citation'])
     expect(editor.selection?.anchor.path.slice(0, 2)).toEqual([1, 0])
     expect(container.querySelector('figure.tb-blockquote blockquote')).not.toBeNull()
     expect(container.querySelector('figure.tb-blockquote figcaption')).not.toBeNull()
@@ -151,7 +151,7 @@ describe('Blockquote', () => {
   test('labels can be translated, and show as hints in the empty parts', async () => {
     const { editor, container, run } = renderEditor([Text(), Blockquote({ labels: { body: 'Citat', citation: 'Källa' } })], 'Hello')
     act(() => Transforms.select(editor, Editor.end(editor, [0])))
-    run('core/blockquote/insert')
+    run('base/blockquote/insert')
     await settle()
 
     const hints = [...container.querySelectorAll('.tb-child-placeholder')].map((n) => n.textContent)

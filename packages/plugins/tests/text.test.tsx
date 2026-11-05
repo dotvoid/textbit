@@ -9,7 +9,7 @@ describe('Text', () => {
     const { editor, container, run } = renderEditor([Text()])
     act(() => Transforms.select(editor, Editor.start(editor, [])))
 
-    run('core/text/set-heading-2')
+    run('base/text/set-heading-2')
     await settle()
 
     expect((editor.children[0] as Element).properties?.role).toBe('heading-2')
@@ -20,8 +20,8 @@ describe('Text', () => {
     const { editor, container, run } = renderEditor([Text()])
     act(() => Transforms.select(editor, Editor.start(editor, [])))
 
-    run('core/text/set-heading-1')
-    run('core/text/set-paragraph')
+    run('base/text/set-heading-1')
+    run('base/text/set-paragraph')
     await settle()
 
     expect((editor.children[0] as Element).properties?.role).toBeUndefined()
@@ -50,7 +50,7 @@ describe('Text', () => {
     expect(action('set-heading-3')?.hotkey).toBe('mod+alt+3')
 
     const placeholder = (plugin.componentEntry as { placeholder: (e: Element) => string }).placeholder
-    expect(placeholder({ type: 'core/text', properties: { role: 'heading-1' } } as Element)).toBe('Skriv en rubrik')
+    expect(placeholder({ type: 'base/text', properties: { role: 'heading-1' } } as Element)).toBe('Skriv en rubrik')
   })
 
   test('a single line text allows no breaks', () => {
@@ -62,10 +62,10 @@ describe('Text', () => {
 
 describe('formatting marks', () => {
   test.each([
-    ['Bold', Bold, 'core/bold', 'font-weight: bold'],
-    ['Italic', Italic, 'core/italic', 'font-style: italic'],
-    ['Underline', Underline, 'core/underline', 'text-decoration: underline'],
-    ['Strikethrough', Strikethrough, 'core/strikethrough', 'text-decoration: line-through']
+    ['Bold', Bold, 'base/bold', 'font-weight: bold'],
+    ['Italic', Italic, 'base/italic', 'font-style: italic'],
+    ['Underline', Underline, 'base/underline', 'text-decoration: underline'],
+    ['Strikethrough', Strikethrough, 'base/strikethrough', 'text-decoration: line-through']
   ] as const)('%s marks the selection and styles itself without a stylesheet', async (_label, plugin, mark, css) => {
     const { editor, container, run } = renderEditor([Text(), plugin()])
     act(() => Transforms.select(editor, { anchor: { path: [0, 0], offset: 0 }, focus: { path: [0, 0], offset: 5 } }))
@@ -83,7 +83,7 @@ describe('formatting marks', () => {
   test('Code renders with the tb-code class, for a stylesheet to style', async () => {
     const { editor, container } = renderEditor([Text(), Code()])
     act(() => Transforms.select(editor, { anchor: { path: [0, 0], offset: 0 }, focus: { path: [0, 0], offset: 5 } }))
-    act(() => Editor.addMark(editor, 'core/code', true))
+    act(() => Editor.addMark(editor, 'base/code', true))
     await settle()
 
     expect(container.querySelector('.tb-code')?.textContent).toBe('Hello')
@@ -97,6 +97,6 @@ describe('formatting marks', () => {
   })
 
   test('replace the built-in marks by name, so existing documents keep working', () => {
-    expect([Bold(), Italic(), Underline()].map((p) => p.name)).toEqual(['core/bold', 'core/italic', 'core/underline'])
+    expect([Bold(), Italic(), Underline()].map((p) => p.name)).toEqual(['base/bold', 'base/italic', 'base/underline'])
   })
 })

@@ -53,7 +53,7 @@ function makeEditor(content: Descendant[] = adjacentBlockContent): Editor {
 function makeFragment(texts: Array<{ id: string; text: string; role?: string }>): Descendant[] {
   return texts.map(({ id, text, role }) => ({
     id,
-    type: 'core/text',
+    type: 'base/text',
     class: 'text',
     properties: role ? { role } : {},
     children: [{ text }]
@@ -205,7 +205,7 @@ describe('prepareBlockAwarePaste — text/html placeholder path', () => {
     expect(editor.children).toHaveLength(4)
     // The placeholder sits at index 1, pushing non-text-block to index 2
     expect(editor.children[1]).toMatchObject({
-      type: 'core/text',
+      type: 'base/text',
       class: 'text',
       children: [{ text: '' }]
     })
@@ -229,7 +229,7 @@ describe('prepareBlockAwarePaste — text/html placeholder path', () => {
     expect(result).toBe('prepared')
     expect(editor.children).toHaveLength(1)
     expect(editor.children[0]).toMatchObject({
-      type: 'core/text',
+      type: 'base/text',
       class: 'text',
       children: [{ text: '' }]
     })

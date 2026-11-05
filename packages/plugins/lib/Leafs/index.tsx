@@ -17,7 +17,7 @@ const hotkey = (options: LeafOptions | undefined, fallback?: string) => hotkeyOp
 
 export const Bold = (options?: LeafOptions): TBPluginDefinition => ({
   class: 'leaf',
-  name: 'core/bold',
+  name: 'base/bold',
   actions: [{
     name: 'toggle-bold',
     title: options?.title ?? 'Bold',
@@ -30,7 +30,7 @@ export const Bold = (options?: LeafOptions): TBPluginDefinition => ({
 
 export const Italic = (options?: LeafOptions): TBPluginDefinition => ({
   class: 'leaf',
-  name: 'core/italic',
+  name: 'base/italic',
   actions: [{
     name: 'toggle-italic',
     title: options?.title ?? 'Italic',
@@ -43,7 +43,7 @@ export const Italic = (options?: LeafOptions): TBPluginDefinition => ({
 
 export const Underline = (options?: LeafOptions): TBPluginDefinition => ({
   class: 'leaf',
-  name: 'core/underline',
+  name: 'base/underline',
   actions: [{
     name: 'toggle-underline',
     title: options?.title ?? 'Underline',
@@ -56,7 +56,7 @@ export const Underline = (options?: LeafOptions): TBPluginDefinition => ({
 
 export const Strikethrough = (options?: LeafOptions): TBPluginDefinition => ({
   class: 'leaf',
-  name: 'core/strikethrough',
+  name: 'base/strikethrough',
   actions: [{
     name: 'toggle-strikethrough',
     title: options?.title ?? 'Strikethrough',
@@ -69,7 +69,7 @@ export const Strikethrough = (options?: LeafOptions): TBPluginDefinition => ({
 
 export const Code = (options?: LeafOptions): TBPluginDefinition => ({
   class: 'leaf',
-  name: 'core/code',
+  name: 'base/code',
   actions: [{
     name: 'toggle-code',
     title: options?.title ?? 'Code',
