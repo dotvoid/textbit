@@ -12,10 +12,14 @@ import { ContentTools } from '../lib/components/ContentTools'
 import { MenuContext, type MenuState } from '../lib/components/ContentTools/MenuContext'
 import { usePluginRegistry } from '../lib/hooks/usePluginRegistry'
 import { ariaKeyShortcuts, handleRovingKeys, MENU_ITEM } from '../lib/utils/menuKeyboard'
+import { Text } from '../lib/components/core/Text'
+import { Bold, Italic } from './_leafs'
 
 const content: Descendant[] = [
   { id: 'a', type: 'core/text', class: 'text', properties: {}, children: [{ text: 'Hello world' }] }
 ]
+
+const plugins = [Text(), Bold(), Italic()]
 
 function renderEditor(children: React.ReactNode) {
   let editor: Editor | undefined
@@ -24,7 +28,7 @@ function renderEditor(children: React.ReactNode) {
     return null
   }
   const result = render(
-    <TextbitRoot value={content} onChange={() => {}}>
+    <TextbitRoot value={content} onChange={() => {}} plugins={plugins}>
       <TextbitEditable contextMenu='always' aria-label='Article text'>
         <Capture />
         {children}
