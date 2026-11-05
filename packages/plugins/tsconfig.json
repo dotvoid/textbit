@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "allowSyntheticDefaultImports": true,
+    // Type-check against the editor's source, so nothing has to be built first.
+    // The build keeps `@dotvoid/textbit` as an import; see vite.config.ts.
+    "paths": {
+      "@dotvoid/textbit": ["../textbit/lib/main.ts"]
+    }
+  },
+  "include": ["lib", "tests"]
+}
