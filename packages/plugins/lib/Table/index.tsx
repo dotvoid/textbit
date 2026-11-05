@@ -1,4 +1,4 @@
-import type { TBComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
+import type { TBComponentProps, TBOwnElementComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
 import { TextbitElement } from '@dotvoid/textbit'
 import { Editor, Element, Node, Transforms, type NodeEntry } from 'slate'
 import {
@@ -123,14 +123,22 @@ export const Table = (options: TableOptions = {}): TBPluginDefinition => {
       constraints: {
         normalizeNode: normalizeTable
       },
+      // Rows and cells render the <tr> and <td> themselves: a wrapping <div> is
+      // not allowed inside a table
       children: [{
         type: 'row',
         class: 'block',
-        component: ({ children }: TBComponentProps) => <tr className='tb-table-row'>{children}</tr>,
+        asOwnElement: true,
+        component: ({ children, attributes }: TBOwnElementComponentProps<HTMLTableRowElement>) => (
+          <tr {...attributes} className='tb-table-row'>{children}</tr>
+        ),
         children: [{
           type: 'cell',
           class: 'text',
-          component: ({ children }: TBComponentProps) => <td className='tb-table-cell'>{children}</td>,
+          asOwnElement: true,
+          component: ({ children, attributes }: TBOwnElementComponentProps<HTMLTableCellElement>) => (
+            <td {...attributes} className='tb-table-cell'>{children}</td>
+          ),
           constraints: { allowBreak: false }
         }]
       }]

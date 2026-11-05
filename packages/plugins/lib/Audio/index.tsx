@@ -1,4 +1,4 @@
-import type { TBComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
+import type { TBComponentProps, TBOwnElementComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
 import { Element, Node } from 'slate'
 import { ReactEditor, useSlateStatic } from 'slate-react'
 import { AudioQuoteIcon } from '../shared/icons'
@@ -63,8 +63,10 @@ export const Audio = (options: AudioOptions = {}): TBPluginDefinition => {
         {
           type: 'caption',
           class: 'text',
-          component: ({ children, element }: TBComponentProps) => (
-            <figcaption className='tb-audio-caption' style={{ position: 'relative' }}>
+          // A figcaption must sit directly in its figure, without a wrapping <div>
+          asOwnElement: true,
+          component: ({ children, element, attributes }: TBOwnElementComponentProps<HTMLElement>) => (
+            <figcaption {...attributes} className='tb-audio-caption' style={{ position: 'relative' }}>
               <ChildPlaceholder element={element}>{labels.caption}</ChildPlaceholder>
               {children}
             </figcaption>

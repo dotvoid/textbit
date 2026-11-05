@@ -1,4 +1,4 @@
-import type { TBComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
+import type { TBComponentProps, TBOwnElementComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
 import { BlockquoteIcon } from '../shared/icons'
 import { ChildPlaceholder } from '../shared/ChildPlaceholder'
 import { hotkeyOption } from '../shared/hotkey'
@@ -61,8 +61,10 @@ export const Blockquote = (options: BlockquoteOptions = {}): TBPluginDefinition 
         {
           type: 'citation',
           class: 'text',
-          component: ({ children, element }: TBComponentProps) => (
-            <figcaption className='tb-blockquote-citation' style={{ position: 'relative' }}>
+          // A figcaption must sit directly in its figure, without a wrapping <div>
+          asOwnElement: true,
+          component: ({ children, element, attributes }: TBOwnElementComponentProps<HTMLElement>) => (
+            <figcaption {...attributes} className='tb-blockquote-citation' style={{ position: 'relative' }}>
               <ChildPlaceholder element={element}>{labels.citation}</ChildPlaceholder>
               {children}
             </figcaption>

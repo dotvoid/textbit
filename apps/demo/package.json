@@ -1,0 +1,25 @@
+{
+  "name": "textbit-demo",
+  "private": true,
+  "type": "module",
+  "description": "The editor with every plugin and the default styles, as a host would use them.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dotvoid/textbit": "*",
+    "@dotvoid/textbit-plugins": "*",
+    "@dotvoid/textbit-styles": "*",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "slate": "^0.126.2",
+    "slate-react": "^0.126.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.5.2",
+    "typescript": "~5.8.3",
+    "vite": "^7.2.2"
+  }
+}

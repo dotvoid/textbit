@@ -1,4 +1,4 @@
-import type { TBComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
+import type { TBComponentProps, TBOwnElementComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
 import { TextbitElement } from '@dotvoid/textbit'
 import { Editor, Element, Path, Range, Transforms, type NodeEntry } from 'slate'
 import { ListIcon, OrderedListIcon } from '../shared/icons'
@@ -80,7 +80,11 @@ function listPlugin(
       children: [{
         type: 'list-item',
         class: 'text',
-        component: (props: TBComponentProps) => <ListItemComponent {...props} placeholder={options.placeholder} />
+        // Renders the <li> itself: a wrapping <div> is not allowed in a list
+        asOwnElement: true,
+        component: (props: TBOwnElementComponentProps<HTMLLIElement>) => (
+          <ListItemComponent {...props} placeholder={options.placeholder} />
+        )
       }]
     }
   }
@@ -92,9 +96,9 @@ function ListComponent({ element, children }: TBComponentProps) {
     : <ul className='tb-list tb-unordered-list'>{children}</ul>
 }
 
-function ListItemComponent({ element, children, placeholder }: TBComponentProps & { placeholder?: string }) {
+function ListItemComponent({ element, children, attributes, placeholder }: TBOwnElementComponentProps<HTMLLIElement> & { placeholder?: string }) {
   return (
-    <li className='tb-list-item' style={{ position: 'relative' }}>
+    <li {...attributes} className='tb-list-item' style={{ position: 'relative' }}>
       <ChildPlaceholder element={element}>{placeholder}</ChildPlaceholder>
       {children}
     </li>
