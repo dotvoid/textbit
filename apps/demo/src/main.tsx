@@ -24,7 +24,7 @@ function App() {
   const [dark, setDark] = useState(false)
   const plugins = useMemo(() => [
     Text(), Bold(), Italic(), Underline(), Strikethrough(), Code(),
-    UnorderedList(), OrderedList(), CodeBlock(), Table(), Link(), LocalizedQuotationMarks(),
+    UnorderedList({ placeholder: 'List item' }), OrderedList({ placeholder: 'List item' }), CodeBlock({ placeholder: 'Code' }), Table(), Link(), LocalizedQuotationMarks(),
     // Demo upload: keeps the file in the browser only
     Image({ upload: async (file) => ({ src: URL.createObjectURL(file) }) }),
     Audio({ upload: async (file) => ({ src: URL.createObjectURL(file) }) }),

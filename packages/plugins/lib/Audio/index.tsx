@@ -79,18 +79,23 @@ export const Audio = (options: AudioOptions = {}): TBPluginDefinition => {
 }
 
 
-function AudioContent({ element, labels }: TBComponentProps & { labels: AudioLabels }) {
+function AudioContent({ element, children, labels }: TBComponentProps & { labels: AudioLabels }) {
   const editor = useSlateStatic()
   const figure = Node.get(editor, ReactEditor.findPath(editor, element).slice(0, -1))
   const properties = Element.isElement(figure) ? figure.properties ?? {} : {}
   const src = safeMediaSrc(properties.src)
   const title = typeof properties.title === 'string' ? properties.title : undefined
 
+  // A void element must render its children: the hidden spacer Slate puts the
+  // caret on (see Image)
   return (
-    <div className='tb-audio-content' contentEditable={false}>
-      {src
-        ? <audio controls preload='metadata' src={src} aria-label={title} style={{ width: '100%' }} />
-        : <div className='tb-audio-missing'>{labels.missing}</div>}
-    </div>
+    <>
+      <div className='tb-audio-content' contentEditable={false}>
+        {src
+          ? <audio controls preload='metadata' src={src} aria-label={title} style={{ width: '100%' }} />
+          : <div className='tb-audio-missing'>{labels.missing}</div>}
+      </div>
+      {children}
+    </>
   )
 }

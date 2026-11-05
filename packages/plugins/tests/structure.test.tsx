@@ -45,6 +45,14 @@ describe('valid HTML structure', () => {
     expect(parents('figcaption')).toEqual(['FIGURE', 'FIGURE', 'FIGURE'])
   })
 
+  test('media blocks render the spacer Slate puts the caret on', () => {
+    // Without it, selecting an image leaves no caret, and keys act elsewhere
+    const container = render()
+    for (const type of ['core/image/content', 'core/audio/content']) {
+      expect(container.querySelector(`[data-type="${type}"] [data-slate-spacer]`)).not.toBeNull()
+    }
+  })
+
   test('the elements still carry the editor\'s attributes', () => {
     const td = render().querySelector('td')!
     expect(td.getAttribute('data-slate-node')).toBe('element')
