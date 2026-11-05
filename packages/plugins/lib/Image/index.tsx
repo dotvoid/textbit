@@ -96,7 +96,7 @@ export const Image = (options: ImageOptions = {}): TBPluginDefinition => {
 }
 
 
-function ImageContent({ element, labels }: TBComponentProps & { labels: ImageLabels }) {
+function ImageContent({ element, children, labels }: TBComponentProps & { labels: ImageLabels }) {
   const editor = useSlateStatic()
   const readOnly = useReadOnly()
   const path = ReactEditor.findPath(editor, element)
@@ -105,33 +105,39 @@ function ImageContent({ element, labels }: TBComponentProps & { labels: ImageLab
   const src = safeMediaSrc(properties.src)
   const alt = typeof properties.alt === 'string' ? properties.alt : ''
 
+  // A void element must render its children: the hidden spacer Slate puts the
+  // caret on. Without it, selecting the image leaves no caret in the page, and
+  // arrow keys and typing act wherever the browser's caret last was.
   return (
-    <div className='tb-image-content' contentEditable={false} draggable='true'>
-      {src
-        ? (
-          <img
-            src={src}
-            alt={alt}
-            width={typeof properties.width === 'number' ? properties.width : undefined}
-            height={typeof properties.height === 'number' ? properties.height : undefined}
-            style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
+    <>
+      <div className='tb-image-content' contentEditable={false} draggable='true'>
+        {src
+          ? (
+            <img
+              src={src}
+              alt={alt}
+              width={typeof properties.width === 'number' ? properties.width : undefined}
+              height={typeof properties.height === 'number' ? properties.height : undefined}
+              style={{ display: 'block', maxWidth: '100%', height: 'auto' }}
+            />
+          )
+          : <div className='tb-image-missing' role='img' aria-label={labels.missing}>{labels.missing}</div>}
+        {!readOnly && (
+          <input
+            className='tb-image-alt'
+            type='text'
+            aria-label={labels.alt}
+            placeholder={labels.alt}
+            defaultValue={alt}
+            onBlur={(event) => {
+              if (Element.isElement(figure) && event.target.value !== alt) {
+                Transforms.setNodes(editor, { properties: { ...properties, alt: event.target.value } }, { at: path.slice(0, -1) })
+              }
+            }}
           />
-        )
-        : <div className='tb-image-missing' role='img' aria-label={labels.missing}>{labels.missing}</div>}
-      {!readOnly && (
-        <input
-          className='tb-image-alt'
-          type='text'
-          aria-label={labels.alt}
-          placeholder={labels.alt}
-          defaultValue={alt}
-          onBlur={(event) => {
-            if (Element.isElement(figure) && event.target.value !== alt) {
-              Transforms.setNodes(editor, { properties: { ...properties, alt: event.target.value } }, { at: path.slice(0, -1) })
-            }
-          }}
-        />
-      )}
-    </div>
+        )}
+      </div>
+      {children}
+    </>
   )
 }
