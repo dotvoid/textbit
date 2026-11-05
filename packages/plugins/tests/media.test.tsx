@@ -65,8 +65,17 @@ describe('Image', () => {
 
   test('clicking the field label puts the caret in the field', () => {
     const { editor, container } = renderEditor([Text(), Image()], withImage({ src: 'https://example.com/a.jpg', alt: 'Boats' }))
-    fireEvent.mouseDown(container.querySelector('.tb-image-alt-label')!)
+    fireEvent.mouseDown(container.querySelector('.tb-image-alt .tb-field-label')!)
     expect(editor.selection?.anchor).toEqual({ path: [0, 1, 0], offset: 5 })
+  })
+
+  test('the caption is labelled too, and its label puts the caret in it', () => {
+    const { editor, container } = renderEditor([Text(), Image()], withImage({ src: 'https://example.com/a.jpg' }))
+    const caption = container.querySelector('figcaption.tb-image-caption')!
+    expect(caption.querySelector('.tb-field-label')?.textContent).toBe('Caption')
+
+    fireEvent.mouseDown(caption.querySelector('.tb-field-label')!)
+    expect(editor.selection?.anchor.path).toEqual([0, 2, 0])
   })
 
   test('files go to the upload function, and its answer becomes the image', async () => {

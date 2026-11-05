@@ -1,6 +1,6 @@
 const id = () => crypto.randomUUID()
 // A small inline picture, so the demo needs no network
-const IMAGE = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="200"><rect width="600" height="200" fill="#8aa"/><path d="M0 160 Q150 110 300 150 T600 140 V200 H0z" fill="#467"/></svg>')
+const IMAGE = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="600" viewBox="0 0 1600 600"><defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b8cfd4"/><stop offset="1" stop-color="#e8eef0"/></linearGradient></defs><rect width="1600" height="600" fill="url(#s)"/><circle cx="1220" cy="190" r="70" fill="#f4f1e8"/><path d="M0 380 Q200 300 420 360 T860 340 T1300 360 T1740 340 L1600 340 V600 H0z" fill="#7d9ea6"/><path d="M0 450 Q260 400 560 440 T1100 430 T1640 425 L1600 425 V600 H0z" fill="#4f7480"/><path d="M0 520 Q300 490 700 515 T1600 505 V600 H0z" fill="#2f4f5a"/></svg>')
 const text = (t: string, role?: string) => ({ id: id(), type: 'base/text', class: 'text', properties: role ? { role } : {}, children: [{ text: t }] })
 const cell = (t: string) => ({ id: id(), type: 'base/table/row/cell', class: 'text', children: [{ text: t }] })
 

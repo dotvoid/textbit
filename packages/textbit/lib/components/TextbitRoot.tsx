@@ -77,7 +77,7 @@ export function TextbitRoot(props: TextbitRootProps) {
   }
 
   return (
-    <div className={className} style={style}>
+    <div className={className} style={style} data-tb='editor'>
       <TextbitProvider
         verbose={!!verbose}
         readOnly={readOnly}

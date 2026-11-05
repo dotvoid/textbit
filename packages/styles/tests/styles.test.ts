@@ -45,7 +45,8 @@ describe('textbit-styles', () => {
     const roles = ['tb-paragraph', ...[1, 2, 3, 4, 5, 6].map((n) => `tb-heading-${n}`)]
     const classes = new Set([...literal, ...roles].filter((c) => c.startsWith('tb-')))
     // Wrappers that need no style of their own
-    const unstyled = new Set(['tb-paragraph', 'tb-unordered-list', 'tb-ordered-list', 'tb-table-row', 'tb-image-content', 'tb-audio-content'])
+    const unstyled = new Set(['tb-paragraph', 'tb-unordered-list', 'tb-ordered-list', 'tb-table-row', 'tb-image-content', 'tb-audio-content',
+      'tb-image-alt', 'tb-image-caption', 'tb-audio-caption'])
     const styled = css('plugins.css')
     const missing = [...classes].filter((c) => !unstyled.has(c) && !new RegExp(`\\.${c}(?![\\w-])`).test(styled))
 

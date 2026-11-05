@@ -327,7 +327,7 @@ describe('gutter menu', () => {
     })
     await screen.findByRole('menu')
     expect(new Set([...container.querySelectorAll('[data-tb]')].map((n) => n.getAttribute('data-tb')))).toEqual(new Set([
-      'menu-trigger', 'menu-content', 'menu-group', 'menu-item', 'menu-icon', 'menu-label', 'menu-hotkey'
+      'editor', 'editable', 'menu-trigger', 'menu-content', 'menu-group', 'menu-item', 'menu-icon', 'menu-label', 'menu-hotkey'
     ]))
   })
 })

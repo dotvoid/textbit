@@ -4,7 +4,7 @@ export function Content({children, style, className}: {
   className?: string
 }) {
   return (
-    <div style={style} className={className}>
+    <div style={style} className={className} data-tb='gutter'>
       {children}
     </div>
   )

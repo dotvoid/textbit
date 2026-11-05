@@ -126,13 +126,17 @@ textbit's upload marker shows it, if you place `Textbit.UploadMarker` in the edi
 | `upload` | `(file: File) => Promise<{ src, width?, height?, alt? } \| undefined>` |
 | `accept` | MIME types. Image default: JPEG, PNG, GIF, WebP, AVIF. Audio default: MP3, MP4/AAC, Ogg, WAV, WebM. |
 | `maxSize` | Largest file, in bytes. |
-| `labels` | Action name, caption hint and other text. |
+| `labels` | Action name, field labels and hints, and other text. |
 
 Images have alternative text, so screen readers can describe them. It is a text
 field in the document (`base/image/alt`) between the image and its caption: the
 caret moves in and out of it like any other text, and no `<input>` captures
-the keyboard. Images without the field get an empty one when normalized. Only `http`, `https`, `blob` and image or audio `data`
-addresses are rendered.
+the keyboard. Images without the field get an empty one when normalized.
+
+The caption and the alternative text are labelled fields (`.tb-field`, with
+`.tb-field-label` and `.tb-field-text`); a click on a label puts the caret in its
+field. Only `http`, `https`, `blob` and image or audio `data` addresses are
+rendered.
 
 `imageNode()` and `audioNode()` build a complete block, for inserting media you
 already store.

@@ -1,4 +1,4 @@
-import { StrictMode, useMemo, useState } from 'react'
+import { StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import type { Descendant } from 'slate'
 import {
@@ -22,6 +22,10 @@ import { document as initial } from './document'
 
 function App() {
   const [dark, setDark] = useState(false)
+  // On the page, not on <main>: the special characters pane opens in <body>
+  useEffect(() => {
+    document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
+  }, [dark])
   const plugins = useMemo(() => [
     Text(), Bold(), Italic(), Underline(), Strikethrough(), Code(),
     UnorderedList({ placeholder: 'List item' }), OrderedList({ placeholder: 'List item' }), CodeBlock({ placeholder: 'Code' }), Table(), Link(), LocalizedQuotationMarks(),
@@ -33,7 +37,7 @@ function App() {
   ], [])
 
   return (
-    <main style={{ colorScheme: dark ? 'dark' : 'light' }} className='demo'>
+    <main className='demo'>
       <header>
         <h1>Textbit</h1>
         <label><input type='checkbox' checked={dark} onChange={(e) => setDark(e.target.checked)} /> Dark</label>

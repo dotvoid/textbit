@@ -307,6 +307,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
             <PresenceOverlay isCollaborative={collaborative}>
               <Editable
                 autoFocus={!!autoFocus}
+                data-tb='editable'
                 data-state={isFocused ? 'focused' : ''}
                 readOnly={readOnly}
                 renderElement={renderElement}
