@@ -1,3 +1,8 @@
 // Named exports only: a host bundles exactly the plugins it imports.
 export { Bold, Italic, Underline, Strikethrough, Code, type LeafOptions } from './Leafs'
 export { Text, type TextOptions, type TextRole, type HeadingLevel } from './Text'
+export { UnorderedList, OrderedList, type ListOptions } from './List'
+export { CodeBlock, type CodeBlockOptions } from './CodeBlock'
+export { Table, type TableOptions } from './Table'
+export { Link, type LinkOptions, type LinkLabels } from './Link'
+export { LocalizedQuotationMarks } from './LocalizedQuotationMarks'

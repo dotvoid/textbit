@@ -10,14 +10,22 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
 const external = Object.keys({ ...pkg.dependencies, ...pkg.peerDependencies })
 
-// Plugin export -> a string only that plugin's code contains
+// Plugin export -> a string only that plugin's code contains. The two list
+// types name each other on purpose, to switch a list between them, so they are
+// told apart by their titles.
 const markers = {
   Bold: 'core/bold',
   Italic: 'core/italic',
   Underline: 'core/underline',
   Strikethrough: 'core/strikethrough',
-  Code: 'core/code',
-  Text: 'set-paragraph'
+  Code: 'toggle-code',
+  Text: 'set-paragraph',
+  UnorderedList: 'Bullet list',
+  OrderedList: 'Numbered list',
+  CodeBlock: 'core/code-block',
+  Table: 'core/table',
+  Link: 'core/link',
+  LocalizedQuotationMarks: 'core/localized-quotation-marks'
 }
 
 let failed = false

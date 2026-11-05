@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react'
+import { act, fireEvent, render } from '@testing-library/react'
 import { useSlateStatic } from 'slate-react'
 import { Editor, type Descendant } from 'slate'
 import { Textbit, usePluginRegistry, type TBPluginDefinition, type TBPluginRegistryAction } from '@dotvoid/textbit'
@@ -38,3 +38,20 @@ export function renderEditor(plugins: TBPluginDefinition[], value: Descendant[] 
 export async function settle() {
   await act(async () => {})
 }
+
+/** Press a key in the editor, the way a browser would deliver it */
+export function pressKey(editable: HTMLElement, key: string, init: { shiftKey?: boolean } = {}) {
+  const codes: Record<string, number> = { Tab: 9, Enter: 13 }
+  act(() => {
+    fireEvent.keyDown(editable, { key, code: key, keyCode: codes[key], which: codes[key], ...init })
+  })
+}
+
+// slate-react only handles keys whose target is editable, which it checks with
+// isContentEditable. jsdom does not implement it.
+Object.defineProperty(HTMLElement.prototype, 'isContentEditable', {
+  configurable: true,
+  get(this: HTMLElement) {
+    return this.closest('[contenteditable]')?.getAttribute('contenteditable') === 'true'
+  }
+})
