@@ -30,7 +30,9 @@ your page is touched. The package's tests check this.
 
 Colours follow the page's `color-scheme` through CSS `light-dark()`. Set
 `color-scheme: dark`, or `light dark` to follow the system, on the page or on an
-element around the editor.
+element around the editor. The special characters pane opens at the end of
+`<body>`, outside any element around the editor, so set it on the page (`:root`)
+to have the pane follow too.
 
 ## Tokens
 

@@ -1,8 +1,8 @@
 import type { TBComponentProps, TBOwnElementComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
-import { Editor, Element, Node, Transforms } from 'slate'
+import { Element, Node, type Editor } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { ImageIcon } from '../shared/icons'
-import { ChildPlaceholder } from '../shared/ChildPlaceholder'
+import { FieldContent } from '../shared/Field'
 import { pickFiles, safeMediaSrc, uploadConsumer } from '../shared/media'
 import { imageNode, type ImageUpload } from './imageNode'
 
@@ -11,7 +11,10 @@ const TYPE = 'base/image'
 export type ImageLabels = {
   /** The insert action's name in menus and for screen readers */
   title: string
+  /** Label before the caption field */
   caption: string
+  /** Hint in the empty caption field */
+  captionHint: string
   /** Label before the alternative text field */
   alt: string
   /** Hint in the empty alternative text field */
@@ -38,6 +41,7 @@ const ACCEPT = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avi
 const LABELS: ImageLabels = {
   title: 'Image',
   caption: 'Caption',
+  captionHint: 'Add a caption',
   alt: 'Alt text',
   altHint: 'Describe the image for those who cannot see it',
   missing: 'Image not available'
@@ -87,7 +91,11 @@ export const Image = (options: ImageOptions = {}): TBPluginDefinition => {
           // figure's first or last child.
           type: 'alt',
           class: 'text',
-          component: (props: TBComponentProps) => <ImageAlt {...props} labels={labels} />,
+          component: ({ children, element }: TBComponentProps) => (
+            <div className='tb-field tb-image-alt'>
+              <FieldContent element={element} label={labels.alt} hint={labels.altHint}>{children}</FieldContent>
+            </div>
+          ),
           constraints: { allowBreak: false, min: 1, max: 1 }
         },
         {
@@ -96,9 +104,8 @@ export const Image = (options: ImageOptions = {}): TBPluginDefinition => {
           // A figcaption must sit directly in its figure, without a wrapping <div>
           asOwnElement: true,
           component: ({ children, element, attributes }: TBOwnElementComponentProps<HTMLElement>) => (
-            <figcaption {...attributes} className='tb-image-caption' style={{ position: 'relative' }}>
-              <ChildPlaceholder element={element}>{labels.caption}</ChildPlaceholder>
-              {children}
+            <figcaption {...attributes} className='tb-field tb-image-caption'>
+              <FieldContent element={element} label={labels.caption} hint={labels.captionHint}>{children}</FieldContent>
             </figcaption>
           ),
           constraints: { allowBreak: false, min: 1, max: 1 }
@@ -138,32 +145,6 @@ function ImageContent({ element, children, labels }: TBComponentProps & { labels
       </div>
       {children}
     </>
-  )
-}
-
-function ImageAlt({ element, children, labels }: TBComponentProps & { labels: ImageLabels }) {
-  const editor = useSlateStatic()
-
-  return (
-    <div className='tb-image-alt'>
-      <span
-        contentEditable={false}
-        className='tb-image-alt-label'
-        style={{ userSelect: 'none' }}
-        // Like a <label>: a click puts the caret in the field
-        onMouseDown={(event) => {
-          event.preventDefault()
-          Transforms.select(editor, Editor.end(editor, ReactEditor.findPath(editor, element)))
-          ReactEditor.focus(editor)
-        }}
-      >
-        {labels.alt}
-      </span>
-      <span className='tb-image-alt-text' style={{ position: 'relative' }}>
-        <ChildPlaceholder element={element}>{labels.altHint}</ChildPlaceholder>
-        {children}
-      </span>
-    </div>
   )
 }
 

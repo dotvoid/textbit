@@ -1274,6 +1274,9 @@ uses these.
 
 | `data-tb` | Part |
 |-----------|------|
+| `editor` | The element `Textbit.Root` renders, around everything in the editor |
+| `editable` | The text itself (`Textbit.Editable`) |
+| `gutter` | The gutter (`Textbit.Gutter`) |
 | `menu`, `menu-trigger`, `menu-content`, `menu-group`, `menu-item`, `menu-icon`, `menu-label`, `menu-hotkey` | The gutter menu (`Menu.*`) |
 | `toolbar`, `toolbar-group`, `toolbar-item` | The selection toolbar (`Toolbar.*`) |
 | `context-menu`, `context-menu-group`, `context-menu-item` | The context menu (`Textbit.ContextMenu.*`) |

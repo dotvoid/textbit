@@ -2,7 +2,7 @@ import type { TBComponentProps, TBOwnElementComponentProps, TBPluginDefinition }
 import { Element, Node } from 'slate'
 import { ReactEditor, useSlateStatic } from 'slate-react'
 import { AudioQuoteIcon } from '../shared/icons'
-import { ChildPlaceholder } from '../shared/ChildPlaceholder'
+import { FieldContent } from '../shared/Field'
 import { pickFiles, safeMediaSrc, uploadConsumer } from '../shared/media'
 import { audioNode, type AudioUpload } from './audioNode'
 
@@ -11,7 +11,10 @@ const TYPE = 'base/audio'
 export type AudioLabels = {
   /** The insert action's name in menus and for screen readers */
   title: string
+  /** Label before the caption field */
   caption: string
+  /** Hint in the empty caption field */
+  captionHint: string
   missing: string
 }
 
@@ -25,7 +28,12 @@ export type AudioOptions = {
 }
 
 const ACCEPT = ['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav', 'audio/webm']
-const LABELS: AudioLabels = { title: 'Audio', caption: 'Caption', missing: 'Audio not available' }
+const LABELS: AudioLabels = {
+  title: 'Audio',
+  caption: 'Caption',
+  captionHint: 'Add a caption',
+  missing: 'Audio not available'
+}
 
 /** An audio player with a caption. A reference for building your own, like Image. */
 export const Audio = (options: AudioOptions = {}): TBPluginDefinition => {
@@ -66,9 +74,8 @@ export const Audio = (options: AudioOptions = {}): TBPluginDefinition => {
           // A figcaption must sit directly in its figure, without a wrapping <div>
           asOwnElement: true,
           component: ({ children, element, attributes }: TBOwnElementComponentProps<HTMLElement>) => (
-            <figcaption {...attributes} className='tb-audio-caption' style={{ position: 'relative' }}>
-              <ChildPlaceholder element={element}>{labels.caption}</ChildPlaceholder>
-              {children}
+            <figcaption {...attributes} className='tb-field tb-audio-caption'>
+              <FieldContent element={element} label={labels.caption} hint={labels.captionHint}>{children}</FieldContent>
             </figcaption>
           ),
           constraints: { allowBreak: false, min: 1, max: 1 }
