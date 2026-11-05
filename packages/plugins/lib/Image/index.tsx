@@ -1,6 +1,6 @@
 import type { TBComponentProps, TBOwnElementComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
-import { Element, Node, Transforms } from 'slate'
-import { ReactEditor, useReadOnly, useSlateStatic } from 'slate-react'
+import { Editor, Element, Node, Transforms } from 'slate'
+import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { ImageIcon } from '../shared/icons'
 import { ChildPlaceholder } from '../shared/ChildPlaceholder'
 import { pickFiles, safeMediaSrc, uploadConsumer } from '../shared/media'
@@ -12,7 +12,10 @@ export type ImageLabels = {
   /** The insert action's name in menus and for screen readers */
   title: string
   caption: string
+  /** Label before the alternative text field */
   alt: string
+  /** Hint in the empty alternative text field */
+  altHint: string
   missing: string
 }
 
@@ -35,7 +38,8 @@ const ACCEPT = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avi
 const LABELS: ImageLabels = {
   title: 'Image',
   caption: 'Caption',
-  alt: 'Alternative text',
+  alt: 'Alt text',
+  altHint: 'Describe the image for those who cannot see it',
   missing: 'Image not available'
 }
 
@@ -78,6 +82,15 @@ export const Image = (options: ImageOptions = {}): TBPluginDefinition => {
           constraints: { min: 1, max: 1 }
         },
         {
+          // A text field, not an <input>: the caret moves in and out of it like
+          // any other text. It sits before the caption, which must be the
+          // figure's first or last child.
+          type: 'alt',
+          class: 'text',
+          component: (props: TBComponentProps) => <ImageAlt {...props} labels={labels} />,
+          constraints: { allowBreak: false, min: 1, max: 1 }
+        },
+        {
           type: 'caption',
           class: 'text',
           // A figcaption must sit directly in its figure, without a wrapping <div>
@@ -98,12 +111,12 @@ export const Image = (options: ImageOptions = {}): TBPluginDefinition => {
 
 function ImageContent({ element, children, labels }: TBComponentProps & { labels: ImageLabels }) {
   const editor = useSlateStatic()
-  const readOnly = useReadOnly()
   const path = ReactEditor.findPath(editor, element)
   const figure = Node.get(editor, path.slice(0, -1))
   const properties = Element.isElement(figure) ? figure.properties ?? {} : {}
   const src = safeMediaSrc(properties.src)
-  const alt = typeof properties.alt === 'string' ? properties.alt : ''
+  // Follows the alt field as it is typed in, which renders separately
+  const alt = useSlateSelector((e) => altText(e, element))
 
   // A void element must render its children: the hidden spacer Slate puts the
   // caret on. Without it, selecting the image leaves no caret in the page, and
@@ -122,22 +135,46 @@ function ImageContent({ element, children, labels }: TBComponentProps & { labels
             />
           )
           : <div className='tb-image-missing' role='img' aria-label={labels.missing}>{labels.missing}</div>}
-        {!readOnly && (
-          <input
-            className='tb-image-alt'
-            type='text'
-            aria-label={labels.alt}
-            placeholder={labels.alt}
-            defaultValue={alt}
-            onBlur={(event) => {
-              if (Element.isElement(figure) && event.target.value !== alt) {
-                Transforms.setNodes(editor, { properties: { ...properties, alt: event.target.value } }, { at: path.slice(0, -1) })
-              }
-            }}
-          />
-        )}
       </div>
       {children}
     </>
   )
+}
+
+function ImageAlt({ element, children, labels }: TBComponentProps & { labels: ImageLabels }) {
+  const editor = useSlateStatic()
+
+  return (
+    <div className='tb-image-alt'>
+      <span
+        contentEditable={false}
+        className='tb-image-alt-label'
+        style={{ userSelect: 'none' }}
+        // Like a <label>: a click puts the caret in the field
+        onMouseDown={(event) => {
+          event.preventDefault()
+          Transforms.select(editor, Editor.end(editor, ReactEditor.findPath(editor, element)))
+          ReactEditor.focus(editor)
+        }}
+      >
+        {labels.alt}
+      </span>
+      <span className='tb-image-alt-text' style={{ position: 'relative' }}>
+        <ChildPlaceholder element={element}>{labels.altHint}</ChildPlaceholder>
+        {children}
+      </span>
+    </div>
+  )
+}
+
+/** The text of the alt field beside the given image content */
+function altText(editor: Editor, content: Element): string {
+  try {
+    const figure = Node.parent(editor, ReactEditor.findPath(editor, content))
+    const field = figure.children.find((c) => Element.isElement(c) && c.type === `${TYPE}/alt`)
+    return field ? Node.string(field) : ''
+  } catch {
+    // The image was just removed
+    return ''
+  }
 }

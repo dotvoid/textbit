@@ -45,8 +45,9 @@ export const document = [
   { id: id(), type: 'core/code-block', class: 'block', children: [
     { id: id(), type: 'core/code-block/body', class: 'text', children: [{ text: '' }] }
   ] },
-  { id: id(), type: 'core/image', class: 'block', properties: { src: IMAGE, alt: '' }, children: [
+  { id: id(), type: 'core/image', class: 'block', properties: { src: IMAGE }, children: [
     { id: id(), type: 'core/image/content', class: 'void', children: [{ text: '' }] },
+    { id: id(), type: 'core/image/alt', class: 'text', children: [{ text: '' }] },
     { id: id(), type: 'core/image/caption', class: 'text', children: [{ text: '' }] }
   ] },
   text('The end.')
