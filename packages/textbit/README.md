@@ -8,6 +8,14 @@ An unstyled, plugin-based rich text editor component for React applications. Bui
 npm install @dotvoid/textbit
 ```
 
+Ready to use plugins and a default look are separate packages:
+
+```bash
+npm install @dotvoid/textbit-plugins @dotvoid/textbit-styles
+```
+
+See [`@dotvoid/textbit-plugins`](https://github.com/dotvoid/textbit/tree/main/packages/plugins) and [`@dotvoid/textbit-styles`](https://github.com/dotvoid/textbit/tree/main/packages/styles).
+
 ## Development
 
 ```bash
