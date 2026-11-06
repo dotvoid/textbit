@@ -25,7 +25,12 @@
 [data-tb="editable"] {
   min-height: 6em;
   font-family: var(--tb-font-text);
+  font-size: var(--tb-text-size);
   font-weight: var(--tb-font-text-weight);
+  line-height: var(--tb-leading);
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   outline: none;
 }
 

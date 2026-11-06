@@ -1,5 +1,6 @@
 body { margin: 0; font-family: system-ui, sans-serif; }
 .demo { min-height: 100vh; padding: 2rem; color: var(--tb-text); background: var(--tb-subtle); box-sizing: border-box; }
-.demo header { display: flex; align-items: center; justify-content: space-between; max-width: 50rem; margin: 0 auto 1rem; }
-.demo [data-tb="editor"] { max-width: 50rem; margin: 0 auto; }
-.demo-editor { display: grid; grid-template-columns: 2.5rem 1fr; line-height: 1.6; font-size: 1.125rem; }
+.demo header { display: flex; align-items: center; justify-content: space-between; max-width: 48rem; margin: 0 auto 1rem; }
+/* About 70 characters a line, with the margin balanced against the gutter */
+.demo [data-tb="editor"] { max-width: 48rem; margin: 0 auto; padding: 2.5rem 4rem 2.5rem 1.5rem; }
+.demo-editor { display: grid; grid-template-columns: 2.5rem 1fr; }

@@ -10,13 +10,23 @@
    * then Windows and Linux ones, then the generic family
    */
   --tb-font-text: Petrona, "Iowan Old Style", Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
-  --tb-font-text-weight: 500;
+  --tb-font-text-weight: 440;
   --tb-font-heading: "Overused Grotesk", "Avenir Next", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --tb-font-heading-weight: 700;
   /* Menus, labels and captions */
   --tb-font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --tb-font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
   --tb-radius: 6px;
-  --tb-gap: 0.75em;
+
+  /*
+   * Type and rhythm. Headings, the lead-in and code are sized in em against
+   * the text size, so changing it scales the whole page
+   */
+  --tb-text-size: 1.0625rem;
+  --tb-leading: 1.55;
+  /* Between paragraphs, and around quotes, tables, code and media */
+  --tb-gap: 0.8em;
+  --tb-gap-wide: 1.4em;
 
   --tb-text: light-dark(#1f2328, #e6e8eb);
   --tb-muted: light-dark(#59636e, #9da7b3);
