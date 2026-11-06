@@ -41,23 +41,26 @@ function renderWith(type: string, rendersChildren: boolean) {
 }
 
 afterEach(() => {
-  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
+// slate-react reports an element that does not render its children through
+// editor.onDOMError, which by default passes it to the browser's reportError.
+// Textbit relies on that rather than a check of its own.
 describe('void elements and their caret spacer', () => {
-  test('warns, once, when a void element drops its children', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    renderWith('test/broken', false)
+  test('a void element that drops its children is reported, by type', () => {
+    const report = vi.fn()
+    vi.stubGlobal('reportError', report)
     renderWith('test/broken', false)
 
-    const messages = warn.mock.calls.map((c) => String(c[0])).filter((m) => m.includes('test/broken/content'))
-    expect(messages).toHaveLength(1)
-    expect(messages[0]).toContain('does not render its children')
+    const messages = report.mock.calls.map((c) => String(c[0]))
+    expect(messages.some((m) => m.includes('"test/broken/content"') && m.includes('children'))).toBe(true)
   })
 
-  test('says nothing when it renders them', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  test('nothing is reported when it renders them', () => {
+    const report = vi.fn()
+    vi.stubGlobal('reportError', report)
     renderWith('test/good', true)
-    expect(warn.mock.calls.filter((c) => String(c[0]).includes('test/good'))).toEqual([])
+    expect(report).not.toHaveBeenCalled()
   })
 })

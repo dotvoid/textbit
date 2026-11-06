@@ -568,11 +568,13 @@ import { Textbit } from '@dotvoid/textbit'
 
 #### Upgrading from 1.x
 
-Two things changed in 2.0, and both change what documents contain:
+Three things changed in 2.0:
 
 - **Names.** Text, marks and the standard blocks are named `base/*`, not `core/*`:
   `base/text`, `base/bold`, `base/italic`, `base/underline` and so on. `core/*`
   is left for textbit's own features, which are never stored in a document.
+- **Slate 0.147.** Textbit needs `slate` 0.147, `slate-react` 0.147 and their
+  `slate-dom` 0.147 peer, which npm installs along with `slate-react`.
 - **Formatting is a plugin.** Bold, italic and underline are no longer built in.
   Register `Bold()`, `Italic()` and `Underline()` from `@dotvoid/textbit-plugins`.
   Its `Text()` replaces the plain paragraph and adds headings.
