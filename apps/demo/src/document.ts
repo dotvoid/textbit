@@ -6,6 +6,7 @@ const cell = (t: string) => ({ id: id(), type: 'base/table/row/cell', class: 'te
 
 export const document = [
   text('A harbour town in winter', 'heading-1'),
+  text('The boats stay in the harbour and the town grows quiet. This lead-in opens the article, a little larger than the text that follows.', 'preamble'),
   { id: id(), type: 'base/text', class: 'text', properties: {}, children: [
     { text: 'Textbit with every plugin and the default styles. Some text is ' },
     { text: 'bold', 'base/bold': true },

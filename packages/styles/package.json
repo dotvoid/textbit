@@ -12,12 +12,14 @@
   ],
   "exports": {
     ".": "./css/index.css",
+    "./fonts.css": "./css/fonts.css",
     "./variables.css": "./css/variables.css",
     "./editor.css": "./css/editor.css",
     "./plugins.css": "./css/plugins.css"
   },
   "files": [
-    "css"
+    "css",
+    "fonts"
   ],
   "repository": {
     "type": "git",

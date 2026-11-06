@@ -1,4 +1,5 @@
-/* Everything: tokens, textbit's own UI and the plugins */
+/* Everything: the default faces, tokens, textbit's own UI and the plugins */
+@import './fonts.css';
 @import './variables.css';
 @import './editor.css';
 @import './plugins.css';

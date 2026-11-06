@@ -15,10 +15,21 @@ import '@dotvoid/textbit-styles'
 Or only the parts you want:
 
 ```ts
+import '@dotvoid/textbit-styles/fonts.css'       // the default faces, optional
 import '@dotvoid/textbit-styles/variables.css'   // design tokens, needed by the others
 import '@dotvoid/textbit-styles/editor.css'      // textbit's menus, toolbar, pickers and spelling marks
 import '@dotvoid/textbit-styles/plugins.css'     // the plugins
 ```
+
+## Fonts
+
+Text is set in [Petrona](https://github.com/RingoSeeber/Petrona) and headings in
+[Overused Grotesk](https://github.com/RandomMaerks/Overused-Grotesk), both
+variable fonts under the SIL Open Font License 1.1, shipped in `fonts/` with
+their licences. `fonts.css` declares them; browsers download a face only when a
+page uses it. Without `fonts.css`, or when a face fails to load, text falls back
+to system faces: Iowan Old Style and Avenir Next on macOS. To use your own,
+override `--tb-font-text` and `--tb-font-heading`.
 
 ## Scoped
 
@@ -40,8 +51,8 @@ Override any token on `:root`, or on an element around one editor.
 
 | Token | Use |
 |-------|-----|
-| `--tb-font-text` | Body text: serif, Iowan Old Style on macOS |
-| `--tb-font-heading` | Headings: sans serif, Avenir Next on macOS |
+| `--tb-font-text`, `--tb-font-text-weight` | Body text: Petrona, weight 500 |
+| `--tb-font-heading` | Headings: Overused Grotesk |
 | `--tb-font-ui` | Menus, labels and captions: the system's sans serif |
 | `--tb-font-mono` | Code |
 | `--tb-radius`, `--tb-gap` | Corner radius, space between blocks |

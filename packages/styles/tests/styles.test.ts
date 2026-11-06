@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import postcss, { type Rule } from 'postcss'
 
@@ -25,7 +25,7 @@ function selectors(file: string): string[] {
 }
 
 describe('textbit-styles', () => {
-  test.each(['variables.css', 'editor.css', 'plugins.css', 'index.css'])('%s parses', (file) => {
+  test.each(['fonts.css', 'variables.css', 'editor.css', 'plugins.css', 'index.css'])('%s parses', (file) => {
     expect(() => postcss.parse(css(file))).not.toThrow()
   })
 
@@ -42,7 +42,7 @@ describe('textbit-styles', () => {
     const code = sources(resolve(root, '../plugins/lib'))
     const literal = [...code.matchAll(/className=['"]([^'"]+)['"]/g)].flatMap((m) => m[1].split(/\s+/))
     // Text renders tb-text plus tb-<role>
-    const roles = ['tb-paragraph', ...[1, 2, 3, 4, 5, 6].map((n) => `tb-heading-${n}`)]
+    const roles = ['tb-paragraph', 'tb-preamble', ...[1, 2, 3, 4, 5, 6].map((n) => `tb-heading-${n}`)]
     const classes = new Set([...literal, ...roles].filter((c) => c.startsWith('tb-')))
     // Wrappers that need no style of their own
     const unstyled = new Set(['tb-paragraph', 'tb-unordered-list', 'tb-ordered-list', 'tb-table-row', 'tb-image-content', 'tb-audio-content',
@@ -65,5 +65,15 @@ describe('textbit-styles', () => {
     const defined = new Set([...css('variables.css').matchAll(/(--tb-[\w-]+):/g)].map((m) => m[1]))
     const used = new Set([...(css('editor.css') + css('plugins.css')).matchAll(/var\((--tb-[\w-]+)/g)].map((m) => m[1]))
     expect([...used].filter((token) => !defined.has(token))).toEqual([])
+  })
+
+  test('every font face it declares ships, with its licence, and is packaged', () => {
+    const urls = [...css('fonts.css').matchAll(/url\('([^']+)'\)/g)].map((m) => m[1])
+    expect(urls.length).toBeGreaterThan(0)
+    expect(urls.filter((url) => !existsSync(join(root, 'css', url)))).toEqual([])
+    for (const licence of ['Petrona-OFL.txt', 'OverusedGrotesk-OFL.txt']) {
+      expect(readFileSync(join(root, 'fonts', licence), 'utf8')).toContain('SIL Open Font License, Version 1.1')
+    }
+    expect(JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).files).toContain('fonts')
   })
 })
