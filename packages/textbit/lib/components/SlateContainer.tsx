@@ -177,9 +177,13 @@ export function SlateContainer(props: SlateContainerProps) {
 
   // Debounced onChange callback
   const onChangeCallback = useMemo(
-    () => readOnly ? () => { } : debounceCall(handleChange, debounce || 1250),
+    () => readOnly ? undefined : debounceCall(handleChange, debounce || 1250),
     [handleChange, readOnly, debounce]
   )
+
+  // A change still waiting when the editor unmounts, or when the callback is
+  // replaced, is delivered then, not after the editor is gone
+  useEffect(() => () => onChangeCallback?.flush(), [onChangeCallback])
 
   // Initialize spellcheck and stats
   useEffect(() => {
@@ -193,7 +197,7 @@ export function SlateContainer(props: SlateContainerProps) {
   }, [editor, dispatch])
 
   return (
-    <Slate editor={editor} initialValue={initialValue} onChange={onChangeCallback}>
+    <Slate editor={editor} initialValue={initialValue} onChange={onChangeCallback ?? noop}>
       {children}
     </Slate>
   )
@@ -233,3 +237,5 @@ function isSlateContainerDefaultProps(
 ): props is SlateContainerDefaultProps {
   return !isSlateContainerYjsProps(props) && !isSlateContainerStringProps(props)
 }
+
+function noop() {}
