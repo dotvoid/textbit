@@ -87,7 +87,6 @@ export const consume: TBConsumeFunction = async ({ editor, input }) => {
   // node lives at selection.anchor.path; its parent block is the path with
   // the last index dropped. Hard-coding depth 2 here fails when the text is
   // nested deeper, e.g. inside a factbox embedded in an article.
-  // (Mirrors ttab/textbit-plugins PR #479.)
   const parentPath = Path.parent(selection.anchor.path)
   const startIndex = selection.anchor.path[selection.anchor.path.length - 1]
   let firstOffset = selection.anchor.offset
@@ -159,7 +158,6 @@ function isFirstCharacterOfFirstChild(editor: Editor, selection: BaseRange): boo
   // Find the first text descendant of the block containing the cursor.
   // The block is the parent of the current text node; walking up from
   // anchor.path keeps this correct at any nesting depth.
-  // (Mirrors ttab/textbit-plugins PR #479.)
   const blockPath = Path.parent(anchor.path)
   const firstTextEntry = Node.first(editor, blockPath)
   if (!firstTextEntry) {
