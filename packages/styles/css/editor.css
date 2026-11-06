@@ -25,6 +25,7 @@
 [data-tb="editable"] {
   min-height: 6em;
   font-family: var(--tb-font-text);
+  font-weight: var(--tb-font-text-weight);
   outline: none;
 }
 

@@ -27,7 +27,7 @@ function App() {
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light'
   }, [dark])
   const plugins = useMemo(() => [
-    Text(), Bold(), Italic(), Underline(), Strikethrough(), Code(),
+    Text({ headings: [1, 2] }), Bold(), Italic(), Underline(), Strikethrough(), Code(),
     UnorderedList({ placeholder: 'List item' }), OrderedList({ placeholder: 'List item' }), CodeBlock({ placeholder: 'Code' }), Table(), Link(), LocalizedQuotationMarks(),
     // Demo upload: keeps the file in the browser only
     Image({ upload: async (file) => ({ src: URL.createObjectURL(file) }) }),

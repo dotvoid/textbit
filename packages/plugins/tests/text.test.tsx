@@ -31,8 +31,21 @@ describe('Text', () => {
   test('offers headings 1 to 4 by default, or the levels asked for', () => {
     const names = (opts?: Parameters<typeof Text>[0]) => Text(opts).actions?.map((a) => a.name)
 
-    expect(names()).toEqual(['set-paragraph', 'set-heading-1', 'set-heading-2', 'set-heading-3', 'set-heading-4'])
-    expect(names({ headings: [2, 3] })).toEqual(['set-paragraph', 'set-heading-2', 'set-heading-3'])
+    expect(names()).toEqual(['set-paragraph', 'set-heading-1', 'set-heading-2', 'set-heading-3', 'set-heading-4', 'set-preamble'])
+    expect(names({ headings: [2, 3] })).toEqual(['set-paragraph', 'set-heading-2', 'set-heading-3', 'set-preamble'])
+    expect(names({ headings: [1, 2], preamble: false })).toEqual(['set-paragraph', 'set-heading-1', 'set-heading-2'])
+  })
+
+  test('a lead-in has the role preamble and renders as a paragraph', async () => {
+    const { editor, container, run } = renderEditor([Text()])
+    act(() => Transforms.select(editor, Editor.start(editor, [])))
+
+    run('base/text/set-preamble')
+    await settle()
+
+    expect((editor.children[0] as Element).properties?.role).toBe('preamble')
+    expect(container.querySelector('p.tb-text.tb-preamble')?.textContent).toBe('Hello world')
+    expect(Text().actions?.find((a) => a.name === 'set-preamble')).toMatchObject({ title: 'Lead-in', hotkey: undefined })
   })
 
   test('titles, placeholders and shortcuts can be replaced', () => {

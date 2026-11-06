@@ -39,7 +39,7 @@ kind of content a namespace of your own.
 
 | Plugin | Element types | Default shortcut |
 |--------|---------------|------------------|
-| `Text` | `base/text`, role `heading-1` to `heading-6` | Ctrl+Alt+0 to 4 (⌘⌥0 to 4) |
+| `Text` | `base/text`, role `heading-1` to `heading-6` or `preamble` | Ctrl+Alt+0 to 4 (⌘⌥0 to 4) |
 | `Bold`, `Italic`, `Underline` | marks `base/bold`, `base/italic`, `base/underline` | Ctrl/⌘+B, I, U |
 | `Strikethrough` | mark `base/strikethrough` | none |
 | `Code` | mark `base/code` | none |
@@ -57,12 +57,15 @@ same name and keep their document format, so existing documents keep working.
 
 ### Text
 
-Paragraphs and headings. A paragraph has no role; a heading has the role
-`heading-1` to `heading-6` and renders as `h1` to `h6`.
+Paragraphs, headings and a lead-in. A paragraph has no role; a heading has the
+role `heading-1` to `heading-6` and renders as `h1` to `h6`; a lead-in, the
+larger opening paragraph of an article, has the role `preamble` and renders as a
+`p`. The lead-in has no default shortcut.
 
 | Option | Type | Description |
 |--------|------|-------------|
 | `headings` | `(1 \| 2 \| 3 \| 4 \| 5 \| 6)[]` | Levels to offer. Default `[1, 2, 3, 4]`. |
+| `preamble` | `boolean` | Offer the lead-in. Default `true`. |
 | `singleLine` | `boolean` | No Enter and no soft breaks, for a title field. |
 | `titles` | `Partial<Record<TextRole, string>>` | Action names, e.g. translations. |
 | `placeholders` | `Partial<Record<TextRole, string>>` | Hint in an empty block, per role. |
