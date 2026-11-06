@@ -27,24 +27,31 @@ npm skips its own commit and tag for packages in a workspace;
 
 ## Order
 
-`@dotvoid/textbit-plugins` relies on textbit features that are not in 1.9.0: actions
-sharing a key through `when()`, and AltGr typing never triggering shortcuts. Release
-the editor first, then raise the plugins' peer dependency on `@dotvoid/textbit` to
-that version, then release the plugins.
-
-The next editor release must be 2.0.0: bold, italic and underline are no longer
-built in (see "Upgrading from 1.x" in its README). The styles can go at any time.
+1. `@dotvoid/textbit` 2.0.0, a major release: types and marks are named `base/*`,
+   bold, italic and underline are no longer built in, and it needs Slate 0.147
+   (see "Upgrading from 1.x" in its README). `npm version major`.
+2. `@dotvoid/textbit-styles` 0.1.0, any time. `npm version minor`.
+3. `@dotvoid/textbit-plugins` 0.1.0, after the editor: it needs textbit 2.0.0.
+   First raise its peer dependency on `@dotvoid/textbit` from `^1.9.0` to
+   `^2.0.0` and commit that. It cannot be raised earlier: until the editor's
+   version is 2.0.0, npm finds no match and refuses to install. Then
+   `npm version minor`.
 
 ## The first release of a new package
 
-npm trusted publishing can only be set up for a package that already exists on the
-registry, so a new package cannot be published by the workflow until it has been
-published once. This applies to `@dotvoid/textbit-plugins` and
-`@dotvoid/textbit-styles`. After that first publish, add the trusted publisher on
-npmjs.com (package settings, Trusted Publisher: this repository and
-`publish-npm.yml`), and every later release goes through the workflow.
+Everything is published by the workflow, the first release of a package too.
+npm trusted publishing can only be set up for a package that already exists on
+the registry, so the first run publishes with a short-lived token instead:
 
-How that first publish happens has not been decided. A manual `npm publish` breaks
-the rule that nothing is published from a developer machine; the alternative is a
-single workflow run with a short-lived npm access token stored as a repository
-secret, removed afterwards.
+1. On npmjs.com, create a granular access token with read and write access to
+   the `@dotvoid` scope, expiring within a day.
+2. In the GitHub repository, add it as the Actions secret `NPM_TOKEN`.
+3. Release the package with `npm version` as usual. The workflow's publish step
+   reads the secret.
+4. Once the package is on npm: delete the `NPM_TOKEN` secret and revoke the
+   token, then add the trusted publisher in the package's settings on npmjs.com
+   (this repository, workflow `publish-npm.yml`).
+
+From then on the package publishes through trusted publishing, like the editor.
+For the first release of the plugins and the styles, do both while the token
+exists, then set up both trusted publishers.
