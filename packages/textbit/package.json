@@ -1,6 +1,6 @@
 {
   "name": "@dotvoid/textbit",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "license": "MIT",
   "description": "A plugin-based rich text editor for React, built on Slate, with collaborative editing over Yjs.",
   "author": {
