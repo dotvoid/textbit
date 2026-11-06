@@ -39,7 +39,7 @@
     "postversion": "node ../../scripts/commit-version.mjs textbit-plugins@ && git push && git push --tags"
   },
   "peerDependencies": {
-    "@dotvoid/textbit": "^1.9.0",
+    "@dotvoid/textbit": "^2.0.0",
     "react": "^18.0.0 || ^19.0.0",
     "react-dom": "^18.0.0 || ^19.0.0",
     "slate": "^0.147.4",
