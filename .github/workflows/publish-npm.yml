@@ -56,6 +56,11 @@ jobs:
         run: npm run build --if-present
       - name: Publish package
         working-directory: ${{ steps.package.outputs.dir }}
+        env:
+          # Only for the first publish of a new package, before npm lets it have
+          # a trusted publisher. Set the NPM_TOKEN secret for that one run and
+          # delete it afterwards; trusted publishing (OIDC) needs no token.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
           if [[ "$VERSION" == *-* ]]; then
