@@ -609,10 +609,20 @@ Every element type and mark stored in a document has a namespace:
 |-----------|----------|
 | `base/*` | Text, marks and the standard blocks, from core and `@dotvoid/textbit-plugins` |
 | `core/*` | Textbit's own features, such as `core/nbsp`. Never stored in a document. |
-| your own | Your plugins, e.g. `acme/factbox`. Do not use `base/` or `core/`. |
+| your own | Your plugins, e.g. `acme/factbox` or `acme/image`. Never `base/` or `core/`. |
 
-`TEXT_TYPE` (`base/text`) is the plain text block core creates on Enter, on
-paste, for an empty document and when it repairs a block without a type.
+A name stands for one document format. Your own plugin gets your own namespace
+even when it does the same job as a standard one: your image plugin is
+`acme/image`, not `base/image`. Registering a different plugin under a `base/`
+name replaces the standard one with a different document format, and nothing that
+reads those documents can tell the two apart.
+
+The exception is `TEXT_TYPE` (`base/text`), the plain text block core creates on
+Enter, on paste, for an empty document and when it repairs a block without a
+type. A plugin that renders text in your own way registers as `base/text`, keeps
+its format (no role for a paragraph, `properties.role` for the rest), and
+replaces core's plain paragraph. `Text()` from `@dotvoid/textbit-plugins` does
+this.
 
 ---
 

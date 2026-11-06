@@ -5,8 +5,10 @@ import type { PluginDefinition } from '../../../types'
  *
  * Replacement is a contract, not an accident: the last plugin
  * registered under a name wins and takes the earlier one's position.
- * Consumers rely on it to swap a base plugin (`base/text`) for their
- * own, so it is reported only in verbose mode.
+ * It registers a plugin again with other options, and replaces core's
+ * plain `base/text` with a text plugin that keeps its format, so it is
+ * reported only in verbose mode. Plugins with their own document format
+ * use their own namespace instead.
  *
  * @param registryPlugins PluginDefinition[]
  * @param plugin PluginDefinition[]

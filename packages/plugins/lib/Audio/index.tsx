@@ -35,7 +35,7 @@ const LABELS: AudioLabels = {
   missing: 'Audio not available'
 }
 
-/** An audio player with a caption. A reference for building your own, like Image. */
+/** An audio player with a caption. A reference for your own, like Image, under your own namespace. */
 export const Audio = (options: AudioOptions = {}): TBPluginDefinition => {
   const labels = { ...LABELS, ...options.labels }
   const accept = options.accept ?? ACCEPT
