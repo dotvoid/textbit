@@ -33,9 +33,21 @@ checks this for every plugin against its ES modules output.
 
 ## Plugins
 
-Every type and mark is named `base/*`, the namespace for standard content. To
-build your own version of a plugin, register it under the same name; give a new
-kind of content a namespace of your own.
+Every type and mark is named `base/*`, the namespace for textbit's standard
+content. A `base/image` is always this package's image, with this package's
+document format, in every application that uses textbit.
+
+So a plugin of your own gets a namespace of your own, also when it does the same
+job as one of these: your own image plugin is `acme/image`, not `base/image`.
+Registered as `base/image`, it would replace this one under the same name with a
+different document format, and documents, copy and paste, and anything else that
+reads `base/image` could no longer tell the two apart. To change how one of these
+plugins looks or behaves, use its options and the styles.
+
+The one exception is `base/text`. Textbit itself creates `base/text` blocks, on
+Enter, on paste and in an empty document, so a plugin that renders text in your
+own way has to keep that name and its format: no role for a paragraph, and
+`properties.role` for anything else.
 
 | Plugin | Element types | Default shortcut |
 |--------|---------------|------------------|
@@ -52,8 +64,8 @@ kind of content a namespace of your own.
 | `Audio` | `base/audio` | none |
 | `Blockquote` | `base/blockquote` | none |
 
-`Text`, `Bold`, `Italic` and `Underline` replace textbit's built-in plugins of the
-same name and keep their document format, so existing documents keep working.
+`Text` replaces textbit's built-in plain paragraph and keeps its format, adding
+roles for headings and the lead-in.
 
 ### Text
 
@@ -108,7 +120,8 @@ English, ”…” in Swedish, «…» in Norwegian), and two hyphens into an en
 
 ### Image and audio
 
-Reference plugins: complete, and meant to be read when you build your own.
+Reference plugins: complete, and meant to be read when you build your own. Give
+yours a namespace of your own, such as `acme/image` (see [Plugins](#plugins)).
 
 ```tsx
 Image({

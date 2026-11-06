@@ -48,9 +48,10 @@ const LABELS: ImageLabels = {
 }
 
 /**
- * An image with a caption and alternative text. A reference for building your
- * own: files reach it by drop or from the insert action, and are stored by your
- * `upload` function.
+ * An image with a caption and alternative text. Files reach it by drop or from
+ * the insert action, and are stored by your `upload` function. Also a reference
+ * for building your own, which gets a namespace of your own (`acme/image`, not
+ * `base/image`).
  */
 export const Image = (options: ImageOptions = {}): TBPluginDefinition => {
   const labels = { ...LABELS, ...options.labels }
