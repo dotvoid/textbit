@@ -4,3 +4,15 @@ body { margin: 0; font-family: system-ui, sans-serif; }
 /* About 70 characters a line, with the margin balanced against the gutter */
 .demo [data-tb="editor"] { max-width: 48rem; margin: 0 auto; padding: 2.5rem 4rem 2.5rem 1.5rem; }
 .demo-editor { display: grid; grid-template-columns: 2.5rem 1fr; }
+.demo header h1 { margin: 0; }
+.demo-switches { display: flex; gap: 1.25rem; }
+.demo-stats { max-width: 48rem; margin: 0.5rem auto 0; color: var(--tb-muted); font-size: 0.8125rem; text-align: right; }
+.demo section { max-width: 72rem; margin: 4rem auto 0; }
+.demo section > h2, .demo section > p { max-width: 48rem; margin-inline: auto; }
+.demo section > h2 { margin-bottom: 0.25rem; font-size: 1.25rem; }
+.demo section > p { margin-top: 0; margin-bottom: 1rem; color: var(--tb-muted); }
+.demo-together { display: grid; grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr)); gap: 1.5rem; }
+.demo-together [data-tb="editor"] { padding: 1.5rem 1.5rem 1.5rem 0.5rem; }
+.demo-peer { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.5rem; font-size: 0.875rem; color: var(--tb-muted); }
+.demo-peer span { width: 0.625rem; height: 0.625rem; border-radius: 50%; }
+.demo section [data-tb="editor"]:not(.demo-together [data-tb="editor"]) { padding: 1rem 1.5rem; }
