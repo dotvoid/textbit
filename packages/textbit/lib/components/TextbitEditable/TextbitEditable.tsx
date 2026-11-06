@@ -243,55 +243,80 @@ export function TextbitEditable(props: TextbitEditableProps) {
   }, [editor, adjacentBlock, blockSelection, setAdjacentBlock, setBlockSelection])
 
   /**
+   * A click beside a top-level non-text block, such as an image or a table,
+   * parks a block caret before or after it rather than letting Slate try to
+   * resolve a position outside any editable text. Returns whether it did.
+   */
+  const parkBesideBlock = useCallback((clickX: number, clickY: number): boolean => {
+    const beside = blockBeside(editor, clickX, clickY)
+    if (!beside) {
+      return false
+    }
+
+    const { index, block, direction } = beside
+    if (!block.id) {
+      return false
+    }
+    ReactEditor.focus(editor)
+
+    // Keep the selection inside the clicked block so useSelected() stays true
+    // only for this block (prevents focus rings on neighbouring blocks).
+    if (direction === 'before') {
+      Transforms.select(editor, Editor.start(editor, [index]))
+    } else {
+      Transforms.select(editor, Editor.end(editor, [index]))
+    }
+    setAdjacentBlock({ blockId: block.id, direction })
+    if (blockSelection) {
+      setBlockSelection(null)
+    }
+    return true
+  }, [editor, setAdjacentBlock, blockSelection, setBlockSelection])
+
+  // The room beside blocks is often outside the editable text: the editor's
+  // padding and the gutter. Clicks there park a block caret too, unless they
+  // land on something of its own, like the gutter menu.
+  useEffect(() => {
+    let root: HTMLElement | null = null
+    try {
+      const editable = ReactEditor.toDOMNode(editor, editor)
+      root = editable.closest<HTMLElement>('[data-tb="editor"]')
+    } catch {
+      return
+    }
+    if (!root || readOnly) {
+      return
+    }
+
+    const onRootMouseDown = (event: MouseEvent) => {
+      const target = event.target instanceof globalThis.Element ? event.target : null
+      if (event.button !== 0 || !target || target.closest('[data-slate-editor]') || target.closest(INTERACTIVE)) {
+        return
+      }
+      fromPointerRef.current = true
+      if (parkBesideBlock(event.clientX, event.clientY)) {
+        event.preventDefault()
+      }
+    }
+
+    root.addEventListener('mousedown', onRootMouseDown)
+    return () => root.removeEventListener('mousedown', onRootMouseDown)
+  }, [editor, readOnly, parkBesideBlock])
+
+  /**
    * Fixefox does not set the caret position correctly when clicking
    * in an unfocused Editable area. If the gecko rendering engine is
    * detected we help the user by setting the caret position.
    *
-   * Also handles clicks in the horizontal gutter beside non-text blocks
-   * by setting the adjacent block state instead of letting Slate try to
-   * resolve a click position outside any editable text.
+   * Also handles clicks in the editable beside non-text blocks.
    */
   const onMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     // Signal to handleFocus that the upcoming focus event came from a click.
     focusFromMouseRef.current = true
     fromPointerRef.current = true
 
-    const clickX = event.clientX
-    const clickY = event.clientY
-
-    // Check if the click is horizontally beside a top-level non-text block
-    for (let i = 0; i < editor.children.length; i++) {
-      const block = editor.children[i]
-      if (!Element.isElement(block) || block.class === 'text') continue
-
-      let domNode: HTMLElement
-      try {
-        domNode = ReactEditor.toDOMNode(editor, block) as HTMLElement
-      } catch {
-        continue
-      }
-
-      const rect = domNode.getBoundingClientRect()
-      if (clickY < rect.top || clickY > rect.bottom) continue
-      if (clickX >= rect.left && clickX <= rect.right) continue // click is on the block itself
-
+    if (parkBesideBlock(event.clientX, event.clientY)) {
       event.preventDefault()
-      ReactEditor.focus(editor)
-
-      const direction: 'before' | 'after' = clickX < (rect.left + rect.right) / 2 ? 'before' : 'after'
-
-      // Keep the selection inside the clicked block so useSelected() stays true
-      // only for this block (prevents focus rings on neighbouring blocks).
-      if (direction === 'before') {
-        Transforms.select(editor, Editor.start(editor, [i]))
-      } else {
-        Transforms.select(editor, Editor.end(editor, [i]))
-      }
-      setAdjacentBlock({ blockId: block.id, direction })
-      if (blockSelection) {
-        setBlockSelection(null)
-      }
-
       return
     }
 
@@ -314,7 +339,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
         Transforms.select(editor, range)
       }
     }
-  }, [editor, isFocused, adjacentBlock, setAdjacentBlock, blockSelection, setBlockSelection])
+  }, [editor, isFocused, adjacentBlock, setAdjacentBlock, blockSelection, setBlockSelection, parkBesideBlock])
 
   return (
     <>
@@ -357,4 +382,34 @@ export function TextbitEditable(props: TextbitEditableProps) {
       {verbose && <SelectionBoundsDetails />}
     </>
   )
+}
+
+/** Things in the editor's surface a click must reach, not park a block caret */
+const INTERACTIVE = 'button, a, input, textarea, select, label, [role="button"], [role="menu"], [role="menuitem"], [data-tb="menu"], [data-tb="toolbar"]'
+
+/** The top-level non-text block a click at (x, y) is beside, and on which side */
+function blockBeside(editor: Editor, x: number, y: number): {
+  index: number
+  block: Element
+  direction: 'before' | 'after'
+} | null {
+  for (const [index, block] of editor.children.entries()) {
+    if (!Element.isElement(block) || block.class === 'text') {
+      continue
+    }
+
+    let rect: DOMRect
+    try {
+      rect = ReactEditor.toDOMNode(editor, block).getBoundingClientRect()
+    } catch {
+      continue
+    }
+
+    if (y < rect.top || y > rect.bottom || (x >= rect.left && x <= rect.right)) {
+      continue
+    }
+
+    return { index, block, direction: x < (rect.left + rect.right) / 2 ? 'before' : 'after' }
+  }
+  return null
 }
