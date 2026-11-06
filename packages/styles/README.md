@@ -51,11 +51,13 @@ Override any token on `:root`, or on an element around one editor.
 
 | Token | Use |
 |-------|-----|
-| `--tb-font-text`, `--tb-font-text-weight` | Body text: Petrona, weight 500 |
-| `--tb-font-heading` | Headings: Overused Grotesk |
+| `--tb-font-text`, `--tb-font-text-weight` | Body text: Petrona, weight 440 |
+| `--tb-font-heading`, `--tb-font-heading-weight` | Headings: Overused Grotesk, weight 700 |
 | `--tb-font-ui` | Menus, labels and captions: the system's sans serif |
 | `--tb-font-mono` | Code |
-| `--tb-radius`, `--tb-gap` | Corner radius, space between blocks |
+| `--tb-text-size`, `--tb-leading` | Text size and line height; headings, the lead-in and code scale with the size |
+| `--tb-gap`, `--tb-gap-wide` | Space between paragraphs; around quotes, tables, code and media |
+| `--tb-radius` | Corner radius |
 | `--tb-text`, `--tb-muted` | Text, secondary text |
 | `--tb-surface`, `--tb-subtle`, `--tb-border` | Popover background, quiet background, lines |
 | `--tb-accent`, `--tb-accent-subtle` | Links, active items, focus |
