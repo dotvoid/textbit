@@ -15,7 +15,10 @@
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "slate": "^0.147.4",
-    "slate-react": "^0.147.5"
+    "slate-react": "^0.147.5",
+    "@slate-yjs/core": "^1.0.2",
+    "y-protocols": "^1.0.5",
+    "yjs": "^13.6.26"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.5.2",

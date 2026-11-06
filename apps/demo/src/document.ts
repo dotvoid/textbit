@@ -18,6 +18,7 @@ export const document = [
     { id: id(), type: 'base/link', class: 'inline', properties: { href: 'https://example.com/' }, children: [{ text: 'link' }] },
     { text: '.' }
   ] },
+  text('Spelling is checked as you write: teh mistake is marked, and alot gets a gentle suggestion. Right-click either to correct it, or to accept the word in this document.'),
   text('Lists', 'heading-2'),
   { id: id(), type: 'base/unordered-list', class: 'text', children: [
     { id: id(), type: 'base/unordered-list/list-item', class: 'text', children: [{ text: 'Fishing boats' }] },
