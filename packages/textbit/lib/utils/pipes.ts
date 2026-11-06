@@ -442,5 +442,10 @@ function moveNode(editor: Editor, id: string, to: number) {
     return
   }
 
-  Transforms.moveNodes(editor, { at: [from], to: [to] })
+  // `to` is a drop position: before the block now at that index. Slate wants
+  // the block's index after the move, which is one less when moving down.
+  const target = from < to ? to - 1 : to
+  if (target !== from) {
+    Transforms.moveNodes(editor, { at: [from], to: [target] })
+  }
 }
