@@ -18,6 +18,7 @@ import { AdjacentBlockProvider } from '../../contexts/AdjacentBlockProvider'
 import { type BlockSelectionState } from '../../contexts/BlockSelectionContext'
 import { BlockSelectionProvider } from '../../contexts/BlockSelectionProvider'
 import { handleOnKeyDown } from './handleOnKeyDown/handleOnKeyDown'
+import { scrollSelectionIntoView } from './scrollSelectionIntoView'
 import { trimWhitespace } from '../../utils/trimWhitespace'
 import { prepareBlockAwarePaste } from '../../utils/blockAwarePaste'
 
@@ -87,6 +88,21 @@ export function TextbitEditable(props: TextbitEditableProps) {
   // A click flow is mousedown -> focus; Tab and programmatic focus are not
   // preceded by a mousedown. This lets us tell them apart inside handleFocus.
   const focusFromMouseRef = useRef(false)
+
+  // True from a mousedown in the editor until just after the mouseup, so a
+  // selection the click makes is not scrolled to. Cleared by any key too.
+  const fromPointerRef = useRef(false)
+  useEffect(() => {
+    const release = () => setTimeout(() => {
+      fromPointerRef.current = false
+    })
+    document.addEventListener('mouseup', release, true)
+    return () => document.removeEventListener('mouseup', release, true)
+  }, [])
+
+  const scrollSelection = useCallback((_: ReactEditor, domRange: globalThis.Range) => {
+    scrollSelectionIntoView(editor, domRange, fromPointerRef.current)
+  }, [editor])
 
   // Place an initial caret when the editor gains focus via Tab, autoFocus, or
   // programmatic focus without a prior selection. Clicks are left alone: the
@@ -186,6 +202,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
   }, [editor, constraints, onBlur])
 
   const onKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    fromPointerRef.current = false
     handleOnKeyDown(editor, actions, event, adjacentBlock, setAdjacentBlock, blockSelection, setBlockSelection)
   }, [editor, actions, adjacentBlock, setAdjacentBlock, blockSelection, setBlockSelection])
 
@@ -237,6 +254,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
   const onMouseDown = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     // Signal to handleFocus that the upcoming focus event came from a click.
     focusFromMouseRef.current = true
+    fromPointerRef.current = true
 
     const clickX = event.clientX
     const clickY = event.clientY
@@ -326,6 +344,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
                 dir={dir}
                 onContextMenu={handleContextMenu}
                 onMouseDown={onMouseDown}
+                scrollSelectionIntoView={scrollSelection}
                 aria-label={props['aria-label']}
               />
               {props.children}
