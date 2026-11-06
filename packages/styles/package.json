@@ -37,6 +37,6 @@
   },
   "devDependencies": {
     "postcss": "*",
-    "vitest": "^4.0.8"
+    "vitest": "^4.1.12"
   }
 }
