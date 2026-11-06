@@ -27,15 +27,24 @@ npm skips its own commit and tag for packages in a workspace;
 
 ## Order
 
-1. `@dotvoid/textbit` 2.0.0, a major release: types and marks are named `base/*`,
-   bold, italic and underline are no longer built in, and it needs Slate 0.147
-   (see "Upgrading from 1.x" in its README). `npm version major`.
-2. `@dotvoid/textbit-styles` 0.1.0, any time. `npm version minor`.
-3. `@dotvoid/textbit-plugins` 0.1.0, after the editor: it needs textbit 2.0.0.
-   First raise its peer dependency on `@dotvoid/textbit` from `^1.9.0` to
-   `^2.0.0` and commit that. It cannot be raised earlier: until the editor's
-   version is 2.0.0, npm finds no match and refuses to install. Then
-   `npm version minor`.
+`@dotvoid/textbit-plugins` names the editor versions it works with in its peer
+dependency on `@dotvoid/textbit`. npm checks that range against the editor in
+this workspace, locally and in the workflow's `npm ci`, so it must match the
+editor's version at every commit.
+
+A minor or patch release of the editor needs nothing extra. A major release does:
+
+1. Widen the plugins' range to cover both majors, e.g. `^2.0.0 || ^3.0.0`, and
+   commit it.
+2. Release the editor: `npm version major`.
+3. Narrow the plugins' range to the new major, e.g. `^3.0.0`, and release the
+   plugins.
+
+Skipping step 1 breaks `npm ci`: once the editor's version leaves the range, npm
+fetches an older editor from the registry for the plugins, which then conflicts
+with everything else. That is what stopped the first 2.0.0 run.
+
+The styles have no dependencies and can be released at any time.
 
 ## The first release of a new package
 
