@@ -412,6 +412,11 @@ Provides a gutter area for content tools (like a menu). Automatically positions 
 
 Visual indicator for drag-and-drop operations. Automatically handles positioning and visibility.
 
+The whole editing area takes drops, the gaps between blocks included. Each
+place a drop can go has one position for the marker: between two blocks, the
+line sits halfway through the gap between them, whatever margins or padding
+the blocks have. The marker always shows where the drop will land.
+
 #### Props
 
 | Name | Type | Description |

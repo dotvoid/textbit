@@ -1,17 +1,14 @@
 import { type Dispatch, type SetStateAction, createContext, type DragEvent } from 'react'
-
-export type Offset = {
-  bbox?: DOMRect
-  position?: ['above' | 'below', boolean] // Drop should be above/below, or boolean true then could be inside)
-}
+import type { DropTarget } from '../utils/dropTarget'
 
 export type DragStateContextInterface = {
   dragOver: boolean
-  offset?: Offset
+  /** Where a drop would go now, while something is dragged over the editor */
+  offset?: DropTarget
   onDragEnter: () => void
   onDragLeave: () => void
   onDrop: (e: DragEvent) => void
-  setOffset: Dispatch<SetStateAction<Offset | undefined>>
+  setOffset: Dispatch<SetStateAction<DropTarget | undefined>>
 }
 
 export const DragstateContext = createContext<DragStateContextInterface>({
