@@ -19,6 +19,7 @@ import { type BlockSelectionState } from '../../contexts/BlockSelectionContext'
 import { BlockSelectionProvider } from '../../contexts/BlockSelectionProvider'
 import { handleOnKeyDown } from './handleOnKeyDown/handleOnKeyDown'
 import { scrollSelectionIntoView } from './scrollSelectionIntoView'
+import { syncClipboardSelection } from './syncClipboardSelection'
 import { trimWhitespace } from '../../utils/trimWhitespace'
 import { prepareBlockAwarePaste } from '../../utils/blockAwarePaste'
 
@@ -212,6 +213,16 @@ export function TextbitEditable(props: TextbitEditableProps) {
    * block(s), rather than inside the block the hidden Slate selection
    * happens to point at. See utils/blockAwarePaste.ts for details.
    */
+  // WORKAROUND for https://github.com/ianstormtaylor/slate/pull/6364, see
+  // syncClipboardSelection. Remove with it.
+  const onCopy = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+    return syncClipboardSelection(editor, event, 'copy', !!blockSelection)
+  }, [editor, blockSelection])
+
+  const onCut = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+    return syncClipboardSelection(editor, event, 'cut', !!blockSelection)
+  }, [editor, blockSelection])
+
   const onPaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
     if (!adjacentBlock && !blockSelection) {
       return
@@ -359,6 +370,8 @@ export function TextbitEditable(props: TextbitEditableProps) {
                 onBlur={handleBlur}
                 onKeyDown={onKeyDown}
                 onPaste={onPaste}
+                onCopy={onCopy}
+                onCut={onCut}
                 decorate={decorate}
                 className={props.className}
                 style={adjacentBlock || blockSelection
