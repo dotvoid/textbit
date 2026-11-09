@@ -122,6 +122,8 @@ export function handleBlockSelectionKeyDown(
   const key = event.key
   const isArrow = key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight'
   const hasMod = event.metaKey || event.ctrlKey
+  // Caps Lock and Shift make letters upper case: Ctrl+Shift+V pastes plain text
+  const letter = key.length === 1 ? key.toLowerCase() : ''
 
   // ── Shift+Arrow — extend selection ────────────────────────────────────
   if (event.shiftKey && isArrow) {
@@ -182,12 +184,12 @@ export function handleBlockSelectionKeyDown(
   // ── Cmd/Ctrl+C — let native copy pass through ────────────────────────
   // The Slate selection spans the selected blocks, so the browser/Slate
   // copy handler writes the correct fragment to the clipboard.
-  if (hasMod && key === 'c') {
+  if (hasMod && letter === 'c') {
     return
   }
 
   // ── Cmd/Ctrl+X — cut: copy then delete ────────────────────────────────
-  if (hasMod && key === 'x') {
+  if (hasMod && !event.shiftKey && letter === 'x') {
     // Trigger a synchronous copy via the deprecated-but-universal
     // execCommand; Slate's onCopy handler serialises the fragment.
     document.execCommand('copy')
@@ -196,11 +198,11 @@ export function handleBlockSelectionKeyDown(
     return
   }
 
-  // ── Cmd/Ctrl+V — let the native paste event fire ──────────────────────
+  // ── Cmd/Ctrl+V, and Shift for plain text — let the paste event fire ───
   // The onPaste handler on TextbitEditable consumes the block selection
   // state, removes the selected blocks and inserts the clipboard content
   // in their place. Do NOT preventDefault here.
-  if (hasMod && key === 'v') {
+  if (hasMod && letter === 'v') {
     return
   }
 
