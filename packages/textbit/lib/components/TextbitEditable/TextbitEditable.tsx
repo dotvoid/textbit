@@ -10,7 +10,6 @@ import { useContextMenu, type ContextMenuMode } from '../../hooks/useContextMenu
 import { useSlateStatic } from 'slate-react'
 import { DragStateProvider } from '../../contexts/DragStateProvider'
 import { PendingDropsProvider } from '../../contexts/PendingDropsProvider'
-import { AgentPresenceProvider } from '../../contexts/AgentPresenceProvider'
 import { PresenceOverlay } from '../PresenceOverlay'
 import type { Decoration, SpellcheckLookupTable, SpellingError } from '../../types'
 import { SelectionBoundsDetails } from '../SelectionBoundsDetails'
@@ -561,36 +560,34 @@ export function TextbitEditable(props: TextbitEditableProps) {
         <AdjacentBlockProvider value={adjacentBlock} setValue={setAdjacentBlock}>
           <DragStateProvider>
             <PendingDropsProvider editor={editor}>
-              <AgentPresenceProvider editor={editor}>
-                <PresenceOverlay isCollaborative={collaborative}>
-                  <Editable
-                    autoFocus={!!autoFocus}
-                    data-tb='editable'
-                    data-state={isFocused ? 'focused' : ''}
-                    readOnly={readOnly}
-                    renderElement={renderElement}
-                    renderLeaf={renderLeaf}
-                    onFocus={handleFocus}
-                    onBlur={handleBlur}
-                    onKeyDown={onKeyDown}
-                    onPaste={onPaste}
-                    decorate={decorate}
-                    className={props.className}
-                    style={adjacentBlock || blockSelection
-                      ? { ...props.style, caretColor: 'transparent' }
-                      : props.style
-                    }
-                    spellCheck={false}
-                    dir={dir}
-                    onContextMenu={handleContextMenu}
-                    onMouseDown={onMouseDown}
-                    onClick={onClick}
-                    scrollSelectionIntoView={scrollSelection}
-                    aria-label={props['aria-label']}
-                  />
-                  {props.children}
-                </PresenceOverlay>
-              </AgentPresenceProvider>
+              <PresenceOverlay isCollaborative={collaborative}>
+                <Editable
+                  autoFocus={!!autoFocus}
+                  data-tb='editable'
+                  data-state={isFocused ? 'focused' : ''}
+                  readOnly={readOnly}
+                  renderElement={renderElement}
+                  renderLeaf={renderLeaf}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  onKeyDown={onKeyDown}
+                  onPaste={onPaste}
+                  decorate={decorate}
+                  className={props.className}
+                  style={adjacentBlock || blockSelection
+                    ? { ...props.style, caretColor: 'transparent' }
+                    : props.style
+                  }
+                  spellCheck={false}
+                  dir={dir}
+                  onContextMenu={handleContextMenu}
+                  onMouseDown={onMouseDown}
+                  onClick={onClick}
+                  scrollSelectionIntoView={scrollSelection}
+                  aria-label={props['aria-label']}
+                />
+                {props.children}
+              </PresenceOverlay>
             </PendingDropsProvider>
           </DragStateProvider>
         </AdjacentBlockProvider>

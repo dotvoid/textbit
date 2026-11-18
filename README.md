@@ -19,6 +19,7 @@ npm run dev       # the demo: editor, plugins and styles, from source
 npm run dev:core  # the editor's own test bench, without the plugins package
 npm test          # tests for every package
 npm run build     # builds every package
+npm run lab       # a shared document for an AI agent over MCP, see apps/agent-lab
 ```
 
 ## Releasing
