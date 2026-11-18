@@ -14,9 +14,15 @@ import { resolveTargetIndex, enterBlockFromStart, enterBlockFromEnd } from './bl
 export function syncSlateSelection(editor: Editor, bs: BlockSelectionState): void {
   const lo = Math.min(bs.anchorIndex, bs.focusIndex)
   const hi = Math.max(bs.anchorIndex, bs.focusIndex)
+  const last = editor.children[hi]
   Transforms.select(editor, {
     anchor: Editor.start(editor, [lo]),
-    focus: Editor.end(editor, [hi])
+    // Slate renders only a void's first text, so a selection that ends further
+    // in cannot be shown or copied: a void, such as an object whose plugin is
+    // missing, ends the selection at its start, and is still copied whole
+    focus: Element.isElement(last) && Editor.isVoid(editor, last)
+      ? Editor.start(editor, [hi])
+      : Editor.end(editor, [hi])
   })
 }
 
@@ -107,6 +113,7 @@ export function enterBlockSelectionFromAdjacentCaret(
  *
  * - Shift+Arrow: extend selection
  * - Unshifted arrow: collapse selection and exit
+ * - Escape: exit to a caret after the last selected block
  * - Delete/Backspace: remove selected blocks
  * - Cmd/Ctrl+C: pass through for native copy
  * - Cmd/Ctrl+X: copy then delete blocks
@@ -117,13 +124,23 @@ export function handleBlockSelectionKeyDown(
   event: React.KeyboardEvent<HTMLDivElement>,
   blockSelection: BlockSelectionState,
   setBlockSelection: (state: BlockSelectionState | null) => void,
-  setAdjacentBlock: (state: AdjacentBlockState | null) => void
+  setAdjacentBlock: (state: AdjacentBlockState | null) => void,
+  readOnly = false
 ): void {
   const key = event.key
   const isArrow = key === 'ArrowUp' || key === 'ArrowDown' || key === 'ArrowLeft' || key === 'ArrowRight'
   const hasMod = event.metaKey || event.ctrlKey
   // Caps Lock and Shift make letters upper case: Ctrl+Shift+V pastes plain text
   const letter = key.length === 1 ? key.toLowerCase() : ''
+
+  // ── Read-only: select and copy, never change the document ─────────────
+  if (readOnly && !(event.shiftKey && isArrow)) {
+    if (isArrow || key === 'Escape') {
+      event.preventDefault()
+      setBlockSelection(null)
+    }
+    return
+  }
 
   // ── Shift+Arrow — extend selection ────────────────────────────────────
   if (event.shiftKey && isArrow) {
@@ -170,6 +187,22 @@ export function handleBlockSelectionKeyDown(
       } else {
         Transforms.select(editor, Editor.end(editor, [targetIndex]))
       }
+    }
+    return
+  }
+
+  // ── Escape — leave, to a caret after the last selected block ──────────
+  if (key === 'Escape') {
+    event.preventDefault()
+    const hi = Math.max(blockSelection.anchorIndex, blockSelection.focusIndex)
+    const block = editor.children[hi]
+    setBlockSelection(null)
+
+    if (Element.isElement(block) && block.class !== 'text') {
+      enterBlockFromEnd(editor, [hi], block)
+      setAdjacentBlock({ blockId: block.id, direction: 'after' })
+    } else {
+      Transforms.select(editor, Editor.end(editor, [hi]))
     }
     return
   }

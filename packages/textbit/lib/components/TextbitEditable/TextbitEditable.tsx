@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Editor, Element, Node, type NodeEntry, Range, Transforms } from 'slate'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Editor, Element, Node, type NodeEntry, Path, Range, Text, Transforms } from 'slate'
 import { Editable, ReactEditor, useFocused, useSlateSelector, type RenderElementProps, type RenderLeafProps } from 'slate-react'
 import { getDecorationRanges } from '../../utils/getDecorationRanges'
 import { ElementComponent } from '../Element/Element'
@@ -18,7 +18,11 @@ import { AdjacentBlockProvider } from '../../contexts/AdjacentBlockProvider'
 import { type BlockSelectionState } from '../../contexts/BlockSelectionContext'
 import { BlockSelectionProvider } from '../../contexts/BlockSelectionProvider'
 import { handleOnKeyDown } from './handleOnKeyDown/handleOnKeyDown'
+import { handleBlockSelectionKeyDown, syncSlateSelection } from './handleOnKeyDown/blockSelectionHandler'
 import { scrollSelectionIntoView } from './scrollSelectionIntoView'
+import { listenForBlockCaret } from '../../utils/blockCaret'
+import { focusOutsideEditor, objectControls } from './objectFocus'
+import { enterBlockFromEnd, enterBlockFromStart } from './handleOnKeyDown/blockUtils'
 import { trimWhitespace } from '../../utils/trimWhitespace'
 import { prepareBlockAwarePaste } from '../../utils/blockAwarePaste'
 
@@ -57,6 +61,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
   const editor = useSlateStatic()
   const { placeholders, placeholder, readOnly, dir, collaborative, verbose } = useTextbit()
   const { components, actions } = usePluginRegistry()
+  const registeredTypes = useMemo(() => new Set(components.keys()), [components])
   const isFocused = useFocused()
   const handleContextMenu = useContextMenu(true, props.contextMenu)
   const [spellingLookupTable, setSpellingLookupTable] = useState<SpellcheckLookupTable>(new Map())
@@ -201,10 +206,180 @@ export function TextbitEditable(props: TextbitEditableProps) {
     onBlur?.(e)
   }, [editor, constraints, onBlur])
 
+  /**
+   * Tab in reading order. A block caret before an object, its controls (such
+   * as its buttons) and a block caret after it are three stops: Tab steps
+   * forward through them, Shift+Tab back. A selected object's controls are the
+   * next stop either way. From anywhere else Tab leaves the editor, skipping
+   * every object's controls. Returns whether it handled the key.
+   */
+  const tabFromBlock = useCallback((event: React.KeyboardEvent<HTMLDivElement>): boolean => {
+    const forward = !event.shiftKey
+    let index = -1
+    if (blockSelection && blockSelection.anchorIndex === blockSelection.focusIndex) {
+      index = blockSelection.anchorIndex
+    } else if (adjacentBlock && (adjacentBlock.direction === 'before') === forward) {
+      index = editor.children.findIndex((c) => Element.isElement(c) && c.id === adjacentBlock.blockId)
+    }
+
+    const controls = index === -1 ? [] : objectControls(editor, index)
+    event.preventDefault()
+    if (adjacentBlock) setAdjacentBlock(null)
+    if (blockSelection) setBlockSelection(null)
+
+    if (controls.length) {
+      (forward ? controls[0] : controls[controls.length - 1]).focus()
+    } else {
+      focusOutsideEditor(editor, forward)
+    }
+    return true
+  }, [editor, adjacentBlock, blockSelection, setAdjacentBlock, setBlockSelection])
+
   const onKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     fromPointerRef.current = false
+
+    const isTab = event.key === 'Tab' && !event.ctrlKey && !event.metaKey && !event.altKey
+    if (isTab && (adjacentBlock || blockSelection)) {
+      tabFromBlock(event)
+      return
+    }
+
+    // slate-react passes keys on in a read-only editor too: only selecting
+    // and copying whole blocks, and nothing that changes the document
+    if (readOnly) {
+      if (blockSelection) {
+        handleBlockSelectionKeyDown(editor, event, blockSelection, setBlockSelection, setAdjacentBlock, true)
+      }
+      if (isTab) {
+        event.preventDefault()
+        focusOutsideEditor(editor, !event.shiftKey)
+      }
+      return
+    }
+
     handleOnKeyDown(editor, actions, event, adjacentBlock, setAdjacentBlock, blockSelection, setBlockSelection)
-  }, [editor, actions, adjacentBlock, setAdjacentBlock, blockSelection, setBlockSelection])
+
+    // Tab no plugin used, such as a table's or a code block's, leaves the editor
+    if (isTab && !event.defaultPrevented) {
+      event.preventDefault()
+      focusOutsideEditor(editor, !event.shiftKey)
+    }
+  }, [editor, actions, readOnly, adjacentBlock, setAdjacentBlock, blockSelection, setBlockSelection, tabFromBlock])
+
+  // Keys in an object's controls, such as its buttons, which slate-react does
+  // not pass on. Escape selects the object. Tab on the last control parks the
+  // block caret after it, Shift+Tab on the first before it. A native listener
+  // on the editor's element: keys in a dialog an object opened elsewhere in
+  // the page do not reach it, though React would pass them through the object.
+  useEffect(() => {
+    let root: HTMLElement
+    try {
+      root = ReactEditor.toDOMNode(editor, editor)
+    } catch {
+      return
+    }
+
+    const onControlKeyDown = (event: KeyboardEvent) => {
+      const target = event.target instanceof HTMLElement ? event.target : null
+      if (event.defaultPrevented || !target || target.isContentEditable || target === root) {
+        return
+      }
+      const index = objectIndexOf(editor, target)
+      if (index === null) {
+        return
+      }
+      const block = editor.children[index]
+      if (!Element.isElement(block) || !block.id) {
+        return
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        const state = { anchorIndex: index, focusIndex: index }
+        setAdjacentBlock(null)
+        setBlockSelection(state)
+        syncSlateSelection(editor, state)
+        focusEditor()
+        return
+      }
+
+      if (event.key !== 'Tab' || event.ctrlKey || event.metaKey || event.altKey) {
+        return
+      }
+      const controls = objectControls(editor, index)
+      const position = controls.indexOf(target)
+      const leaving = event.shiftKey ? position === 0 : position === controls.length - 1
+      if (position === -1 || !leaving) {
+        return
+      }
+
+      event.preventDefault()
+      setBlockSelection(null)
+      if (event.shiftKey) {
+        enterBlockFromStart(editor, [index], block)
+      } else {
+        enterBlockFromEnd(editor, [index], block)
+      }
+      setAdjacentBlock({ blockId: block.id, direction: event.shiftKey ? 'before' : 'after' })
+      focusEditor()
+    }
+
+    // slate-react counts focus on a control inside the editor as the editor's,
+    // so ReactEditor.focus alone would leave it on the control
+    const focusEditor = () => {
+      root.focus({ preventScroll: true })
+      ReactEditor.focus(editor)
+    }
+
+    root.addEventListener('keydown', onControlKeyDown)
+    return () => root.removeEventListener('keydown', onControlKeyDown)
+  }, [editor, setAdjacentBlock, setBlockSelection])
+
+  /**
+   * A click on an object (a non-text block such as an image or a factbox)
+   * outside its text selects the whole object, as the keyboard does, so a copy
+   * carries it in full. Shift extends a block selection to it. Handled on click,
+   * not mousedown: plugins often stop mousedown, and dragging an object fires no
+   * click. Returning true makes slate-react skip its own void click handling.
+   */
+  const onClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const index = objectIndexAt(editor, event.target)
+    if (index === null) {
+      return false
+    }
+
+    ReactEditor.focus(editor)
+    setAdjacentBlock(null)
+    const state = event.shiftKey && blockSelection
+      ? { anchorIndex: blockSelection.anchorIndex, focusIndex: index }
+      : { anchorIndex: index, focusIndex: index }
+    setBlockSelection(state)
+    syncSlateSelection(editor, state)
+    event.preventDefault()
+    return true
+  }, [editor, blockSelection, setAdjacentBlock, setBlockSelection])
+
+  // A paste places a block caret after an object it inserts
+  useEffect(() => listenForBlockCaret(editor, (blockId) => {
+    setBlockSelection(null)
+    setAdjacentBlock(blockId ? { blockId, direction: 'after' } : null)
+  }), [editor, setAdjacentBlock, setBlockSelection])
+
+  // A read-only editor does not put its selection in the page itself, and a
+  // copy needs one there: give it the block selection
+  useEffect(() => {
+    if (!readOnly || !blockSelection || !editor.selection) {
+      return
+    }
+    try {
+      const range = ReactEditor.toDOMRange(editor, editor.selection)
+      const domSelection = ReactEditor.getWindow(editor).getSelection()
+      domSelection?.removeAllRanges()
+      domSelection?.addRange(range)
+    } catch {
+      // Not rendered yet
+    }
+  }, [readOnly, blockSelection, editor])
 
   /**
    * Redirect paste when block caret or block selection is active so the
@@ -213,6 +388,12 @@ export function TextbitEditable(props: TextbitEditableProps) {
    * happens to point at. See utils/blockAwarePaste.ts for details.
    */
   const onPaste = useCallback((event: React.ClipboardEvent<HTMLDivElement>) => {
+    // slate-react passes paste on in a read-only editor too
+    if (readOnly) {
+      event.preventDefault()
+      return
+    }
+
     if (!adjacentBlock && !blockSelection) {
       return
     }
@@ -222,16 +403,25 @@ export function TextbitEditable(props: TextbitEditableProps) {
       return
     }
 
-    const result = prepareBlockAwarePaste(editor, data, adjacentBlock, blockSelection)
+    const result = prepareBlockAwarePaste(editor, data, adjacentBlock, blockSelection, registeredTypes)
 
     if (result === 'unhandled') {
       return
     }
 
-    // Clear block-level states; from here on the editor is in a normal
+    // Nothing on the clipboard this editor can insert: change nothing
+    if (result === 'empty') {
+      event.preventDefault()
+      return
+    }
+
+    // A direct insert placed the caret, block caret included, through
+    // listenForBlockCaret. Otherwise the editor is now in a normal
     // collapsed-selection state.
-    if (adjacentBlock) setAdjacentBlock(null)
-    if (blockSelection) setBlockSelection(null)
+    if (result === 'prepared') {
+      if (adjacentBlock) setAdjacentBlock(null)
+      if (blockSelection) setBlockSelection(null)
+    }
 
     if (result === 'handled') {
       // Slate fragment was inserted directly — stop slate-react from also
@@ -240,7 +430,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
     }
     // For 'prepared' we leave the event alone so slate-react's default
     // paste handler populates the placeholder via editor.insertData.
-  }, [editor, adjacentBlock, blockSelection, setAdjacentBlock, setBlockSelection])
+  }, [editor, readOnly, adjacentBlock, blockSelection, setAdjacentBlock, setBlockSelection, registeredTypes])
 
   /**
    * A click beside a top-level non-text block, such as an image or a table,
@@ -315,6 +505,13 @@ export function TextbitEditable(props: TextbitEditableProps) {
     focusFromMouseRef.current = true
     fromPointerRef.current = true
 
+    // Shift+click on an object extends the block selection on click: keep it,
+    // and keep the browser from extending a text selection meanwhile
+    if (event.shiftKey && blockSelection && objectIndexAt(editor, event.target) !== null) {
+      event.preventDefault()
+      return
+    }
+
     if (parkBesideBlock(event.clientX, event.clientY)) {
       event.preventDefault()
       return
@@ -326,6 +523,22 @@ export function TextbitEditable(props: TextbitEditableProps) {
     }
     if (blockSelection) {
       setBlockSelection(null)
+    }
+
+    // Coming back from elsewhere with a block selection or block caret still
+    // set: the selection still spans that block, and clearing the state makes
+    // slate-react restore it as the editor regains focus, over the caret the
+    // click places. Put the selection at the click instead.
+    if (!isFocused && (adjacentBlock || blockSelection)) {
+      try {
+        const range = ReactEditor.findEventRange(editor, event)
+        if (Range.isRange(range)) {
+          Transforms.select(editor, range)
+          return
+        }
+      } catch {
+        // The click is not on text; the browser places the caret
+      }
     }
 
     // We only need to handle this for Firefox (Gecko rendering engine)
@@ -369,6 +582,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
                 dir={dir}
                 onContextMenu={handleContextMenu}
                 onMouseDown={onMouseDown}
+                onClick={onClick}
                 scrollSelectionIntoView={scrollSelection}
                 aria-label={props['aria-label']}
               />
@@ -413,3 +627,60 @@ function blockBeside(editor: Editor, x: number, y: number): {
   }
   return null
 }
+
+/** Controls inside an object a click must reach, not select the object */
+const OBJECT_CONTROLS = 'button, input, textarea, select, a[href], [role="button"]'
+
+/**
+ * The index of the top-level object a click at this target selects, or null.
+ * It has to be in this editor (React events also bubble out of portals such as
+ * a dialog an object opens), outside the object's controls and text, on a
+ * node that still exists, and the object must not be a text block.
+ */
+function objectIndexAt(editor: Editor, target: EventTarget): number | null {
+  if (!(target instanceof globalThis.Node) || !ReactEditor.hasDOMNode(editor, target)) {
+    return null
+  }
+  const element = target instanceof globalThis.Element ? target : target.parentElement
+  if (!element || element.closest(OBJECT_CONTROLS)) {
+    return null
+  }
+
+  let node: Node
+  let path: Path
+  try {
+    node = ReactEditor.toSlateNode(editor, element)
+    path = ReactEditor.findPath(editor, node)
+  } catch {
+    return null
+  }
+  if (!Node.has(editor, path) || Node.get(editor, path) !== node) {
+    return null
+  }
+
+  const top = editor.children[path[0]]
+  if (!Element.isElement(top) || top.class === 'text') {
+    return null
+  }
+
+  // The closest element at the target: the object itself, or a void in it
+  const closestPath = Text.isText(node) ? Path.parent(path) : path
+  const closest = Node.get(editor, closestPath)
+  if (!Element.isElement(closest)) {
+    return null
+  }
+  return closestPath.length === 1 || Editor.isVoid(editor, closest) ? path[0] : null
+}
+
+/** The top-level object holding a DOM element in this editor, or null */
+function objectIndexOf(editor: Editor, target: HTMLElement): number | null {
+  try {
+    const node = ReactEditor.toSlateNode(editor, target)
+    const path = ReactEditor.findPath(editor, node)
+    const top = editor.children[path[0]]
+    return Element.isElement(top) && top.class !== 'text' ? path[0] : null
+  } catch {
+    return null
+  }
+}
+

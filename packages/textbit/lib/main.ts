@@ -96,6 +96,8 @@ export { FocusToolbar, type FocusToolbarOptions as TBFocusToolbarOptions } from 
 // The type of a plain text block, which core creates on Enter, paste and more
 export { TEXT_TYPE } from './utils/textType'
 
+export type { TextbitLabels as TBLabels } from './contexts/TextbitContext'
+
 // Hooks
 export { useAction } from './hooks/useAction'
 export { usePluginRegistry } from './hooks/usePluginRegistry'

@@ -7,6 +7,7 @@ import { Editor } from 'slate'
 import { TextbitElement } from '../../utils/textbit-element'
 import { useSelectionBounds } from '../../hooks/useSelectionBounds'
 import { useBlockSelection } from '../../hooks/useBlockSelection'
+import { useTextbit } from '../../hooks/useTextbit'
 import { ContextMenuHintsContext } from '../ContextMenu/ContextMenuHintsContext'
 import type { SelectionBounds } from '../../contexts/SelectionBoundsContext'
 
@@ -31,6 +32,7 @@ function Popover({ children, className, ariaLabel }: {
   const editor = useSlateStatic()
   const bounds = useSelectionBounds()
   const focused = useFocused()
+  const { readOnly } = useTextbit()
   const blockSelection = useBlockSelection()
   const ref = useRef<HTMLDivElement>(null)
   const contextMenuHintsContext = useContext(ContextMenuHintsContext)
@@ -73,12 +75,13 @@ function Popover({ children, className, ariaLabel }: {
       showMenu = !!node
     }
 
-    if (showMenu && !isContextMenuOpen && !blockSelection) {
+    // Formatting changes the document: never in a read-only editor
+    if (showMenu && !isContextMenuOpen && !blockSelection && !readOnly) {
       setVisibility(true)
     } else {
       setVisibility(false)
     }
-  }, [editor, bounds, focused, setVisibility, isContextMenuOpen, blockSelection])
+  }, [editor, bounds, focused, setVisibility, isContextMenuOpen, blockSelection, readOnly])
 
   const move = useCallback((selectionBounds: SelectionBounds) => {
     if (!focused) {

@@ -275,7 +275,7 @@ export function handleArrowNoAdjacentBlock(
         const prevBlock = editor.children[prevIndex]
         if (Element.isElement(prevBlock) && prevBlock.class !== 'text') {
           event.preventDefault()
-          Transforms.select(editor, Editor.end(editor, [prevIndex]))
+          enterBlockFromEnd(editor, [prevIndex], prevBlock)
           setAdjacentBlock({ blockId: prevBlock.id, direction: 'after' })
           return true
         }

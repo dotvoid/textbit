@@ -11,6 +11,7 @@ import { Descendant } from 'slate'
 import * as Y from 'yjs'
 import { SlateContainer } from './SlateContainer'
 import { GutterProvider } from './GutterProvider/GutterProvider'
+import type { TextbitLabels } from '../contexts/TextbitContext'
 
 interface TextbitRootBaseProps {
   children: React.ReactNode
@@ -26,6 +27,8 @@ interface TextbitRootBaseProps {
   style?: React.CSSProperties
   dir?: 'ltr' | 'rtl'
   lang?: string
+  /** Text textbit itself shows, e.g. translations */
+  labels?: Partial<TextbitLabels>
 }
 
 interface TextbitRootStringProps extends TextbitRootBaseProps {
@@ -86,6 +89,7 @@ export function TextbitRoot(props: TextbitRootProps) {
         spellcheckDebounce={spellcheckDebounce}
         placeholders={placeholders}
         placeholder={placeholder}
+        labels={props.labels}
         dir={props.dir}
         lang={props.lang}
       >

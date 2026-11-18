@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArticleEditor, PlainTextField, Together } from './components'
+import { ArticleEditor, FewerPluginsEditor, PlainTextField, Together } from './components'
 
 export const App = () => {
   const [dark, setDark] = useState(false)
@@ -21,6 +21,12 @@ export const App = () => {
       </header>
 
       <ArticleEditor readOnly={readOnly} />
+
+      <section>
+        <h2>Fewer plugins</h2>
+        <p>An editor with only text, formatting, lists and links, to copy and paste to and from the article.</p>
+        <FewerPluginsEditor />
+      </section>
 
       <section>
         <h2>Together</h2>

@@ -2,6 +2,8 @@ import { Editor, Element, Transforms, type Descendant } from 'slate'
 import type { AdjacentBlockState } from '../contexts/AdjacentBlockContext'
 import type { BlockSelectionState } from '../contexts/BlockSelectionContext'
 import { TEXT_TYPE } from './textType'
+import { convertUnregistered, decodeTextbitTypes } from './clipboard'
+import { placeCaretAfter } from './blockCaret'
 
 /**
  * Result describing how the paste should proceed after block-aware
@@ -15,8 +17,11 @@ import { TEXT_TYPE } from './textType'
  *                   fill the placeholder via editor.insertData.
  * - 'unhandled'   : neither adjacentBlock nor blockSelection was active, or
  *                   the target could not be resolved. Normal paste behaviour.
+ * - 'empty'       : the clipboard held a Slate fragment with nothing this
+ *                   editor can insert. Nothing changed; the caller must
+ *                   preventDefault and keep the block states as they are.
  */
-export type BlockAwarePasteResult = 'handled' | 'prepared' | 'unhandled'
+export type BlockAwarePasteResult = 'handled' | 'prepared' | 'unhandled' | 'empty'
 
 /**
  * Prepare and/or execute a paste when the block caret (adjacentBlock) or
@@ -45,7 +50,8 @@ export function prepareBlockAwarePaste(
   editor: Editor,
   data: DataTransfer,
   adjacentBlock: AdjacentBlockState | null,
-  blockSelection: BlockSelectionState | null
+  blockSelection: BlockSelectionState | null,
+  registeredTypes: Set<string>
 ): BlockAwarePasteResult {
   if (!adjacentBlock && !blockSelection) {
     return 'unhandled'
@@ -57,7 +63,12 @@ export function prepareBlockAwarePaste(
   }
 
   const { targetIndex, removeRange } = target
-  const slateFragment = decodeSlateFragment(data)
+  const decoded = decodeSlateFragment(data)
+  // Elements this editor cannot render become text, as in insertFragment
+  const slateFragment = decoded && convertUnregistered(decoded, registeredTypes, decodeTextbitTypes(data))
+  if (decoded && decoded.length > 0 && !slateFragment?.length) {
+    return 'empty'
+  }
 
   if (slateFragment && slateFragment.length > 0) {
     // Direct insertion — preserves types/roles, no merge behaviour
@@ -70,14 +81,13 @@ export function prepareBlockAwarePaste(
       Transforms.insertNodes(editor, slateFragment, { at: [targetIndex] })
     })
 
-    // Place caret at the end of the last inserted block (user request).
-    // If the last inserted block has no accessible text edge (pure void),
-    // selection is left wherever Slate put it.
-    const lastPath = [targetIndex + slateFragment.length - 1]
+    // The caret after the last inserted block: a block caret after an object,
+    // the end of the text after text. If it has no text to place it in, the
+    // selection stays where Slate put it.
     try {
-      Transforms.select(editor, Editor.end(editor, lastPath))
+      placeCaretAfter(editor, targetIndex + slateFragment.length - 1)
     } catch {
-      // Non-text / void: best-effort; leave selection as is.
+      // Best effort
     }
 
     return 'handled'

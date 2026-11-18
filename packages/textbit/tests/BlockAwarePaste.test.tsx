@@ -10,6 +10,9 @@ import { adjacentBlockContent } from './_fixtures'
 import type { AdjacentBlockState } from '../lib/contexts/AdjacentBlockContext'
 import type { BlockSelectionState } from '../lib/contexts/BlockSelectionContext'
 
+// The types the editor in these tests renders
+const REGISTERED = new Set(['base/text'])
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -71,7 +74,7 @@ describe('prepareBlockAwarePaste — slate-fragment with block caret', () => {
     const fragment = makeFragment([{ id: 'f-1', text: 'Pasted' }])
     const clipboard = makeClipboard({ slateFragment: fragment })
 
-    const result = prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null)
+    const result = prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null, REGISTERED)
 
     expect(result).toBe('handled')
     expect(editor.children).toHaveLength(4)
@@ -85,7 +88,7 @@ describe('prepareBlockAwarePaste — slate-fragment with block caret', () => {
     const fragment = makeFragment([{ id: 'f-1', text: 'Pasted' }])
     const clipboard = makeClipboard({ slateFragment: fragment })
 
-    const result = prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null)
+    const result = prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null, REGISTERED)
 
     expect(result).toBe('handled')
     expect(editor.children).toHaveLength(4)
@@ -103,7 +106,7 @@ describe('prepareBlockAwarePaste — slate-fragment with block caret', () => {
     ])
     const clipboard = makeClipboard({ slateFragment: fragment })
 
-    prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null)
+    prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null, REGISTERED)
 
     expect(editor.children[1]).toMatchObject({ id: 'h1', properties: { role: 'h1' } })
     expect(editor.children[2]).toMatchObject({ id: 'body' })
@@ -118,7 +121,7 @@ describe('prepareBlockAwarePaste — slate-fragment with block caret', () => {
     ])
     const clipboard = makeClipboard({ slateFragment: fragment })
 
-    prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null)
+    prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null, REGISTERED)
 
     // The last inserted block sits at index [2 + 2 - 1] = 3; its text length is
     // 'Second paragraph'.length = 16
@@ -133,7 +136,7 @@ describe('prepareBlockAwarePaste — slate-fragment with block caret', () => {
     const adjacentBlock: AdjacentBlockState = { blockId: 'no-such-block', direction: 'before' }
     const clipboard = makeClipboard({ slateFragment: makeFragment([{ id: 'f', text: 'x' }]) })
 
-    const result = prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null)
+    const result = prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null, REGISTERED)
 
     expect(result).toBe('unhandled')
     expect(editor.children).toHaveLength(3) // unchanged
@@ -151,7 +154,7 @@ describe('prepareBlockAwarePaste — slate-fragment with block selection', () =>
     const fragment = makeFragment([{ id: 'f-1', text: 'Replacement' }])
     const clipboard = makeClipboard({ slateFragment: fragment })
 
-    const result = prepareBlockAwarePaste(editor, clipboard, null, blockSelection)
+    const result = prepareBlockAwarePaste(editor, clipboard, null, blockSelection, REGISTERED)
 
     expect(result).toBe('handled')
     expect(editor.children).toHaveLength(3)
@@ -169,7 +172,7 @@ describe('prepareBlockAwarePaste — slate-fragment with block selection', () =>
     ])
     const clipboard = makeClipboard({ slateFragment: fragment })
 
-    prepareBlockAwarePaste(editor, clipboard, null, blockSelection)
+    prepareBlockAwarePaste(editor, clipboard, null, blockSelection, REGISTERED)
 
     expect(editor.children).toHaveLength(2)
     expect(editor.children[0]).toMatchObject({ id: 'f-1' })
@@ -182,7 +185,7 @@ describe('prepareBlockAwarePaste — slate-fragment with block selection', () =>
     const fragment = makeFragment([{ id: 'f-1', text: 'All' }])
     const clipboard = makeClipboard({ slateFragment: fragment })
 
-    prepareBlockAwarePaste(editor, clipboard, null, blockSelection)
+    prepareBlockAwarePaste(editor, clipboard, null, blockSelection, REGISTERED)
 
     expect(editor.children).toHaveLength(1)
     expect(editor.children[0]).toMatchObject({ id: 'f-1' })
@@ -199,7 +202,7 @@ describe('prepareBlockAwarePaste — text/html placeholder path', () => {
     const adjacentBlock: AdjacentBlockState = { blockId: 'non-text-block', direction: 'before' }
     const clipboard = makeClipboard({ text: 'hello' })
 
-    const result = prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null)
+    const result = prepareBlockAwarePaste(editor, clipboard, adjacentBlock, null, REGISTERED)
 
     expect(result).toBe('prepared')
     expect(editor.children).toHaveLength(4)
@@ -224,7 +227,7 @@ describe('prepareBlockAwarePaste — text/html placeholder path', () => {
     const blockSelection: BlockSelectionState = { anchorIndex: 0, focusIndex: 2 }
     const clipboard = makeClipboard({ text: 'hello' })
 
-    const result = prepareBlockAwarePaste(editor, clipboard, null, blockSelection)
+    const result = prepareBlockAwarePaste(editor, clipboard, null, blockSelection, REGISTERED)
 
     expect(result).toBe('prepared')
     expect(editor.children).toHaveLength(1)
