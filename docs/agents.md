@@ -100,8 +100,9 @@ attribution and diff model is built for this.
 
 ## Known problems this release fixes first
 
-- slate-yjs normalizes after applying remote changes outside the remote origin, so every
-  connected client writes its own repairs into the shared document.
+- Content that reaches the shared document invalid, written outside an editor, is repaired
+  by every connected editor on arrival, and repairs that insert add up. Agents and servers
+  must therefore write through the headless editor, which repairs before it writes.
 - `withUniqueIds` rewrites ids in remote insertions too, so a collision makes the local id
   differ from the shared document.
 - Building an editor needs React and a DOM: construction lives in `SlateContainer`,
@@ -113,7 +114,7 @@ attribution and diff model is built for this.
 
 | Phase | Content | Size |
 |---|---|---|
-| 0 | Fix remote ids, inject `lang`, break the `main` imports, extract `createTextbitEditor`, settle the remote normalization problem | S |
+| 0 | Fix remote ids, inject `lang`, break the `main` imports, extract `createTextbitEditor` | S |
 | 1 | Headless core entry, plugin split, schema, `validate` | M |
 | 2 | Agent package: view and parser, operations, errors, revisions, tool descriptors, an eval harness | M |
 | 3 | Presence convention, block markers, undo per agent run | M |
