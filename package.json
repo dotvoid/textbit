@@ -14,7 +14,6 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lab": "npm run build -w @dotvoid/textbit -w @dotvoid/textbit-plugins -w @dotvoid/textbit-agent && npm run server -w textbit-agent-lab",
-    "lab:reset": "node -e \"require('fs').rmSync('apps/agent-lab/.lab', { recursive: true, force: true })\"",
-    "film": "npm run build -w @dotvoid/textbit -w @dotvoid/textbit-plugins -w @dotvoid/textbit-agent && node apps/agent-lab/film/film.ts"
+    "lab:reset": "node -e \"require('fs').rmSync('apps/agent-lab/.lab', { recursive: true, force: true })\""
   }
 }

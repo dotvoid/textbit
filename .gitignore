@@ -46,5 +46,3 @@ flake.lock
 # The agent lab's shared document
 apps/agent-lab/.lab
 
-# The demo movie, made by apps/agent-lab/film
-apps/agent-lab/film/out
