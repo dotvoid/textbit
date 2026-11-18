@@ -1,4 +1,5 @@
 import { Editor, Element, type Node } from 'slate'
+import { YjsEditor } from '@slate-yjs/core'
 
 /*
  * If a node is in any way inserted or created it must be assigned a unique id.
@@ -15,6 +16,12 @@ export function withUniqueIds(editor: Editor) {
   const { apply } = editor
 
   editor.apply = (operation) => {
+    // A remote change is the shared document's state. Rewriting it here would
+    // only change this copy, which then disagrees with every other.
+    if (isRemote(editor)) {
+      return apply(operation)
+    }
+
     if (operation.type === 'insert_node') {
       const rewritten = rewriteSubtreeIds(editor, operation.node)
       if (rewritten) {
@@ -40,6 +47,11 @@ export function withUniqueIds(editor: Editor) {
   }
 
   return editor
+}
+
+/** Whether the operation being applied comes from another Yjs peer */
+function isRemote(editor: Editor): boolean {
+  return YjsEditor.isYjsEditor(editor) && !YjsEditor.isLocal(editor)
 }
 
 /**
