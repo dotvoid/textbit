@@ -13,11 +13,18 @@ export interface TextbitLabels {
   unknownToText: string
   /** Action on an object whose plugin is missing: remove it */
   unknownRemove: string
+  /** On a block an agent works on; {name} is the agent's name */
+  agentReading: string
+  agentWriting: string
+  agentThinking: string
 }
 
 export const DEFAULT_LABELS: TextbitLabels = {
   unknownToText: 'Convert to text',
-  unknownRemove: 'Remove'
+  unknownRemove: 'Remove',
+  agentReading: '{name} is reading',
+  agentWriting: '{name} is writing',
+  agentThinking: '{name} is thinking'
 }
 
 export interface TextbitState {

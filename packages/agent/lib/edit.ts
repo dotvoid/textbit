@@ -293,7 +293,9 @@ export function planEdit(context: AgentContext, editor: Editor, operations: Edit
 export function runEdit(
   editor: Editor,
   plugins: TBPluginDefinition[] | undefined,
-  plan: ReturnType<typeof planEdit>
+  plan: ReturnType<typeof planEdit>,
+  /** How the changes run on the editor itself */
+  live: (change: () => void) => void = (change) => change()
 ): EditError | null {
   const run = (target: Editor) => {
     Editor.withoutNormalizing(target, () => {
@@ -327,7 +329,7 @@ export function runEdit(
     }
   }
 
-  run(editor)
+  live(() => run(editor))
   return null
 }
 

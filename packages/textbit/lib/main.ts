@@ -121,6 +121,9 @@ export { useEditor } from './hooks/useEditor'
 export { useBlockSelection } from './hooks/useBlockSelection'
 export { useSelectionStats, type SelectionStats } from './hooks/useSelectionStats'
 export { usePendingDrops } from './hooks/usePendingDrops'
+export { useAgents } from './hooks/useAgents'
+export type { PresentAgent } from './contexts/AgentPresenceContext'
+export { AGENT_PRESENCE_FIELD, type AgentPresenceState, type AgentStatus } from './types/agentPresence'
 export { PendingDropsContext, type PendingDrop } from './contexts/PendingDropsContext'
 
 export {
