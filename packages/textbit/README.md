@@ -1557,9 +1557,27 @@ return <div role='status'>{agents.filter((a) => a.status !== 'idle').map((a) => 
 A suggestion is a change proposed for a person to accept or reject, block by block: from an
 agent in review mode (`review: 'suggest'` in `@dotvoid/textbit-agent`), or from anything that
 calls `suggestionFor(before, after, author)` and puts the result in `suggestionStore(editor)`.
-It is kept beside the document, not in it: in a shared document in a map of the same Y.Doc
-(`SUGGESTIONS_MAP`), so everyone sees it and it outlives whoever made it; otherwise in memory
-with the editor. The document's content never holds suggestion marks.
+It is kept beside the document's content, not in it: in a shared document in a map of the
+same Y.Doc (`SUGGESTIONS_MAP`, `textbitSuggestions`), so everyone sees it and it outlives
+whoever made it; otherwise in memory with the editor.
+
+**What that means for storing documents.** The content never holds a suggestion: the editor's
+value, `onChange`, and anything read from the `content` text (`yTextToSlateElement`) are the
+document without them. The Y.Doc does hold them, in that map beside the content: whatever
+stores the Y.Doc's state as a whole, such as `Y.encodeStateAsUpdate(doc)` or a Hocuspocus
+`onStoreDocument`, stores the suggestions waiting for review with it, and they are there again
+when it is loaded. That is the point: a review can wait for someone. To keep a document without
+them, store its content, or empty the map first.
+
+**With several people.** Everyone in the document sees the same suggestions and may accept or
+reject them. Accepting a block removes it from the suggestion as part of the same change, so
+once that has reached the others, they cannot accept it again. If two people accept the same
+block before either has seen the other do it, each inserts it; editors then take out the
+second, which is an exact copy of the first: the same id and the same content, which no edit
+means to make. Blocks that share an id but differ are left, as they hold someone's work.
+
+**Undo.** Accepting is the person's own edit: undoing it brings back the text and the
+suggestion. Rejecting can be undone too, by the person who rejected, in a shared document.
 
 Editors show each block of a suggestion where it applies, until someone decides; unlike what
 an agent changed, suggestions do not fade:

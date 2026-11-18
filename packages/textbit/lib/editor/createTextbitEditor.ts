@@ -2,6 +2,7 @@ import { createEditor, type Descendant, type Editor } from 'slate'
 import { withHistory } from 'slate-history'
 import { withCursors, withYHistory, withYjs, YjsEditor } from '@slate-yjs/core'
 import type * as Y from 'yjs'
+import { SUGGESTIONS_MAP } from '../suggestions/store'
 import type { Awareness } from 'y-protocols/awareness'
 import type { PluginDefinition } from '../types'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
@@ -88,6 +89,11 @@ export function withTextbit(
     editor = withYHistory(withYjs(editor, options.shared, {
       localOrigin: options.localOrigin ?? Symbol('textbit-editor')
     }))
+
+    // A person's own accepts and rejects of suggestions are undone like their edits
+    if (YjsEditor.isYjsEditor(editor) && options.shared.doc) {
+      (editor as typeof editor & { undoManager: Y.UndoManager }).undoManager.addToScope(options.shared.doc.getMap(SUGGESTIONS_MAP))
+    }
 
     if (YjsEditor.isYjsEditor(editor) && options.awareness) {
       editor = withCursors(editor, options.awareness, {
