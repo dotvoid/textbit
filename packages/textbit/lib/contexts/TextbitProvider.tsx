@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { TextbitContext, type TextbitState, type TextbitStats, type PlaceholdersVisibility } from './TextbitContext'
+import { DEFAULT_LABELS, TextbitContext, type TextbitLabels, type TextbitState, type TextbitStats, type PlaceholdersVisibility } from './TextbitContext'
 
 interface TextbitProps {
   children: React.ReactNode
@@ -12,6 +12,7 @@ interface TextbitProps {
   spellcheckDebounce?: number
   placeholder?: string
   placeholders?: PlaceholdersVisibility
+  labels?: Partial<TextbitLabels>
 }
 
 // Prop-driven fields are read from props each render via useMemo.
@@ -32,7 +33,8 @@ export function TextbitProvider({
   debounce,
   spellcheckDebounce,
   placeholder,
-  placeholders
+  placeholders,
+  labels
 }: TextbitProps) {
   const [stats, setStats] = useState<TextbitStats>({
     full: { words: 0, characters: 0 },
@@ -58,6 +60,7 @@ export function TextbitProvider({
     placeholder: placeholder ?? '',
     placeholders: placeholders ?? 'none',
     stats,
+    labels: { ...DEFAULT_LABELS, ...labels },
     dispatch
   }), [
     verbose,
@@ -69,6 +72,7 @@ export function TextbitProvider({
     spellcheckDebounce,
     placeholder,
     placeholders,
+    labels,
     stats,
     dispatch
   ])

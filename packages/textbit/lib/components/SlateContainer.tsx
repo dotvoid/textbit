@@ -20,6 +20,7 @@ import { withEditableVoids } from '../with/withEditableVoids'
 import { withInsertBreak } from '../with/withInsertBreak'
 import { withInsertSoftBreak } from '../with/withInsertSoftBreak'
 import { withInsertHtml } from '../with/withInsertHtml'
+import { withClipboard } from '../with/withClipboard'
 import { withUniqueIds } from '../with/withUniqueIds'
 import { withDeletionManagement } from '../with/withDeletionManagement'
 import { withBlockBoundaryGuard } from '../with/withBlockBoundaryGuard'
@@ -122,6 +123,7 @@ export function SlateContainer(props: SlateContainerProps) {
     withInsertBreak(editor, components)
     withInsertSoftBreak(editor, components)
     withInsertHtml(editor, components, plugins)
+    withClipboard(editor, components)
     withUniqueIds(editor)
     withDeletionManagement(editor)
     // After the command plugins, so it wraps their final versions and its

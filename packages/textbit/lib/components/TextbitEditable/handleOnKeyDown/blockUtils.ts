@@ -109,6 +109,12 @@ export function enterBlockFromStart(editor: Editor, targetPath: number[], target
  * Skips any trailing void children so the caret lands on the last editable position.
  */
 export function enterBlockFromEnd(editor: Editor, targetPath: number[], targetBlock: Element): void {
+  // Slate renders only a void's first text: its end has no place in the page
+  if (editor.isVoid(targetBlock)) {
+    Transforms.select(editor, Editor.start(editor, targetPath))
+    return
+  }
+
   let enterPath: number[] = targetPath
   const lastNonVoidIdx = lastEditableChildIdx(editor, targetBlock)
   if (lastNonVoidIdx >= 0) {

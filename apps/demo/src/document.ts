@@ -35,6 +35,11 @@ export const document = [
   { id: id(), type: 'base/code-block', class: 'block', children: [
     { id: id(), type: 'base/code-block/body', class: 'text', children: [{ text: 'const catch = boats.map((b) => b.hold)' }] }
   ] },
+  { id: id(), type: 'base/image', class: 'block', properties: { src: IMAGE }, children: [
+    { id: id(), type: 'base/image/content', class: 'void', children: [{ text: '' }] },
+    { id: id(), type: 'base/image/alt', class: 'text', children: [{ text: 'Hills above a frozen harbour' }] },
+    { id: id(), type: 'base/image/caption', class: 'text', children: [{ text: 'The hills behind the harbour in January.' }] }
+  ] },
   text('Empty parts, where placeholders show', 'heading-2'),
   { id: id(), type: 'base/ordered-list', class: 'text', children: [
     { id: id(), type: 'base/ordered-list/list-item', class: 'text', children: [{ text: 'First' }] },

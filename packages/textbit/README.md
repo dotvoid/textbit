@@ -102,6 +102,7 @@ The root component that provides context for the editor. All other Textbit compo
 | `placeholder` | `string` | `''` | Placeholder text when editor is empty. |
 | `placeholders` | `'none' \| 'single' \| 'multiple'` | `'none'` | Controls placeholder display mode. When using `multiple` text plugins displays their own placeholders per text object. |
 | `readOnly` | `boolean` | `false` | Makes editor read-only. |
+| `labels` | `Partial<TBLabels>` | English | Text textbit itself shows, for translation: `unknownToText` and `unknownRemove`, the actions on an [object whose plugin is missing](#objects-whose-plugin-is-missing). |
 | `debounce` | `number` | `1250` | Debounce time for onChange in milliseconds. |
 | `spellcheckDebounce` | `number` | `1250` | Debounce time for spellcheck in milliseconds. |
 | `onSpellcheck` | `SpellcheckFunction` | - | Async function to handle spellchecking. |
@@ -1183,7 +1184,7 @@ const blockSelection = useBlockSelection()
 // Returns: { anchorIndex: number, focusIndex: number } | null
 ```
 
-The selected range spans from `Math.min(anchorIndex, focusIndex)` to `Math.max(anchorIndex, focusIndex)` inclusive, referencing top-level block indices in the editor. See [Block Selection](#block-selection-shiftarrow) for details on how block selection is initiated and controlled.
+The selected range spans from `Math.min(anchorIndex, focusIndex)` to `Math.max(anchorIndex, focusIndex)` inclusive, referencing top-level block indices in the editor. See [Block Selection](#block-selection-shiftarrow-or-a-click) for details on how block selection is initiated and controlled.
 
 ---
 
@@ -1298,6 +1299,7 @@ uses these.
 | `toolbar`, `toolbar-group`, `toolbar-item` | The selection toolbar (`Toolbar.*`) |
 | `context-menu`, `context-menu-group`, `context-menu-item` | The context menu (`Textbit.ContextMenu.*`) |
 | `special-characters` | The special characters pane |
+| `unknown`, `unknown-type`, `unknown-text`, `unknown-actions`, `unknown-action` | An [object whose plugin is missing](#objects-whose-plugin-is-missing) |
 
 #### Editor State
 
@@ -2165,6 +2167,12 @@ Arrowing into a non-text block from a neighbouring text block activates the indi
 
 Up/Down moves the indicator to the neighbouring top-level block, preserving the current indicator direction (`before` stays left, `after` stays right). If the neighbour is a text block the indicator is cleared and normal text editing resumes.
 
+From a text block, Down on its last line or Up on its first line onto an object with nothing editable in it, such as an [object whose plugin is missing](#objects-whose-plugin-is-missing), parks the indicator before or after it; the browser alone would skip it. Into an object with text in it, such as an image with a caption, the caret moves into the object as usual.
+
+### Mouse
+
+A click beside an object parks the indicator on that side: in the editor's margin, padding or gutter, left of the object for `before` and right of it for `after`. A click on the object itself, outside its text fields and controls, selects it whole; see [Block Selection](#block-selection-shiftarrow-or-a-click). A click on its text puts the caret there as in any text.
+
 ### Editing Keys
 
 | Key | Behavior |
@@ -2175,9 +2183,25 @@ Up/Down moves the indicator to the neighbouring top-level block, preserving the 
 | Printable character | Inserts a new text block and types the character into it |
 | Ctrl+Shift+Space | Inserts a new text block holding a [non-breaking space](#non-breaking-spaces) |
 
-### Block Selection (Shift+Arrow)
+### Tab and an Object's Controls
+
+Tab moves through an object in reading order. The block caret before it, its controls (its buttons, links and the like) and the block caret after it are three stops: Tab steps forward through them, Shift+Tab back.
+
+| Where | Tab | Shift+Tab |
+|-------|-----|-----------|
+| Block caret before an object | Its first control | Out of the editor, backwards |
+| In its controls | The next control; from the last, the block caret after it | The previous control; from the first, the block caret before it |
+| Block caret after an object | Out of the editor | Its last control |
+| The object selected | Its first control | Its last control |
+| Anywhere else | Out of the editor | Out of the editor, backwards |
+
+Out of the editor means the next place Tab stops on the page, outside the editor: no other object's controls on the way. Escape in a control selects the object. A plugin that uses Tab itself, as tables and code blocks do, keeps it, and a control that handles Escape itself keeps that.
+
+### Block Selection (Shift+Arrow, or a click)
 
 While the block caret is active, holding Shift and pressing any arrow key initiates block-level selection. Entire top-level blocks are selected rather than individual text ranges.
+
+A click on an object, a non-text block such as an image or a factbox, anywhere outside its text fields and its own buttons, links and fields, selects the whole object the same way. A copy then carries the object in full. Shift+click extends a block selection to the clicked object. Dragging an object still drags it: a drag fires no click.
 
 #### Entry from Block Caret
 
@@ -2197,9 +2221,52 @@ While the block caret is active, holding Shift and pressing any arrow key initia
 | Backspace / Delete | Removes all selected blocks |
 | Cmd/Ctrl+C | Copies selected blocks |
 | Cmd/Ctrl+X | Cuts selected blocks |
-| Mouse click | Clears block selection |
+| Escape | Leaves the selection: a block caret after the last selected block, or the caret at the end of it when it is text |
+| Click on an object | Selects that object instead |
+| Shift+click on an object | Extends the selection to it |
+| Any other click | Clears block selection |
+
+In a read-only editor a click selects an object and Cmd/Ctrl+C copies it; arrows and Escape leave the selection. Nothing changes the document: no key, paste, drop, menu or toolbar action, and no change reaches `onChange`.
 
 Selected blocks receive a `data-block-selected` attribute and a `.tb-block-selected` overlay element for styling. Text content within the selection also shows the native browser highlight. The `useBlockSelection()` hook exposes the current selection state (`anchorIndex` / `focusIndex`) to consumer components.
+
+---
+
+## Copy and Paste Between Editors
+
+Editors on one page often register different plugins: an article with images and factboxes, a factbox body with only text. Copy and paste between them keeps every editor's content to what it can render.
+
+**Copying.** A copy, cut or drag carries:
+
+- An object the selection covers from its start to its end, or one selected whole by a click or Shift+Arrow: the object itself.
+- An object the selection only partly covers, such as half a caption, or a selection that starts in a paragraph and ends in a caption: only its text. One paragraph per text field with selected text in it, keeping bold, links and other formatting, but none of the object's type, properties or images.
+- A void, such as an image, the caret is in: the whole object it belongs to.
+
+Next to the fragment the clipboard carries the element types the copying editor can render, in `application/x-textbit-types`. The plain text and HTML are as Slate writes them.
+
+**Pasting.** An element the editor pasted into has no plugin for is:
+
+- turned into text when the copying editor could render it, or when that is not known (a clipboard from an older version or another application): its text fields become paragraphs, images and other voids are dropped, and inline elements become their text with formatting kept;
+- kept as it is when the copying editor could not render it either: it was already an [object whose plugin is missing](#objects-whose-plugin-is-missing), and pasting it does not change it.
+
+Pasting beside a block, or over a block selection, follows the same rules. When nothing on the clipboard can be inserted, nothing changes.
+
+After a paste the caret is after what was pasted: a block caret after it when the last pasted block is an object, as when arrowing past one, or at the end of its text.
+
+---
+
+## Objects Whose Plugin Is Missing
+
+An element whose type no registered plugin renders, for instance because the plugin was removed, keeps all its data. Opening, normalising and editing the document never change it; only the actions below do.
+
+The editor shows its type and its text, slightly muted, which cannot be edited there. Otherwise it is an object like any other: a click selects it whole, so it can be copied, cut or deleted; a click beside it, or the arrow keys, park the block caret before or after it; and it can be dragged. At the top level, unless the editor is read-only, two actions are offered:
+
+| Action | Effect |
+|--------|--------|
+| Convert to text | Replaces it with its text, a paragraph per text field, as a paste would |
+| Remove | Deletes it |
+
+Both are ordinary edits: they can be undone and reach collaborators like any other. The labels can be translated with the `labels` prop on `Textbit.Root`. The element carries `data-tb="unknown"`, with `unknown-type`, `unknown-text`, `unknown-actions` and `unknown-action` inside, for styling.
 
 ---
 

@@ -104,8 +104,8 @@ describe('unknown element types', () => {
 
     // Shown as a non-editable void: nothing can be typed into it.
     const block = container.querySelector('[data-type="test/not-registered"]')
-    expect(block?.getAttribute('contenteditable')).toBe('false')
     expect(block?.getAttribute('data-slate-void')).toBe('true')
+    expect(block?.querySelector('[data-tb="unknown"]')?.getAttribute('contenteditable')).toBe('false')
     // Normalisation leaves it exactly as stored, content included.
     expect(editor!.children).toEqual([node])
   })

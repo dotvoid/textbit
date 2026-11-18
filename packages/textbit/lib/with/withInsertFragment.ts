@@ -1,6 +1,7 @@
 import { Editor, Node, Range, Path, Element, Point, Text, Transforms, type Descendant } from 'slate'
 import { TextbitElement } from '../main'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
+import { placeCaretAfter } from '../utils/blockCaret'
 
 /**
  * Custom insertFragment function that ensures that pasted text into one text node
@@ -96,7 +97,8 @@ export function withInsertFragment(
             }
           })
 
-          Transforms.select(editor, Editor.end(editor, [insertAt + fragment.length - 1]))
+          // After an object, a block caret, as the keyboard places one
+          placeCaretAfter(editor, insertAt + fragment.length - 1)
           return
         }
       }

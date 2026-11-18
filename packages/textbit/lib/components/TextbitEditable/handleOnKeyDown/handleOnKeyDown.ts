@@ -5,7 +5,8 @@ import type { AdjacentBlockState } from '../../../contexts/AdjacentBlockContext'
 import type { BlockSelectionState } from '../../../contexts/BlockSelectionContext'
 import { handleArrowWithAdjacentBlock, handleArrowNoAdjacentBlock, handleVerticalArrowWithAdjacentBlock } from './arrowHandlers'
 import { handleNonArrowWithAdjacentBlock } from './nonArrowHandler'
-import { isAtAccessibleEnd, isAtAccessibleStart } from './blockUtils'
+import { enterBlockFromEnd, enterBlockFromStart, isAtAccessibleEnd, isAtAccessibleStart } from './blockUtils'
+import { ReactEditor } from 'slate-react'
 import { enterBlockSelectionFromAdjacentCaret, handleBlockSelectionKeyDown } from './blockSelectionHandler'
 import { typesCharacter } from '../../../utils/menuKeyboard'
 
@@ -98,6 +99,25 @@ export function handleOnKeyDown(
       const topLevelIndex = anchor.path[0]
       const currentBlock = editor.children[topLevelIndex]
 
+      // Leaving a text block towards a void block, such as an object whose
+      // plugin is missing: the browser would skip it, having nowhere to put
+      // the caret. Park the block caret beside it, as Left and Right do.
+      const down = key === 'ArrowDown'
+      const neighborIndex = down ? topLevelIndex + 1 : topLevelIndex - 1
+      const neighbor = editor.children[neighborIndex]
+      if (Element.isElement(currentBlock) && currentBlock.class === 'text'
+        && Element.isElement(neighbor) && editor.isVoid(neighbor) && neighbor.id
+        && caretOnEdgeLine(editor, topLevelIndex, down)) {
+        event.preventDefault()
+        if (down) {
+          enterBlockFromStart(editor, [neighborIndex], neighbor)
+        } else {
+          enterBlockFromEnd(editor, [neighborIndex], neighbor)
+        }
+        setAdjacentBlock({ blockId: neighbor.id, direction: down ? 'before' : 'after' })
+        return
+      }
+
       if (Element.isElement(currentBlock) && currentBlock.class !== 'text') {
         if (key === 'ArrowDown'
           && topLevelIndex === editor.children.length - 1
@@ -171,3 +191,29 @@ export function handleOnKeyDown(
     break
   }
 }
+
+/**
+ * Whether the caret is on the last line of the top-level block at index, or
+ * the first when going up. Measured in the page; where that cannot be done,
+ * the end or the start of the block counts.
+ */
+function caretOnEdgeLine(editor: Editor, index: number, last: boolean): boolean {
+  const { selection } = editor
+  if (!selection) {
+    return false
+  }
+  try {
+    const range = ReactEditor.toDOMRange(editor, selection)
+    const caret = range.getClientRects()[0] ?? range.getBoundingClientRect()
+    const block = ReactEditor.toDOMNode(editor, editor.children[index]).getBoundingClientRect()
+    if (caret.height > 0) {
+      return last ? block.bottom - caret.bottom < caret.height : caret.top - block.top < caret.height
+    }
+  } catch {
+    // Not measurable
+  }
+  return last
+    ? Editor.isEnd(editor, selection.anchor, [index])
+    : Editor.isStart(editor, selection.anchor, [index])
+}
+

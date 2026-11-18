@@ -8,14 +8,39 @@ import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
 import type { PluginDefinition } from '../lib/types'
 import { consecutiveBlocksContent } from './_fixtures'
+import { Text } from '../lib/components/core/Text'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+// The block types these tests insert, registered so the editor renders them:
+// a pasted or inserted block this editor has no plugin for is turned into text
+const block = (name: string, children: { type: string, class: 'text' | 'void' | 'block' }[]): PluginDefinition => ({
+  class: 'block',
+  name,
+  componentEntry: {
+    class: 'block',
+    component: ({ children: c }) => <div>{c}</div>,
+    children: children.map((child) => ({ ...child, component: ({ children: c }) => <div>{c}</div> }))
+  }
+})
+
+const blockPlugins: PluginDefinition[] = [
+  Text(),
+  block('base/image', [{ type: 'image', class: 'void' }]),
+  block('base/table', [{ type: 'row', class: 'block' }]),
+  {
+    class: 'block',
+    name: 'base/table/row',
+    componentEntry: { class: 'block', component: ({ children: c }) => <div>{c}</div>, children: [{ type: 'cell', class: 'text', component: ({ children: c }) => <div>{c}</div> }] }
+  },
+  block('base/factbox', [{ type: 'title', class: 'text' }, { type: 'body', class: 'block' }])
+]
+
 function makeEditor(
   content: Descendant[] = consecutiveBlocksContent,
-  plugins?: PluginDefinition[]
+  plugins: PluginDefinition[] = blockPlugins
 ): Editor {
   function Wrapper({ children }: PropsWithChildren) {
     return (
