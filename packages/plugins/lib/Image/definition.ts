@@ -78,13 +78,31 @@ export const Image = (options: ImageOptions = {}): TBPluginDefinition => {
     }],
     element: {
       class: 'block',
+      schema: {
+        description: 'An image with alternative text and a caption',
+        properties: {
+          src: { type: 'string', required: true, description: 'Where the image is, as stored by the host' },
+          width: { type: 'number', description: 'Width in pixels' },
+          height: { type: 'number', description: 'Height in pixels' }
+        }
+      },
       children: [
-        { type: 'content', class: 'void', constraints: { min: 1, max: 1 } },
+        { type: 'content', class: 'void', schema: { description: 'The image itself' }, constraints: { min: 1, max: 1 } },
         // A text field, not an <input>: the caret moves in and out of it like
         // any other text. It sits before the caption, which must be the
         // figure's first or last child.
-        { type: 'alt', class: 'text', constraints: { allowBreak: false, min: 1, max: 1 } },
-        { type: 'caption', class: 'text', constraints: { allowBreak: false, min: 1, max: 1 } }
+        {
+          type: 'alt',
+          class: 'text',
+          schema: { description: 'What the image shows, for those who cannot see it', marks: 'none', inlines: 'none' },
+          constraints: { allowBreak: false, min: 1, max: 1 }
+        },
+        {
+          type: 'caption',
+          class: 'text',
+          schema: { description: 'The caption shown under the image' },
+          constraints: { allowBreak: false, min: 1, max: 1 }
+        }
       ]
     }
   }

@@ -46,7 +46,13 @@ export const Link = (options: LinkOptions = {}): TBPluginDefinition => ({
   class: 'inline',
   name: TYPE,
   element: {
-    class: 'inline'
+    class: 'inline',
+    schema: {
+      description: 'A link around text',
+      properties: {
+        href: { type: 'string', required: true, description: 'The address: http, https, mailto or tel' }
+      }
+    }
   },
   actions: [{
     name: 'edit',

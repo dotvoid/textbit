@@ -60,9 +60,21 @@ export const Audio = (options: AudioOptions = {}): TBPluginDefinition => {
     }],
     element: {
       class: 'block',
+      schema: {
+        description: 'An audio player with a caption',
+        properties: {
+          src: { type: 'string', required: true, description: 'Where the audio is, as stored by the host' },
+          title: { type: 'string', description: 'What the recording is called' }
+        }
+      },
       children: [
-        { type: 'content', class: 'void', constraints: { min: 1, max: 1 } },
-        { type: 'caption', class: 'text', constraints: { allowBreak: false, min: 1, max: 1 } }
+        { type: 'content', class: 'void', schema: { description: 'The player' }, constraints: { min: 1, max: 1 } },
+        {
+          type: 'caption',
+          class: 'text',
+          schema: { description: 'The caption shown under the player' },
+          constraints: { allowBreak: false, min: 1, max: 1 }
+        }
       ]
     }
   }

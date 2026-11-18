@@ -119,6 +119,33 @@ export interface ChildConstraints extends BaseConstraints {
   max?: number
 }
 
+/** A property an element stores in `properties` */
+export interface PropertySchema {
+  type: 'string' | 'number' | 'boolean'
+  /** What it holds, for people and models reading the schema */
+  description?: string
+  /** Whether every element of the type must have it */
+  required?: boolean
+  /** The values it may take */
+  enum?: (string | number)[]
+}
+
+/**
+ * What an element means and what it may hold, beyond its structure. All
+ * optional: a schema describes, it does not change how the editor behaves.
+ * `getSchema` and `validate` read it, and so can agents.
+ */
+export interface ElementSchema {
+  /** What the element is for */
+  description?: string
+  /** The properties it stores. Others are reported by `validate`. */
+  properties?: Record<string, PropertySchema>
+  /** Marks (leaf plugin names) its text may carry. Default: all. */
+  marks?: string[] | 'all' | 'none'
+  /** Inline element types its text may hold. Default: all. */
+  inlines?: string[] | 'all' | 'none'
+}
+
 /** Fields common to a plugin's own element and its children */
 interface BaseElementSpec {
   /** What the element is, see ElementClass */
@@ -132,6 +159,9 @@ interface BaseElementSpec {
 
   /** The element's children, each with its own type */
   children?: ChildElementSpec[]
+
+  /** What the element means and may hold */
+  schema?: ElementSchema
 }
 
 /**
@@ -209,6 +239,9 @@ interface BaseDefinition {
 
   /** Name of plugin, should be in the form of <prefix>/<plugin> */
   name: string
+
+  /** What the plugin adds, for people and models reading the schema */
+  description?: string
 
   /** What the plugin does, by shortcut, menu or tool */
   actions?: Action[]

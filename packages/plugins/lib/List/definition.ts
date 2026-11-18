@@ -68,12 +68,16 @@ function listPlugin(
     ],
     element: {
       class: 'text',
+      schema: {
+        description: type === ORDERED ? 'A numbered list' : 'A bullet list'
+      },
       constraints: {
         normalizeNode: (editor: Editor, entry: NodeEntry) => normalizeList(editor, entry, type)
       },
       children: [{
         type: 'list-item',
-        class: 'text'
+        class: 'text',
+        schema: { description: 'An item in the list' }
       }]
     }
   }

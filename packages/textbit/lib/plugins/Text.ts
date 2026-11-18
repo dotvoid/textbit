@@ -10,7 +10,8 @@ export const Text = (): PluginDefinition => {
     name: TEXT_TYPE,
     element: {
       class: 'text',
-      placeholder: '¶'
+      placeholder: '¶',
+      schema: { description: 'A paragraph' }
     },
     actions: [{
       name: 'set-text',

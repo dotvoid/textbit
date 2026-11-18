@@ -79,6 +79,7 @@ function MyEditor() {
 - [Styling](#styling)
 - [Collaborative Editing](#collaborative-editing)
 - [Editing Without a User Interface](#editing-without-a-user-interface)
+- [Schema and Validation](#schema-and-validation)
 - [Plugin Development](#plugin-development)
 - [Upgrading from 2.x](#upgrading-from-2x)
 - [Utilities](#utilities)
@@ -1582,6 +1583,47 @@ Anything that writes to a shared document outside `Textbit.Root` should write th
 editor. Normalization then repairs what it writes before it reaches the shared document, as in
 any editor, instead of every connected editor repairing it on arrival.
 
+## Schema and Validation
+
+A plugin can describe what its elements mean and store, in a `schema` on each element, and
+what it adds, in a `description` on the definition. The editor does not change its behaviour
+for it. Three functions read it, from either entry:
+
+- `getSchema(plugins)` returns what documents of an editor with these plugins may hold: each
+  element type with its class, description, parent, children in order with how many of
+  each, properties, the marks and inline elements its text may carry, and whether Enter and
+  Shift+Enter break it; the marks; and the types that may stand at the top level.
+- `toJsonSchema(schema)` turns it into a JSON Schema (draft 2020-12) for a document.
+- `validate(document, plugins)` checks a document without changing it, and returns a list of
+  issues, each with a `code`, a `severity`, a `path`, the element's `id` and `type`, and a
+  `message` that says what is wrong and, where it can, what would be right.
+
+```ts
+import { getSchema, validate } from '@dotvoid/textbit/headless'
+import { Text, Bold, Image } from '@dotvoid/textbit-plugins/definitions'
+
+const plugins = [Text(), Bold(), Image()]
+const schema = getSchema(plugins)
+const issues = validate(document, plugins)
+// [{ code: 'missing-property', severity: 'error', path: [3], id: '...',
+//    type: 'base/image', message: 'base/image needs the property src' }]
+```
+
+`validate` reports what breaks the schema: unknown or misplaced types, wrong classes, missing
+or repeated ids, too few or too many children or children out of order, missing, invalid or
+undeclared properties, and marks or inline elements a field does not allow. It then
+normalizes a copy as the editor would and reports each block that would change, as
+`would-change`: a plugin's own rules, such as a list's, live in its normalizer, not in the
+schema. An element whose plugin is missing is a warning, and is not looked into, since such
+content is kept as it is. Undeclared properties and unknown marks are warnings too.
+
+| Schema field | Type | Description |
+|------|------|-------------|
+| `description` | `string` | What the element is for |
+| `properties` | `Record<string, TBPropertySchema>` | What it stores in `properties`: `type` (`'string'`, `'number'` or `'boolean'`), `description`, `required` and `enum` |
+| `marks` | `string[] \| 'all' \| 'none'` | Marks its text may carry. Default: all |
+| `inlines` | `string[] \| 'all' \| 'none'` | Inline element types its text may hold. Default: all |
+
 ## Plugin Development
 
 Plugins extend Textbit with custom content types and behaviors.
@@ -1698,6 +1740,7 @@ The `element` of a definition, and each entry in its `children`:
 | `placeholder` | `string \| (element) => string` | Hint shown in an empty text element |
 | `droppable` | `boolean` | Whether the element accepts drops, on a plugin's own element only |
 | `children` | child entries | The element's children |
+| `schema` | see [Schema and Validation](#schema-and-validation) | What the element means and stores, for `getSchema`, `validate` and agents |
 
 ### Component Props
 
@@ -2192,6 +2235,15 @@ import type {
   TBLeafStyle,        // CSS declarations of a mark
   TBPluginOptions,    // Plugin options
   TBResource,         // Resource definition
+  TBElementSchema,    // What an element means and stores
+  TBPropertySchema,   // One stored property
+
+  // Schema and validation, also in @dotvoid/textbit/headless
+  DocumentSchema,     // What getSchema returns
+  ElementTypeSchema,  // One element type in it
+  ValidationIssue,    // One issue validate found
+  ValidationCode,     // Its code
+  JsonSchema,         // What toJsonSchema returns
 
   // Plugins with views
   TBPlugin,           // A definition and its view

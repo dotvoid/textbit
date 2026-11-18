@@ -16,6 +16,8 @@ export type {
   ElementClass as TBElementClass,
   ActionEvent as TBActionEvent,
   LeafStyle as TBLeafStyle,
+  ElementSchema as TBElementSchema,
+  PropertySchema as TBPropertySchema,
   GetLeafStyle as TBGetLeafStyle,
   ElementDefinition as TBElementDefinition,
   LeafDefinition as TBLeafDefinition,
@@ -128,6 +130,9 @@ export {
 
 // An editor without a user interface, to read, change or check documents
 export { createTextbitEditor, type TextbitEditorOptions } from './editor/createTextbitEditor'
+export { getSchema, type DocumentSchema, type ElementTypeSchema } from './schema/getSchema'
+export { validate, type ValidationIssue, type ValidationCode } from './schema/validate'
+export { toJsonSchema, type JsonSchema } from './schema/toJsonSchema'
 
 export { calculateStats } from './utils/calculateStats'
 export { TextbitEditor } from './utils/textbit-editor'

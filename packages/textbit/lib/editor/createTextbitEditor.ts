@@ -6,7 +6,7 @@ import type { Awareness } from 'y-protocols/awareness'
 import type { PluginDefinition } from '../types'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { createRegistry } from '../contexts/PluginRegistry/lib/createRegistry'
-import { basePlugins, StandardPlugins } from '../plugins'
+import { editorPlugins } from './editorPlugins'
 import { withLang } from '../with/withLang'
 import { withSpeling, type OnSpellcheckCallback } from '../with/withSpeling'
 import { withTextbitElements } from '../with/withTextbitElements'
@@ -59,10 +59,7 @@ export interface TextbitEditorOptions {
  * included, to read, change or check a document with the same plugins.
  */
 export function createTextbitEditor(options: TextbitEditorOptions = {}): Editor {
-  const { components, plugins } = createRegistry([
-    ...basePlugins.map((plugin) => plugin()),
-    ...options.plugins?.length ? options.plugins : StandardPlugins.map((plugin) => plugin())
-  ])
+  const { components, plugins } = createRegistry(editorPlugins(options.plugins))
 
   const editor = withTextbit(options.editor ?? createEditor(), { ...options, plugins, components })
   if (options.value && !options.shared) {
