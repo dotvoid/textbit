@@ -31,6 +31,25 @@ Every plugin is a named export, and the package is built so bundlers keep only
 the plugins you import. Importing `Bold` does not bring `Table` along. The build
 checks this for every plugin against its ES modules output.
 
+## Without React: the definitions
+
+Each plugin is a definition, its elements, rules and actions, plus a view, the
+components and icons that render it. The main entry gives you both. For a server, a
+script or an agent's tools, `@dotvoid/textbit-plugins/definitions` has every plugin
+with the same name and options, without its view and without React, for
+`createTextbitEditor` from `@dotvoid/textbit/headless`:
+
+```ts
+import { createTextbitEditor } from '@dotvoid/textbit/headless'
+import { Text, Bold, Image } from '@dotvoid/textbit-plugins/definitions'
+
+const editor = createTextbitEditor({ plugins: [Text(), Bold(), Image()], value })
+```
+
+The rules are the same in both, so a document changed on a server is what the
+editor would have made of it. The build checks that no definition imports React.
+`imageNode()` and `audioNode()` are in both entries.
+
 ## Plugins
 
 Every type and mark is named `base/*`, the namespace for textbit's standard

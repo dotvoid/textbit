@@ -80,6 +80,7 @@ function MyEditor() {
 - [Collaborative Editing](#collaborative-editing)
 - [Editing Without a User Interface](#editing-without-a-user-interface)
 - [Plugin Development](#plugin-development)
+- [Upgrading from 2.x](#upgrading-from-2x)
 - [Utilities](#utilities)
 - [TypeScript](#typescript)
 
@@ -99,7 +100,7 @@ The root component that provides context for the editor. All other Textbit compo
 | `onChange` | `(value: string \| Descendant[]) => void` | - | Called when content changes. Will serve Descendant[] when used with Y.XmlText. |
 | `awareness` | `Awareness \| null` | - | Yjs awareness instance for collaborative cursors. Only valid when `value` is `Y.XmlText`. |
 | `cursor` | `CursorConfig` | - | Cursor configuration for collaboration. See [Collaborative Editing](#collaborative-editing). |
-| `plugins` | `TBPluginDefinition[]` | - | Array of plugin definitions. |
+| `plugins` | `TBPlugin[]` | - | The plugins, each a definition and its view. See [Plugin Development](#plugin-development). |
 | `placeholder` | `string` | `''` | Placeholder text when editor is empty. |
 | `placeholders` | `'none' \| 'single' \| 'multiple'` | `'none'` | Controls placeholder display mode. When using `multiple` text plugins displays their own placeholders per text object. |
 | `readOnly` | `boolean` | `false` | Makes editor read-only. |
@@ -1049,7 +1050,7 @@ Access registered plugins and actions.
 
 ```typescript
 const {
-  plugins,    // TBPluginDefinition[]
+  plugins,    // TBPlugin[]
   components, // Map<string, PluginRegistryComponent>
   actions     // TBPluginRegistryAction[]
 } = usePluginRegistry()
@@ -1547,10 +1548,17 @@ function CollaborativeEditor() {
 but without React or a browser. Use it to read, change or check documents on a server or in
 a script.
 
+Import it from `@dotvoid/textbit/headless`, an entry that loads neither React nor anything
+that needs a browser, and give it plugin definitions, which need neither either. The
+definitions of the plugins in `@dotvoid/textbit-plugins` are in
+`@dotvoid/textbit-plugins/definitions`:
+
 ```ts
-import { createTextbitEditor } from '@dotvoid/textbit'
+import { createTextbitEditor } from '@dotvoid/textbit/headless'
+import { Text, Bold, Image } from '@dotvoid/textbit-plugins/definitions'
 import { Editor, Transforms } from 'slate'
 
+const plugins = [Text(), Bold(), Image()]
 const editor = createTextbitEditor({ plugins, value, lang: 'en' })
 Transforms.insertText(editor, '!', { at: Editor.end(editor, [0]) })
 Editor.normalize(editor, { force: true })
@@ -1558,12 +1566,17 @@ Editor.normalize(editor, { force: true })
 
 | Option | Description |
 |--------|-------------|
-| `plugins` | The plugins, as for `Textbit.Root`. Without any, a plain text block. |
+| `plugins` | The plugin definitions. Plugins with views work too; the views are not used. Without any, a plain text block. |
 | `value` | The content, when it is not shared |
 | `lang` | The document's language, else the page's, else `en` |
 | `shared` | A `Y.XmlText` to collaborate through. Call `YjsEditor.connect(editor)` to start and `YjsEditor.disconnect(editor)` when done. |
 | `localOrigin` | The origin of this editor's own changes to the shared document |
 | `awareness`, `cursor` | Share a cursor, as for `Textbit.Root` |
+
+`@dotvoid/textbit/headless` also has `TEXT_TYPE`, the helpers `TextbitEditor`,
+`TextbitElement` and `TextbitPlugin`, core's plain paragraph plugin `Text`, and the types a
+definition needs (`TBPluginDefinition`, `TBElementSpec`, `TBAction` and the rest).
+`createTextbitEditor` is in the main entry as well, for code that has React anyway.
 
 Anything that writes to a shared document outside `Textbit.Root` should write through such an
 editor. Normalization then repairs what it writes before it reaches the shared document, as in
@@ -1572,6 +1585,19 @@ any editor, instead of every connected editor repairing it on arrival.
 ## Plugin Development
 
 Plugins extend Textbit with custom content types and behaviors.
+
+A plugin has two halves:
+
+- **The definition**: what the plugin is. Its name, its element and the element's
+  children, their constraints, its actions, consumers and options. It needs no React
+  and no browser, so the same definition runs in an editor, on a server or in a script.
+- **The view**: what it looks like. The components that render its elements, keyed by
+  their full type, and the tools shown for its actions, keyed by action name.
+
+`Textbit.Root` takes plugins with their views (`TBPlugin`). `createTextbitEditor` takes
+definitions (`TBPluginDefinition`); a plugin with a view works there too, the view is
+just not used. An element whose plugin has no view renders its children as they are,
+in the same wrapper every element gets.
 
 ### Plugin Types
 
@@ -1584,6 +1610,9 @@ Plugins extend Textbit with custom content types and behaviors.
 | `void` | Non-editable elements | Loaders, a child image element in a block element |
 | `generic` | Non-visual plugins | Input transformers, validators |
 
+An element's own class (`element.class` and each child's `class`) is one of `text`,
+`block`, `void` or `inline`. `leaf` and `generic` are plugin classes only.
+
 ### Drag'n drop
 Block and void class elements are automatically draggable in all parts not occupied by a child text element.
 
@@ -1591,47 +1620,88 @@ Any DOM element with the attribute `draggable` set to `true` will act as a "drag
 
 ### Plugin Structure
 
-```typescript
-import type { TBPluginInitFunction } from '@dotvoid/textbit'
+Write the definition and the view as two functions taking the same options. Keep the
+definition in a file of its own that imports nothing from React, and import from
+`@dotvoid/textbit/headless` there, so it can be used without the view:
 
-const MyPlugin: TBPluginInitFunction = (options) => {
-  return {
+```typescript
+// definition.ts: no React
+import type { TBPluginDefinition } from '@dotvoid/textbit/headless'
+
+export type FigureOptions = { title?: string }
+
+export const Figure = (options: FigureOptions = {}): TBPluginDefinition => ({
+  class: 'block',
+  name: 'acme/figure',
+
+  actions: [{
+    name: 'insert',
+    title: options.title ?? 'Figure',
+    hotkey: 'mod+shift+f',
+    handler: ({ editor }) => {
+      // Custom logic here
+      // Return true to also use default behavior
+      // Return false if you handled everything
+      return false
+    }
+  }],
+
+  // The plugin's element. Its type is the plugin's name.
+  element: {
     class: 'block',
-    name: 'namespace/image',
-    
-    actions: [{
-      name: 'toggle-image',
-      title: 'Image',
-      hotkey: 'mod+i',
-      tool: () => <ImageIcon />,
-      handler: ({ editor, options }) => {
-        // Custom logic here
-        // Return true to also use default behavior
-        // Return false if you handled everything
-        return true
-      }
-    }],
-    
-    componentEntry: {
-      class: 'block',
-      component: Figure,
-      children: [
-        { type: 'image', class: 'void', component: ImageContent,
-          constraints: { min: 1, max: 1 } },
-        { type: 'caption', class: 'text', component: Caption,
-          constraints: { allowBreak: false, min: 1, max: 1 } }
-      ]
-    },
-    
-    // Optional: Plugin options
-    options: options || {}
+    children: [
+      // Full type acme/figure/picture
+      { type: 'picture', class: 'void', constraints: { min: 1, max: 1 } },
+      // Full type acme/figure/caption
+      { type: 'caption', class: 'text', placeholder: 'Caption',
+        constraints: { allowBreak: false, min: 1, max: 1 } }
+    ]
   }
-}
+})
 ```
+
+```tsx
+// index.tsx: the definition and its view
+import type { TBPlugin } from '@dotvoid/textbit'
+import { Figure as FigureDefinition, type FigureOptions } from './definition'
+
+export const Figure = (options: FigureOptions = {}): TBPlugin => ({
+  ...FigureDefinition(options),
+  view: {
+    components: {
+      'acme/figure': { component: FigureComponent },
+      'acme/figure/picture': { component: PictureComponent },
+      'acme/figure/caption': { component: CaptionComponent }
+    },
+    tools: {
+      insert: () => <FigureIcon />
+    }
+  }
+})
+```
+
+Type the function's return, as above, rather than the variable
+(`const Figure: TBPluginInitFunction = () => ...`). TypeScript does not check an object
+returned from a function whose return type it infers, so a misspelled or outdated field
+would be ignored without a word. The registry warns in the console about the fields
+textbit 2 used (`componentEntry`, `events` and an action's `tool`).
+
+### Element Fields
+
+The `element` of a definition, and each entry in its `children`:
+
+| Name | Type | Description |
+|------|------|-------------|
+| `class` | `'text' \| 'block' \| 'void' \| 'inline'` | What the element is |
+| `type` | `string` | Required on a child. Its full type is the parent's followed by its own, e.g. `acme/figure/caption`. On the plugin's own element it defaults to the plugin name. |
+| `constraints` | see below | Editing rules for the element |
+| `placeholder` | `string \| (element) => string` | Hint shown in an empty text element |
+| `droppable` | `boolean` | Whether the element accepts drops, on a plugin's own element only |
+| `children` | child entries | The element's children |
 
 ### Component Props
 
-Plugin components receive these props:
+The components in a view receive these props:
 
 ```typescript
 interface TBComponentProps {
@@ -1639,12 +1709,13 @@ interface TBComponentProps {
   children: React.ReactNode    // Child elements to render
   rootNode?: TBElement         // Root element if this is a descendant component
   options?: Record<string, unknown> // Plugin options
+  editor: TBEditor             // The editor
 }
 ```
 
 ### Constraints
 
-Constraints control editing behavior within a component. They are set in the `constraints` property of a `componentEntry` and can be applied to both the top-level component entry and child component entries.
+Constraints control editing behavior within an element. They are set in the `constraints` property of a plugin's `element` and of each child entry.
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
@@ -1656,14 +1727,14 @@ Constraints control editing behavior within a component. They are set in the `co
 
 ### Child count constraints (`min` / `max`)
 
-A child component entry (an item in a parent's `children` array) can declare how many instances of its type are allowed inside the parent. These fields sit **inside `constraints`** alongside the behavior-level fields above:
+A child entry (an item in a parent's `children` array) can declare how many instances of its type are allowed inside the parent. These fields sit **inside `constraints`** alongside the behavior-level fields above:
 
 | Name | Type | Default | Description |
 |------|------|---------|-------------|
 | `min` | `number` | — | Minimum number of instances required in the parent. If the count ever drops below `min`, Textbit inserts a minimal placeholder to restore the invariant. |
 | `max` | `number` | — | Maximum number of instances allowed in the parent. Enter is blocked when the count is already at `max`; excess siblings are removed by the normalizer. |
 
-`min` and `max` are only valid on **child entries**. TypeScript will reject them on a top-level `componentEntry` — the `ComponentEntry` type forbids them, while entries inside a `children` array are typed as `ChildComponentEntry` and accept them.
+`min` and `max` are only valid on **child entries**. TypeScript rejects them on a plugin's own `element`: `TBElementSpec` forbids them, while entries in a `children` array are `TBChildElementSpec` and accept them.
 
 **Form-field semantics:** set both to `1` to model a permanent sub-element that always exists exactly once (e.g., an image caption). The user cannot delete it — if they try, it is re-inserted — and Enter cannot split it into a second one. Parent blocks are never removed because of child constraints.
 
@@ -1680,191 +1751,205 @@ See the [Image Block Plugin example](#example-image-block-plugin) below for a pr
 
 ### Example: Bold Plugin
 
+A mark has no element, so its view is only the tool:
+
 ```tsx
 import { BoldIcon } from 'lucide-react'
-import type { TBPluginInitFunction, TBComponentProps } from '@dotvoid/textbit'
+import type { TBPlugin, TBPluginDefinition } from '@dotvoid/textbit'
 
-const Bold: TBPluginInitFunction = () => {
-  return {
-    class: 'leaf',
-    name: 'base/bold',
-    
-    actions: [{
-      name: 'toggle-bold',
-      title: 'Bold',
-      hotkey: 'mod+b',
-      tool: () => <BoldIcon size={16} />,
-      handler: () => true // Use default toggle behavior
-    }],
+// The definition
+const BoldDefinition = (): TBPluginDefinition => ({
+  class: 'leaf',
+  name: 'acme/bold',
 
-    getStyle: () => {
-      // Leaf CSS styling
-      return {
-        fontWeight: 'bold'
-      }
-    }
+  actions: [{
+    name: 'toggle-bold',
+    title: 'Bold',
+    hotkey: 'mod+b',
+    handler: () => true // Use default toggle behavior
+  }],
+
+  // Leaf CSS styling, or a class name
+  getStyle: () => ({ fontWeight: 'bold' })
+})
+
+// The plugin with its view
+export const Bold = (): TBPlugin => ({
+  ...BoldDefinition(),
+  view: {
+    tools: { 'toggle-bold': () => <BoldIcon size={16} /> }
   }
-}
-
-export { Bold }
+})
 ```
 
 ### Example: Link Plugin
 
 ```tsx
 import { LinkIcon } from 'lucide-react'
-import type { TBPluginInitFunction, TBComponentProps } from '@dotvoid/textbit'
-import { Editor, Transforms } from 'slate'
+import type { TBComponentProps, TBPlugin, TBPluginDefinition } from '@dotvoid/textbit'
+import { Transforms } from 'slate'
 
-const Link: TBPluginInitFunction = () => {
-  return {
-    class: 'inline',
-    name: 'base/link',
-    
-    actions: [{
-      name: 'insert-link',
-      title: 'Link',
-      hotkey: 'mod+k',
-      tool: () => <LinkIcon size={16} />,
-      handler: ({ editor }) => {
-        const url = prompt('Enter URL:')
-        if (!url) return false
-        
-        const link = {
-          type: 'base/link',
-          url,
-          children: [{ text: url }]
-        }
-        
-        if (editor.selection) {
-          Transforms.wrapNodes(editor, link, { split: true })
-        } else {
-          Transforms.insertNodes(editor, link)
-        }
-        
-        return false // We handled everything
-      }
-    }],
-    
-    componentEntry: {
-      class: 'inline',
-      component: LinkComponent
+const LinkDefinition = (): TBPluginDefinition => ({
+  class: 'inline',
+  name: 'acme/link',
+
+  actions: [{
+    name: 'insert-link',
+    title: 'Link',
+    hotkey: 'mod+k',
+    handler: ({ editor }) => {
+      const href = prompt('Enter URL:')
+      if (!href || !editor.selection) return false
+
+      Transforms.wrapNodes(editor, {
+        id: crypto.randomUUID(),
+        class: 'inline',
+        type: 'acme/link',
+        properties: { href },
+        children: []
+      }, { split: true })
+
+      return false // We handled everything
     }
+  }],
+
+  element: {
+    class: 'inline'
   }
-}
+})
+
+export const Link = (): TBPlugin => ({
+  ...LinkDefinition(),
+  view: {
+    components: { 'acme/link': { component: LinkComponent } },
+    tools: { 'insert-link': () => <LinkIcon size={16} /> }
+  }
+})
 
 function LinkComponent({ element, children }: TBComponentProps) {
+  const href = typeof element.properties?.href === 'string' ? element.properties.href : undefined
   return (
-    <a 
-      href={element.url} 
-      target="_blank" 
-      rel="noopener noreferrer"
-      className="text-blue-600 underline"
-    >
+    <a href={href} target="_blank" rel="noopener noreferrer">
       {children}
     </a>
   )
 }
-
-export { Link }
 ```
+
+A real link plugin should check the address before rendering it: see `Link` in
+`@dotvoid/textbit-plugins`.
 
 ### Example: Image Block Plugin
 
 ```tsx
 import { ImageIcon } from 'lucide-react'
-import type { TBPluginInitFunction, TBComponentProps } from '@dotvoid/textbit'
-import { Transforms } from '@dotvoid/textbit'
+import type { TBComponentProps, TBPlugin, TBPluginDefinition } from '@dotvoid/textbit'
+import { Editor, Node, Transforms } from 'slate'
+import { ReactEditor, useSlateStatic } from 'slate-react'
 
-const Image: TBPluginInitFunction = () => {
-  return {
-    class: 'block',
-    name: 'base/image',
-    
-    actions: [{
-      name: 'insert-image',
-      title: 'Image',
-      hotkey: 'mod+shift+i',
-      tool: () => <ImageIcon size={16} />,
-      handler: ({ editor }) => {
-        const url = prompt('Enter image URL:')
-        if (!url) return false
-        
-        const image = {
-          type: 'base/image',
-          class: 'block',
-          id: crypto.randomUUID(),
-          properties: { src: url },
-          children: [
-            {
-              type: 'base/image/caption',
-              class: 'text',
-              children: [{ text: '' }]
-            }
-          ]
-        }
-        
-        Transforms.insertNodes(editor, image)
-        return false
-      }
-    }],
-    
-    componentEntry: {
-      class: 'block',
-      component: FigureComponent,
-      children: [
-        {
-          type: 'image',
-          class: 'void',
-          component: ImageComponent,
-          constraints: { min: 1, max: 1 }
-        },
-        {
-          type: 'text',
-          class: 'text',
-          component: CaptionComponent,
-          constraints: {
-            allowBreak: false,
-            min: 1,
-            max: 1
-          }
-        }
-      ]
+const ImageDefinition = (): TBPluginDefinition => ({
+  class: 'block',
+  name: 'acme/image',
+
+  actions: [{
+    name: 'insert-image',
+    title: 'Image',
+    hotkey: 'mod+shift+i',
+    handler: ({ editor }) => {
+      const src = prompt('Enter image URL:')
+      if (!src) return false
+
+      Transforms.insertNodes(editor, {
+        type: 'acme/image',
+        class: 'block',
+        id: crypto.randomUUID(),
+        properties: { src },
+        children: [
+          { type: 'acme/image/picture', class: 'void', id: crypto.randomUUID(), children: [{ text: '' }] },
+          { type: 'acme/image/caption', class: 'text', id: crypto.randomUUID(), children: [{ text: '' }] }
+        ]
+      })
+      return false
     }
+  }],
+
+  element: {
+    class: 'block',
+    children: [
+      {
+        type: 'picture',
+        class: 'void',
+        constraints: { min: 1, max: 1 }
+      },
+      {
+        type: 'caption',
+        class: 'text',
+        constraints: {
+          allowBreak: false,
+          min: 1,
+          max: 1
+        }
+      }
+    ]
   }
+})
+
+export const Image = (): TBPlugin => ({
+  ...ImageDefinition(),
+  view: {
+    components: {
+      'acme/image': { component: FigureComponent },
+      'acme/image/picture': { component: PictureComponent },
+      'acme/image/caption': { component: CaptionComponent }
+    },
+    tools: { 'insert-image': () => <ImageIcon size={16} /> }
+  }
+})
+
+function FigureComponent({ children }: TBComponentProps) {
+  return <figure className="my-4">{children}</figure>
 }
 
-function FigureComponent({ element, children }: TBComponentProps) {
+function PictureComponent({ element, children }: TBComponentProps) {
+  // The src is on the figure, the picture's parent
+  const editor = useSlateStatic()
+  const figure = Node.parent(editor, ReactEditor.findPath(editor, element))
+  const src = 'properties' in figure && typeof figure.properties?.src === 'string' ? figure.properties.src : undefined
+
+  // A void element renders its children: the hidden spacer Slate puts the caret on
   return (
-    <figure className="my-4">
+    <>
+      <img src={src} alt="" contentEditable={false} className="w-full rounded" />
       {children}
-    </figure>
-  )
-}
-
-function ImageComponent({ element, children }: TBComponentProps) {
-  return (
-    <img 
-      src={element.properties.src} 
-      alt=""
-      className="w-full rounded"
-    />
+    </>
   )
 }
 
 function CaptionComponent({ children }: TBComponentProps) {
   return (
-    <div className="p-2 flex rounded rounded-xs text-sm bg-slate-200 dark:bg-slate-800">
-      <label className="grow-0 w-16 opacity-70" contentEditable={false}>Text:</label >
-      <figcaption className="grow">
-        {children}
-      </figcaption>
-    </div >
+    <div className="p-2 flex rounded text-sm bg-slate-200 dark:bg-slate-800">
+      <label className="grow-0 w-16 opacity-70" contentEditable={false}>Text:</label>
+      <div className="grow">{children}</div>
+    </div>
   )
 }
-
-export { Image }
 ```
+
+### Using a Plugin Without a User Interface
+
+The definition alone is enough for `createTextbitEditor`, which reads, changes and
+checks documents with the same rules as the editor, on a server for example. Import it
+from the definition's own file, so React is never loaded:
+
+```ts
+import { createTextbitEditor } from '@dotvoid/textbit/headless'
+import { Image } from './plugins/image/definition'
+
+const editor = createTextbitEditor({ plugins: [Image()], value })
+```
+
+The plugins in `@dotvoid/textbit-plugins` work the same way: `@dotvoid/textbit-plugins/definitions`
+has each of them, with the same name and options, without its view.
 
 ### Sharing a Key Between Plugins
 
@@ -1898,7 +1983,7 @@ import { useAction } from '@dotvoid/textbit'
 import type { TBComponentProps } from '@dotvoid/textbit'
 
 function ImageComponent({ element }: TBComponentProps) {
-  const deleteImage = useAction('base/image', 'delete-image')
+  const deleteImage = useAction('acme/image', 'delete-image')
   
   return (
     <figure contentEditable={false}>
@@ -1913,29 +1998,98 @@ function ImageComponent({ element }: TBComponentProps) {
 
 ### Custom Root Elements (`asOwnElement`)
 
-By default, Textbit wraps each plugin component in a `<div>` so framework attributes (`data-id`, `data-type`, slate-react's `data-slate-node`, etc.) reliably reach the DOM. When the structural HTML tag matters — e.g. a `<tr>` inside a `<table>`, or an `<li>` inside a `<ul>` — set `asOwnElement: true` on the `componentEntry` and spread `attributes` onto the component's root node.
+By default, Textbit wraps each component in a `<div>` so framework attributes (`data-id`, `data-type`, slate-react's `data-slate-node`, etc.) reliably reach the DOM. When the structural HTML tag matters, e.g. a `<tr>` inside a `<table>` or an `<li>` inside a `<ul>`, set `asOwnElement: true` on the component in the view and spread `attributes` onto the component's root node.
 
 ```tsx
-import type { TBComponentProps } from '@dotvoid/textbit'
+import type { TBOwnElementComponentProps } from '@dotvoid/textbit'
 
-export const TableRow = ({ children, attributes }: TBComponentProps<HTMLTableRowElement>) => (
+export const TableRow = ({ children, attributes }: TBOwnElementComponentProps<HTMLTableRowElement>) => (
   <tr {...attributes}>{children}</tr>
 )
 
-TableRow.displayName = 'TableRow'
-
-// In the plugin definition:
-{
-  type: 'row',
-  class: 'block',
-  component: TableRow,
-  asOwnElement: true
+// In the plugin's view:
+view: {
+  components: {
+    'acme/table/row': { asOwnElement: true, component: TableRow }
+  }
 }
 ```
 
 When `asOwnElement` is true, the component is responsible for spreading `attributes` onto its root DOM element. `attributes` carries the framework's `data-id`, `data-type`, `lang`, an optional `data-role` (text-class elements with `properties.role` set; absent means regular text), plus slate-react's `data-slate-node` and `ref`. Failing to spread them will break selection mapping for that element.
 
 ---
+
+## Upgrading from 2.x
+
+Textbit 3 splits every plugin into a definition, which needs no React, and a view, so
+the same plugin runs in an editor, on a server or in an agent's tools. What changed:
+
+- **`componentEntry` is now `element`**, without components. The components move to
+  `view.components`, keyed by full type: the plugin name for its own element,
+  `name/child` for a child, `name/child/grandchild` below that.
+- **An action's `tool` moves to `view.tools`**, keyed by the action's name.
+- **`asOwnElement` moves to the view**, next to the component it is about.
+- **A placeholder** in `element` is a string, or a function returning one.
+- **`events` is gone.** Nothing ever called `onInsertText` or `onNormalizeNode`; use
+  `constraints.normalizeNode` and actions.
+- **Types.** `TBPluginDefinition` is now a plugin without its view, and `TBPlugin` one
+  with it, which is what `Textbit.Root` takes. `TBComponentEntry` and
+  `TBChildComponentEntry` are gone; see `TBElementSpec`, `TBChildElementSpec` and
+  `TBComponentView`.
+- **Packaging.** The UMD build is gone. The package is ES modules (`dist/index.js`) and
+  CommonJS (`dist/index.cjs`), with a second entry, `@dotvoid/textbit/headless`, for
+  use without React. See [Editing Without a User Interface](#editing-without-a-user-interface).
+- **`@dotvoid/textbit-plugins`** has the same plugins with the same names and options.
+  `@dotvoid/textbit-plugins/definitions` has them without their views.
+
+Before, in 2.x:
+
+```tsx
+const Figure: TBPluginInitFunction = () => ({
+  class: 'block',
+  name: 'acme/figure',
+  actions: [{ name: 'insert', title: 'Figure', tool: () => <FigureIcon />, handler: insertFigure }],
+  componentEntry: {
+    class: 'block',
+    component: FigureComponent,
+    children: [{
+      type: 'caption',
+      class: 'text',
+      asOwnElement: true,
+      component: Caption,
+      constraints: { min: 1, max: 1 }
+    }]
+  }
+})
+```
+
+After, in 3.0:
+
+```tsx
+const Figure = (): TBPlugin => ({
+  class: 'block',
+  name: 'acme/figure',
+  actions: [{ name: 'insert', title: 'Figure', handler: insertFigure }],
+  element: {
+    class: 'block',
+    children: [{ type: 'caption', class: 'text', constraints: { min: 1, max: 1 } }]
+  },
+  view: {
+    components: {
+      'acme/figure': { component: FigureComponent },
+      'acme/figure/caption': { asOwnElement: true, component: Caption }
+    },
+    tools: { insert: () => <FigureIcon /> }
+  }
+})
+```
+
+Split the definition into a file of its own, as in [Plugin Structure](#plugin-structure),
+when the plugin is to be used without React too. A 2.x plugin registered as it is
+has no element, so its elements show as [objects whose plugin is missing](#objects-whose-plugin-is-missing);
+the console names the fields to move.
+
+Documents do not change: a 2.x document opens in 3.0 as it is.
 
 ## Utilities
 
@@ -2021,20 +2175,35 @@ import type {
   TBEditor,           // Extended Slate editor
   TBRange,            // Range type
   
-  // Plugin types
-  TBPluginDefinition, // Plugin definition
-  TBPluginInitFunction, // Plugin initialization function
-  TBComponentProps,   // Component props
+  // Plugin definitions, also in @dotvoid/textbit/headless
+  TBPluginDefinition, // A plugin without its view
+  TBElementDefinition, // A plugin with elements of its own
+  TBLeafDefinition,   // A mark, such as bold
+  TBElementSpec,      // A plugin's own element
+  TBChildElementSpec, // A child element
+  TBElementClass,     // 'text' | 'block' | 'void' | 'inline'
+  TBTopLevelConstraints, // Constraints of a plugin's own element
+  TBChildConstraints, // Constraints of a child, with min and max
   TBAction,           // Action definition
+  TBActionHandler,    // Action handler
+  TBActionHandlerArgs, // Action handler arguments
+  TBActionEvent,      // The event that set off an action
+  TBGetLeafStyle,     // A mark's style function
+  TBLeafStyle,        // CSS declarations of a mark
   TBPluginOptions,    // Plugin options
-  TBPluginRegistryAction, // Registry action
-  
-  // Resource and component types
   TBResource,         // Resource definition
-  TBComponentEntry,   // Component entry
+
+  // Plugins with views
+  TBPlugin,           // A definition and its view
+  TBPluginView,       // Components and tools
+  TBComponentView,    // How one element type renders
+  TBPluginInitFunction, // A function returning a TBPlugin
+  TBComponentProps,   // Component props
+  TBOwnElementComponentProps, // Props of an asOwnElement component
   TBComponent,        // Component type
   TBToolComponent,    // Tool component
   TBToolComponentProps, // Tool component props
+  TBPluginRegistryAction, // Registry action
   
   // Other types
   TBSpellingError,    // Spelling error structure
@@ -2090,17 +2259,26 @@ When creating plugins, use the type helpers:
 
 ```typescript
 import type { 
-  TBPluginInitFunction, 
+  TBPlugin,
+  TBPluginDefinition,
   TBComponentProps,
   TBElement
 } from '@dotvoid/textbit'
 
-// Plugin initialization
-const MyPlugin: TBPluginInitFunction = (options) => {
-  return {
-    // Plugin definition
+// The definition. Type the return, so TypeScript checks the object.
+const MyPluginDefinition = (options: MyOptions = {}): TBPluginDefinition => ({
+  class: 'block',
+  name: 'namespace/my-plugin',
+  element: { class: 'block' }
+})
+
+// The plugin with its view
+const MyPlugin = (options: MyOptions = {}): TBPlugin => ({
+  ...MyPluginDefinition(options),
+  view: {
+    components: { 'namespace/my-plugin': { component: MyComponent } }
   }
-}
+})
 
 // Component
 function MyComponent({ element, children }: TBComponentProps) {
