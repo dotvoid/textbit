@@ -91,6 +91,10 @@ marker, read-only ones too. It is an advisory lease, never a lock.
 
 ## Review
 
+Changes an agent applies are marked in the text for a moment, then fade: they are done,
+the mark only says where. Suggestions are different: they wait for a person to accept or
+reject them, and stay marked until then.
+
 First, a review that lives in one editor: the agent writes into a copy, the difference is
 shown as an overlay, and a person accepts or rejects it per block. No suggestion format is
 stored in the document, which keeps the move to a future Y.js binding open.

@@ -29,6 +29,12 @@ interface TextbitRootBaseProps {
   lang?: string
   /** Text textbit itself shows, e.g. translations */
   labels?: Partial<TextbitLabels>
+  /**
+   * Milliseconds what an agent changed stays marked in the text, from when
+   * this editor first shows it, before it fades. 0 keeps it until dismissed.
+   * Default: 8000.
+   */
+  agentChangeDuration?: number
 }
 
 interface TextbitRootStringProps extends TextbitRootBaseProps {
@@ -90,6 +96,7 @@ export function TextbitRoot(props: TextbitRootProps) {
         placeholders={placeholders}
         placeholder={placeholder}
         labels={props.labels}
+        agentChangeDuration={props.agentChangeDuration}
         dir={props.dir}
         lang={props.lang}
       >

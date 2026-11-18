@@ -74,14 +74,19 @@ export function LeafElement(props: RenderLeafProps) {
 
   // What an agent changed: its new text tinted in its colour, and the text
   // it removed struck through beside it
+  // Once its time is up a change fades: the tint goes, then the change
   if (leaf.agentChange) {
-    className += ' tb-agent-change'
+    className += leaf.agentFading ? ' tb-agent-change tb-agent-fading' : ' tb-agent-change'
     const color = (typeof leaf.agentColor === 'string' && leaf.agentColor) || 'var(--tb-agent-color, #7c3aed)'
-    style = { ...style, backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)`, borderRadius: 2 }
+    style = {
+      ...style,
+      backgroundColor: leaf.agentFading ? 'transparent' : `color-mix(in srgb, ${color} 18%, transparent)`,
+      borderRadius: 2
+    }
   }
   if (typeof leaf.agentRemoved === 'string' && leaf.agentRemoved) {
     const color = typeof leaf.agentColor === 'string' ? leaf.agentColor : undefined
-    const removed = <AgentRemoved text={leaf.agentRemoved} color={color} />
+    const removed = <AgentRemoved text={leaf.agentRemoved} color={color} fading={!!leaf.agentFading} />
     props = {
       ...props,
       children: leaf.agentRemovedAt === 'after'

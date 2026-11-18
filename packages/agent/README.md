@@ -171,8 +171,9 @@ says something else, `presence.clear()` leaves.
 
 It also publishes what each edit changed in the text, word by word: "teh" to "the" is one
 change, not a rewritten paragraph. Editors show added text tinted and removed text struck
-through where it was, and say it to screen readers. The changes of a run stay until the next
-run starts or the run is undone; the 50 latest are kept.
+through where it was for a moment, then fade it, and say it to screen readers. The agent keeps
+publishing the changes of a run, the 50 latest, until the next run starts or the run is
+undone, so someone who joins meanwhile sees them too.
 
 ## Runs
 

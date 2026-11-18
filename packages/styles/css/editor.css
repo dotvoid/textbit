@@ -395,3 +395,11 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* What an agent changed fades once its time is up */
+@media (prefers-reduced-motion: no-preference) {
+  [data-tb="editable"] .tb-agent-change,
+  [data-tb="agent-removed"] {
+    transition: background-color 1.2s ease, opacity 1.2s ease;
+  }
+}
