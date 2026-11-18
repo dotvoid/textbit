@@ -54,6 +54,7 @@ export function asAgent(editor: Editor, change: () => void, record?: (operation:
   }
 }
 
+/** The edits of one task, from `startRun`: finished together, undone together */
 export interface AgentRun {
   /** Batches applied in the run */
   readonly edits: number
@@ -63,7 +64,15 @@ export interface AgentRun {
    * Undo every edit of the run. In a shared document what others wrote in the
    * meantime stays. Otherwise it works while nobody else changed the document.
    */
-  undo(): { ok: true } | { ok: false, message: string }
+  undo(): {
+    /** Undone */
+    ok: true
+  } | {
+    /** Not undone */
+    ok: false
+    /** Why not */
+    message: string
+  }
 }
 
 export interface RunRecorder {

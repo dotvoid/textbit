@@ -4,14 +4,19 @@ import { insertBlockAfterCaret, textNode } from '../shared/insertBlock'
 
 export const TYPE = 'base/blockquote'
 
+/** The quote's texts. Defaults: 'Quote', 'Quote', 'Source'. */
 export type BlockquoteLabels = {
   /** The insert action's name in menus and for screen readers */
   title: string
+  /** Hint in the empty quotation */
   body: string
+  /** Hint in the empty source */
   citation: string
 }
 
+/** Options of `Blockquote` */
 export type BlockquoteOptions = {
+  /** Labels and hints, e.g. translations */
   labels?: Partial<BlockquoteLabels>
   /** A shortcut that inserts a quote. None by default. */
   hotkey?: string | false

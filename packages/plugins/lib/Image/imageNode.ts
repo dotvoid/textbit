@@ -1,8 +1,12 @@
 import type { Element } from 'slate'
 
+/** Where an image now lives, as `upload` returns it or `imageNode` takes it */
 export type ImageUpload = {
+  /** Its address: an `http(s):` or relative URL, a `blob:` URL, or a `data:image/…` one */
   src: string
+  /** Its width in pixels, if known; keeps the page from jumping as it loads */
   width?: number
+  /** Its height in pixels, if known */
   height?: number
   /** Alternative text, if the host already has one */
   alt?: string

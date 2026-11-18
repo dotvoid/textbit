@@ -5,7 +5,9 @@ import type { TextChange } from '../utils/diffWords'
 
 /** A block of a suggestion as this editor shows it */
 export interface ShownSuggestion {
+  /** The suggestion the block is part of */
   suggestion: Suggestion
+  /** The suggested block */
   block: SuggestedBlock
   /** 'stale' when the block changed since it was suggested: it can only be rejected */
   state: 'ready' | 'stale'

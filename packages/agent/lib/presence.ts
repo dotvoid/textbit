@@ -2,9 +2,15 @@ import { AGENT_PRESENCE_FIELD, type TBAgentChange as AgentChange, type TBAgentPr
 
 /** What presence needs of a Y.js awareness: setting a field of the local state */
 export interface AwarenessLike {
+  /** Set a field of the local state, as Y.js awareness does */
   setLocalStateField(field: string, value: unknown): void
 }
 
+/**
+ * The agent's presence in a shared document, from `createAgentPresence`. Give
+ * it to `createDocumentAgent` and it is kept up to date; call it yourself only
+ * for what the agent does outside its edits, e.g. `set('thinking')`.
+ */
 export interface AgentPresence {
   /** Say what the agent does now, and on which top-level elements, by id */
   set(status: AgentStatus, blocks?: string[]): void
@@ -15,7 +21,12 @@ export interface AgentPresence {
   /** Leave: nothing is shown any more */
   clear(): void
   /** Who the agent is to people */
-  readonly identity: { name: string, color?: string }
+  readonly identity: {
+    /** The name people see */
+    name: string
+    /** A CSS colour, e.g. `'#7c3aed'` */
+    color?: string
+  }
 }
 
 /**

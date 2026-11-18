@@ -1,8 +1,11 @@
 import { createContext } from 'react'
 
+/** Whole top-level blocks selected, from one index to another, both included */
 export interface BlockSelectionState {
-  anchorIndex: number  // Fixed end — where selection started
-  focusIndex: number   // Moving end — extends with Shift+Up/Down
+  /** Where the selection started: it stays */
+  anchorIndex: number
+  /** Where it ends now: Shift+Up/Down moves it */
+  focusIndex: number
 }
 
 export const BlockSelectionContext = createContext<BlockSelectionState | null>(null)

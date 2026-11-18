@@ -10,7 +10,7 @@ import {
 } from '../shared/icons'
 import { Table as TableDefinition, TYPE, type TableOptions } from './definition'
 
-export type { TableOptions } from './definition'
+export type { TableOptions, TableAction } from './definition'
 
 /**
  * A simple table of text cells. Tab and Shift+Tab move between cells; Tab in

@@ -5,6 +5,7 @@ import { hotkeyOption } from '../shared/hotkey'
 
 export const TYPE = 'base/link'
 
+/** The link's texts. Defaults: 'Link', 'Link address', 'https://', 'Remove link', 'Open link in a new tab'. */
 export type LinkLabels = {
   /** The action's name in menus and for screen readers */
   title: string
@@ -12,10 +13,13 @@ export type LinkLabels = {
   address: string
   /** Placeholder of the address field */
   placeholder: string
+  /** Name of the button that removes the link */
   remove: string
+  /** Name of the button that opens the link */
   open: string
 }
 
+/** Options of `Link` */
 export type LinkOptions = {
   /** Replace the default shortcut, Ctrl+K / ⌘K, or remove it with `false` */
   hotkey?: string | false

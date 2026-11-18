@@ -2,6 +2,10 @@ import { debounce } from '../utils/debounce'
 import type { SpellingError, SpellcheckLookupTable } from '../types'
 import { Editor, Node, Element } from 'slate'
 
+/**
+ * Checks spelling: given the text of changed blocks with their language,
+ * returns, for each in the same order, the errors found in it
+ */
 export type OnSpellcheckCallback = (texts: { text: string, lang: string }[]) => Promise<Omit<SpellingError, 'id'>[][]>
 
 export function withSpeling(editor: Editor, onSpellcheck: OnSpellcheckCallback, debounceTimeout: number = 6125): Editor {

@@ -3,6 +3,7 @@ import { getSchema, type TBDocumentSchema as DocumentSchema, type TBPluginDefini
 import { createNames, type Names } from './names'
 import { createHandles, type Handles } from './handles'
 
+/** How an agent works on a document: what `createDocumentAgent` and `createAgentTools` take */
 export interface AgentOptions {
   /** The editor's plugins, as given to Textbit.Root or createTextbitEditor */
   plugins?: TBPluginDefinition[]
@@ -22,10 +23,15 @@ export interface AgentOptions {
    */
   review?: 'apply' | 'suggest'
   /** Who suggestions are from. Default: the presence's name, else "Agent". */
-  author?: { name: string, color?: string }
+  author?: {
+    /** The name people see */
+    name: string
+    /** A CSS colour, e.g. `'#7c3aed'` */
+    color?: string
+  }
 }
 
-/** What every part of the agent shares */
+/** @internal What every part of the agent shares */
 export interface AgentContext {
   options: AgentOptions
   schema: DocumentSchema

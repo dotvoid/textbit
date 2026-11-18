@@ -3,8 +3,15 @@ import { DragstateContext } from '../contexts/DragStateContext'
 
 const HEIGHT = 3
 
+/**
+ * Shows where a dragged block or dropped file would go: a line between blocks,
+ * while something is dragged over the editor. Place it in `Textbit.Editable`;
+ * style it with `className` and `style`; `data-dragover` is set while it shows.
+ */
 export function DropMarker({ className, style = {} }: {
+  /** A class on the marker */
   className?: string
+  /** A style on the marker, e.g. its colour */
   style?: React.CSSProperties
 }) {
   const ref = useRef<HTMLDivElement>(null)

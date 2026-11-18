@@ -5,8 +5,11 @@ import { parseElements, FormatError, type ParsedElement } from './format'
 
 /** Where content goes: after or before an element, at the end of one, or at the end of the document */
 export interface Placement {
+  /** After this element, by handle */
   after?: string
+  /** Before this element, by handle */
   before?: string
+  /** Last inside this element, by handle. With none of the three: at the end of the document. */
   into?: string
 }
 
@@ -15,13 +18,67 @@ export interface Placement {
  * document's line format, see FORMAT_GUIDE.
  */
 export type EditOperation =
-  | { op: 'replace', id: string, content: string }
-  | ({ op: 'insert', content: string } & Placement)
-  | { op: 'delete', id: string }
-  | ({ op: 'move', id: string } & Placement)
-  | { op: 'setProperties', id: string, properties: Record<string, string | number | boolean | null> }
-  | { op: 'replaceText', id: string, find: string, replace: string, all?: boolean }
+  | {
+    /** Replace an element with new content */
+    op: 'replace'
+    /** The element's handle */
+    id: string
+    /** The new element or elements, in the line format */
+    content: string
+  }
+  | ({
+    /** Insert new content */
+    op: 'insert'
+    /** The new element or elements, in the line format */
+    content: string
+  } & Placement)
+  | {
+    /** Delete an element */
+    op: 'delete'
+    /** The element's handle */
+    id: string
+  }
+  | ({
+    /** Move an element */
+    op: 'move'
+    /** The element's handle */
+    id: string
+  } & Placement)
+  | {
+    /** Set or remove properties of an element */
+    op: 'setProperties'
+    /** The element's handle */
+    id: string
+    /** The properties to set; `null` removes one */
+    properties: Record<string, string | number | boolean | null>
+  }
+  | {
+    /** Replace text inside an element, leaving the rest of it as it is */
+    op: 'replaceText'
+    /** The element's handle */
+    id: string
+    /** The text to find; it must be there, and once unless `all` */
+    find: string
+    /** The text to put in its place */
+    replace: string
+    /** Replace every occurrence. Default: `false`. */
+    all?: boolean
+  }
 
+/**
+ * Why an edit failed:
+ *
+ * - `read-only`: the agent may only read
+ * - `not-found`: no element has the handle, or an earlier operation removed it
+ * - `ambiguous-id`: the handle fits more than one element
+ * - `invalid-operation`: an operation is malformed
+ * - `parse-error`: content is not valid line format
+ * - `not-allowed`: not possible here, e.g. changing an element whose plugin is
+ *   missing, or moving one while suggesting
+ * - `text-not-found`, `text-ambiguous`: `find` is not there, or there more than once
+ * - `invalid-content`: the result would break the document's rules (see `issues`)
+ * - `stale`: what the edit touches changed since `revision`
+ */
 export type EditErrorCode =
   | 'read-only'
   | 'not-found'
@@ -34,21 +91,49 @@ export type EditErrorCode =
   | 'invalid-content'
   | 'stale'
 
+/** What went wrong with an edit, for a model to read and correct */
 export interface EditError {
+  /** What kind of failure */
   code: EditErrorCode
+  /** What went wrong, in a sentence */
   message: string
   /** The operation it concerns, by its index in the batch */
   operation?: number
   /** What would be right, where there is something to say */
   hint?: string
   /** The issues found, for invalid-content */
-  issues?: { code: string, element?: string, message: string }[]
+  issues?: {
+    /** The validation code, as `TBValidationCode` */
+    code: string
+    /** The id of the element it concerns */
+    element?: string
+    /** What is wrong */
+    message: string
+  }[]
 }
 
+/** What `edit` gives: the changed elements on success, else the error */
 export type EditResult =
-  /** `suggestion` is set when the changes were suggested, not made */
-  | { ok: true, revision: string, view: string, suggestion?: string }
-  | { ok: false, revision: string, error: EditError, view?: string }
+  | {
+    /** The changes were made, or suggested */
+    ok: true
+    /** The document's revision now: after the changes, or as it was if they were suggested */
+    revision: string
+    /** The top-level elements changed, in the line format, with their handles */
+    view: string
+    /** The id of the suggestion, when the changes were suggested, not made */
+    suggestion?: string
+  }
+  | {
+    /** Nothing was changed */
+    ok: false
+    /** The document's revision now */
+    revision: string
+    /** What went wrong */
+    error: EditError
+    /** For `stale`: the elements as they are now */
+    view?: string
+  }
 
 /** A step of a batch: what it changes, and how, given ids */
 interface Step {

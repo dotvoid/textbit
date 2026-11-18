@@ -1,3 +1,4 @@
+/** Whether the page runs on macOS, where shortcuts use ⌘ instead of Ctrl */
 export function isMac(): boolean {
   if (typeof navigator === 'undefined') {
     return false

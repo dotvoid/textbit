@@ -5,6 +5,7 @@ import { insertBlockAfterCaret, textNode } from '../shared/insertBlock'
 
 export const TYPE = 'base/code-block'
 
+/** Options of `CodeBlock` */
 export type CodeBlockOptions = {
   /** Spaces Tab inserts. Default: 2. */
   indentSize?: number

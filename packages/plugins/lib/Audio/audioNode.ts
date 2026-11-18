@@ -1,7 +1,10 @@
 import type { Element } from 'slate'
 
+/** Where audio now lives, as `upload` returns it or `audioNode` takes it */
 export type AudioUpload = {
+  /** Its address: an `http(s):` or relative URL, a `blob:` URL, or a `data:audio/…` one */
   src: string
+  /** Its title, given to screen readers as the player's name */
   title?: string
 }
 

@@ -1,10 +1,10 @@
 import { createContext, RefObject } from 'react'
-import { Node, type NodeEntry } from 'slate'
 
+/** The selection's rectangle on screen, in viewport coordinates, and what it is in */
 export type SelectionBounds = Omit<DOMRect & {
+  /** Whether it is a caret, not a range */
   isCollapsed: boolean
-  leafEntry?: NodeEntry<Node>
-  blockEntry?: NodeEntry<Node>,
+  /** The rectangle of the top-level block at the selection, while the editor has focus */
   box?: DOMRect
 }, 'toJSON'>
 

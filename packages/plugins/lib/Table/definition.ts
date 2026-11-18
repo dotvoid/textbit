@@ -7,11 +7,14 @@ export const TYPE = 'base/table'
 const ROW = `${TYPE}/row`
 const CELL = `${TYPE}/row/cell`
 
+/** The table's actions: insert a table, and change rows and columns */
 export type TableAction = 'insert' | 'row-above' | 'row-below' | 'delete-row' | 'column-left' | 'column-right' | 'delete-column'
 
+/** Options of `Table` */
 export type TableOptions = {
-  /** Size of a new table. Default: 2 by 2. */
+  /** Rows of a new table. Default: 2. */
   rows?: number
+  /** Columns of a new table. Default: 2. */
   columns?: number
   /** Action names in menus and for screen readers, e.g. translations */
   titles?: Partial<Record<TableAction, string>>

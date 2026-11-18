@@ -11,6 +11,7 @@ import { ContextMenuHintsContext } from '../components/ContextMenu/ContextMenuHi
  * `always` opens it on any text, with `spelling` in the hints left undefined
  * when the word is not misspelled.
  */
+/** When the context menu opens: on misspelled words only, or on any text */
 export type ContextMenuMode = 'spelling' | 'always'
 
 export function useContextMenu(

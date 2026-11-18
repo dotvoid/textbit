@@ -17,19 +17,33 @@ export interface DocumentSchema {
   /** Element types, by full type */
   elements: Record<string, ElementTypeSchema>
   /** Marks, by leaf plugin name */
-  marks: Record<string, { description?: string }>
+  marks: Record<string, {
+    /** What the mark is, from its plugin */
+    description?: string
+  }>
   /** Element types that may stand at the top level */
   topLevel: string[]
 }
 
+/** One element type of a document schema */
 export interface ElementTypeSchema {
+  /** Its full type, e.g. `base/image/caption` */
   type: string
+  /** What it is */
   class: ElementClass
+  /** What it is for, from its plugin's schema */
   description?: string
   /** The type it belongs in, for a child type */
   parent?: string
   /** Its child types in the order they come, with how many of each */
-  children?: { type: string, min?: number, max?: number }[]
+  children?: {
+    /** The child's full type */
+    type: string
+    /** At least this many */
+    min?: number
+    /** At most this many */
+    max?: number
+  }[]
   /** Its properties. Undefined when the plugin does not declare them. */
   properties?: Record<string, PropertySchema>
   /** Marks its text may carry */

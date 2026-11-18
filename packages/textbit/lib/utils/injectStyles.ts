@@ -14,7 +14,7 @@ if (typeof document !== 'undefined') {
      * Hides automatically when the block caret (adjacent navigation) is active.
      *
      * Customisable via CSS custom properties:
-     *   --tb-focus-ring-radius  Border radius of the ring (default: 2px)
+     *   --tb-focus-ring-radius  Border radius of the ring (default: 5px)
      *
      * Example:
      *   .my-editor { --tb-focus-ring-radius: 6px; }

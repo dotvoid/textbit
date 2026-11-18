@@ -9,14 +9,17 @@ import { asAgent, startRun, type AgentRun, type RunRecorder } from './runs'
 import type { AgentPresence } from './presence'
 import { textChanges, textsById } from './changes'
 
+/** What `read` takes */
 export interface ReadInput {
   /** Start at this top-level element, by handle. Default: the first. */
   from?: string
-  /** Top-level elements to return at most */
+  /** Top-level elements to return at most. Default: all that fit in `pageSize`. */
   limit?: number
 }
 
+/** What `read` gives */
 export interface ReadResult {
+  /** The document's revision now, to pass to `edit` */
   revision: string
   /** The elements, in the document's line format */
   view: string
@@ -28,6 +31,7 @@ export interface ReadResult {
   suggestions: number
 }
 
+/** What `search` takes */
 export interface SearchInput {
   /** Text to look for, case ignored */
   query: string
@@ -35,13 +39,22 @@ export interface SearchInput {
   limit?: number
 }
 
+/** What `search` gives */
 export interface SearchResult {
+  /** The document's revision now, to pass to `edit` */
   revision: string
-  /** Each text element containing the query, as its line, with the top-level element it is in */
-  matches: { line: string, in?: string }[]
+  /** Each text element containing the query, in document order */
+  matches: {
+    /** The element, as its line in the document's format */
+    line: string
+    /** The handle of the top-level element it is in, when it is not one itself */
+    in?: string
+  }[]
 }
 
+/** What `edit` takes */
 export interface EditInput {
+  /** The changes, made in order and all or none */
   operations: EditOperation[]
   /** The revision the changes were planned against, from read or search */
   revision?: string
@@ -49,17 +62,30 @@ export interface EditInput {
   opId?: string
 }
 
+/**
+ * An agent's access to one document, from `createDocumentAgent`: read it, search
+ * it, describe its element types and change it. `createAgentTools` turns it
+ * into tools for a model.
+ */
 export interface DocumentAgent {
+  /** The document, or a page of it, in the line format, with handles to name elements by */
   read(input?: ReadInput): ReadResult
+  /** The text elements containing some text */
   search(input: SearchInput): SearchResult
   /** The document's element types, marks and inline elements, for a model */
   describe(): string
+  /**
+   * Make a batch of changes, or suggest them with `review: 'suggest'`. With a
+   * `revision`, it fails as `stale` if someone changed what it touches since.
+   * Nothing changes when any operation fails.
+   */
   edit(input: EditInput): EditResult
   /**
    * Start a run: the edits of one task, undone together if need be. Presence,
    * when given, shows the agent thinking until the run finishes.
    */
   startRun(): AgentRun
+  /** @internal What the agent's parts share */
   readonly context: AgentContext
 }
 

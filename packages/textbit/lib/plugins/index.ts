@@ -4,9 +4,17 @@ import { NonBreakingSpace } from './NonBreakingSpace'
 import { FocusToolbar } from './FocusToolbar'
 
 
-// What an editor gets without plugins of its own: a plain paragraph, enough for
-// a simple text field. Core also falls back on base/text when it needs a new
-// text block, e.g. on Enter or paste.
+/**
+ * Core's plain paragraph plugin (`base/text`), as plugin functions: what an
+ * editor gets without plugins of its own, enough for a simple text field. Core
+ * also falls back on `base/text` when it needs a new text block, e.g. on Enter.
+ * Add it to plugins of your own to keep that paragraph, unless one of them
+ * replaces it, as `Text` of `@dotvoid/textbit-plugins` does.
+ *
+ * ```ts
+ * plugins={[...Textbit.Plugins.map((plugin) => plugin()), MyFactbox()]}
+ * ```
+ */
 export const StandardPlugins = [
   Text
 ]
