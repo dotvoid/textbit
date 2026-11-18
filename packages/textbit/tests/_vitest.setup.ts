@@ -36,8 +36,15 @@ beforeAll(() => {
   }
 })
 
+// The DOM mocks below are for jsdom; tests in the node environment have no DOM
+const hasDom = typeof window !== 'undefined'
+
 // Mock Range.getBoundingClientRect for jsdom
 beforeAll(() => {
+  if (!hasDom) {
+    return
+  }
+
   Range.prototype.getBoundingClientRect = function() {
     return {
       x: 0,
@@ -63,6 +70,10 @@ beforeAll(() => {
 
 // Mock Element.getBoundingClientRect for better test support
 beforeAll(() => {
+  if (!hasDom) {
+    return
+  }
+
   Element.prototype.getBoundingClientRect = function() {
     return {
       x: 0,
@@ -80,6 +91,10 @@ beforeAll(() => {
 
 // Mock window.getSelection
 beforeAll(() => {
+  if (!hasDom) {
+    return
+  }
+
   window.getSelection = function() {
     return {
       rangeCount: 0,

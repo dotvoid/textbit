@@ -1,5 +1,5 @@
 import { Editor, Node, Range, Path, Element, Point, Text, Transforms, type Descendant } from 'slate'
-import { TextbitElement } from '../main'
+import { TextbitElement } from '../utils/textbit-element'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { placeCaretAfter } from '../utils/blockCaret'
 

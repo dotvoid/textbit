@@ -1,4 +1,4 @@
-import { getDecorationRangeFromMouseEvent, getNodeEntryFromDomNode } from '../utils/utils'
+import { getDecorationRangeFromMouseEvent, getNodeEntryFromDomNode } from '../utils/domUtils'
 import { type MouseEventHandler, useContext, useMemo } from 'react'
 import { Range, Editor, Element as SlateElement, Transforms } from 'slate'
 import { ReactEditor, useSlateStatic } from 'slate-react'

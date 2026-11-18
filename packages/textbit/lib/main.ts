@@ -115,6 +115,9 @@ export {
   pipeFromFileInput as consumeFileInputChangeEvent
 } from './utils/pipes'
 
+// An editor without a user interface, to read, change or check documents
+export { createTextbitEditor, type TextbitEditorOptions } from './editor/createTextbitEditor'
+
 export { calculateStats } from './utils/calculateStats'
 export { TextbitEditor } from './utils/textbit-editor'
 export { TextbitElement } from './utils/textbit-element'
