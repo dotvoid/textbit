@@ -1,5 +1,7 @@
 import { describe, test, expect } from 'vitest'
-import { createEditor, type Descendant, type Editor } from 'slate'
+import { Transforms, createEditor, type Descendant, type Editor } from 'slate'
+import * as Y from 'yjs'
+import { YjsEditor, slateNodesToInsertDelta, withYjs, yTextToSlateElement } from '@slate-yjs/core'
 import { withUniqueIds } from '../lib/with/withUniqueIds'
 
 function makeEditor(initial: Descendant[]): Editor {
@@ -314,3 +316,43 @@ function collectAllIds(nodes: Descendant[]): string[] {
   for (const n of nodes) walk(n)
   return ids
 }
+
+describe('withUniqueIds — remote changes', () => {
+  function paragraph(id: string, text: string): Descendant {
+    return { id, type: 'base/text', class: 'text', properties: {}, children: [{ text }] } as Descendant
+  }
+
+  test('keeps the ids of a remote insertion, so this copy matches the shared one', async () => {
+    const doc = new Y.Doc()
+    const root = doc.get('content', Y.XmlText)
+    root.applyDelta(slateNodesToInsertDelta([paragraph('dup', 'a')]))
+
+    const editor = withUniqueIds(withYjs(createEditor(), root, { localOrigin: Symbol('local') }))
+    YjsEditor.connect(editor)
+
+    // Another peer writes a block whose id collides
+    const replica = new Y.Doc()
+    Y.applyUpdate(replica, Y.encodeStateAsUpdate(doc))
+    const replicaRoot = replica.get('content', Y.XmlText)
+    replicaRoot.insertEmbed(1, slateNodesToInsertDelta([paragraph('dup', 'b')])[0].insert as Y.XmlText,
+      { id: 'dup', type: 'base/text', class: 'text', properties: {} })
+    Y.applyUpdate(doc, Y.encodeStateAsUpdate(replica, Y.encodeStateVector(doc)))
+    await Promise.resolve()
+
+    const shared = yTextToSlateElement(root).children as { id?: string }[]
+    expect(editor.children.map((n) => (n as { id?: string }).id)).toEqual(shared.map((n) => n.id))
+  })
+
+  test('still rewrites a colliding id in a local insertion', () => {
+    const doc = new Y.Doc()
+    const root = doc.get('content', Y.XmlText)
+    root.applyDelta(slateNodesToInsertDelta([paragraph('dup', 'a')]))
+
+    const editor = withUniqueIds(withYjs(createEditor(), root, { localOrigin: Symbol('local') }))
+    YjsEditor.connect(editor)
+    Transforms.insertNodes(editor, paragraph('dup', 'b'), { at: [1] })
+
+    const [first, second] = editor.children as { id?: string }[]
+    expect(second.id).not.toBe(first.id)
+  })
+})
