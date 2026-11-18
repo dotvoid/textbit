@@ -4,7 +4,9 @@ A real AI agent in a shared textbit document, editing alongside you. Private to 
 repository; not published.
 
 - `src/server.ts` is the shared document: a Hocuspocus server on `ws://localhost:1234`, with
-  the document `lab`. It starts as the demo's article and keeps its state while it runs.
+  one document. It starts as the demo's article and keeps its state in `.lab/`, across
+  restarts. Each start-over is a document of its own, `lab-<when it was created>`, whose name
+  clients get from `http://localhost:1234/lab`.
 - `src/mcp.ts` is an MCP server over stdio. Your MCP client starts it. It joins the document
   as a peer of its own, like a browser, and gives the agent the tools of
   `@dotvoid/textbit-agent`: `document_read`, `document_search`, `document_types` and

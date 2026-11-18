@@ -212,3 +212,10 @@ Every plugin takes `hotkey: false` (or `hotkeys` for `Text`) to remove a shortcu
 
 Icons are from [Lucide](https://lucide.dev), used under the ISC License; the notice
 is in `lib/shared/icons.tsx`.
+
+## Documentation
+
+- [Plugins](https://github.com/dotvoid/textbit/blob/main/docs/guides/plugins.md): using these
+  plugins, and writing your own as definition and view
+- [Formats](https://github.com/dotvoid/textbit/blob/main/docs/guides/formats.md): the element
+  types and properties these plugins store in documents

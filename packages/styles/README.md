@@ -64,7 +64,13 @@ Override any token on `:root`, or on an element around one editor.
 | `--tb-shadow`, `--tb-focus` | Popover shadow, focus outline |
 | `--tb-spelling-error-line`, `--tb-spelling-error-tint` | Spelling errors |
 | `--tb-spelling-suggestion-line`, `--tb-spelling-suggestion-tint` | Spelling suggestions |
+| `--tb-agent-color` | An agent's markers and changes, when it gives no colour of its own |
 
 Spelling errors and suggestions differ in line shape (wavy against dashed) and in
 tint strength, not only in colour, so they stay apart for people who do not tell
 red from blue. In forced colours mode the tint goes and the shapes remain.
+
+## Documentation
+
+- [Styling](https://github.com/dotvoid/textbit/blob/main/docs/guides/styling.md): the tokens,
+  the `data-tb` hooks and the classes to style
