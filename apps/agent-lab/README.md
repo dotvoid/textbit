@@ -28,14 +28,19 @@ Both run the built packages, as a host would.
 3. Connect an MCP client to `src/mcp.ts`. For Claude Code, from any directory:
 
    ```bash
-   claude mcp add textbit-lab -- node /absolute/path/to/textbit/apps/agent-lab/src/mcp.ts
+   claude mcp add textbit-lab -- "$(which node)" /absolute/path/to/textbit/apps/agent-lab/src/mcp.ts
    ```
+
+   Give node's full path, as `$(which node)` does in a shell where it is found: MCP clients
+   start servers without your shell's profile, so with nvm a bare `node` is not on their PATH
+   and the server never starts. `npm run lab` must be running first, or the server stops
+   after 8 seconds saying so.
 
    Start a new Claude Code session and check `/mcp` lists `textbit-lab`. Any MCP client that
    starts stdio servers works the same way, e.g. Claude Desktop with this in its config:
 
    ```json
-   { "mcpServers": { "textbit-lab": { "command": "node", "args": ["/absolute/path/to/textbit/apps/agent-lab/src/mcp.ts"] } } }
+   { "mcpServers": { "textbit-lab": { "command": "/full/path/to/node", "args": ["/absolute/path/to/textbit/apps/agent-lab/src/mcp.ts"] } } }
    ```
 
    `node` must be version 24 or later, which runs the TypeScript sources as they are.
