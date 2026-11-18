@@ -7,7 +7,9 @@ import { Element, Node, type Descendant, type Path } from 'slate'
  * start of an id, or the whole id, is understood.
  *
  * An element without an id, which text elements may be, is referred to by its
- * path, as `@2.1`. That changes when blocks before it move.
+ * path, as `@2.1`. That changes when blocks before it move. So is an element
+ * whose id another element has too, which a merge of two copies of a shared
+ * document can cause: its id cannot tell it apart.
  */
 export const HANDLE_LENGTH = 6
 
@@ -19,6 +21,7 @@ export interface Handles {
 }
 
 export type HandleMatch =
+  /** `id` is absent when the element has none, or one it shares with another */
   | { found: true, id?: string, path: Path, element: Element }
   | { found: false, reason: 'not-found' | 'ambiguous', candidates?: string[] }
 
@@ -30,28 +33,36 @@ export function createHandles(document: Descendant[]): Handles {
     }
   }
   const ids = entries.map((entry) => entry.id)
+  const counts = new Map<string, number>()
+  for (const id of ids) {
+    counts.set(id, (counts.get(id) ?? 0) + 1)
+  }
+  const shared = (id: string) => (counts.get(id) ?? 0) > 1
 
   return {
-    of: (element, path) => typeof element.id === 'string'
+    of: (element, path) => typeof element.id === 'string' && !shared(element.id)
       ? shortest(element.id, ids)
       : `@${path.join('.')}`,
 
     resolve: (raw) => {
       const handle = raw.trim().replace(/^#/, '')
       if (handle.startsWith('@')) {
-        return byPath(document, handle.slice(1))
+        return byPath(document, handle.slice(1), shared)
       }
 
-      const exact = entries.find((entry) => entry.id === handle)
-      if (exact) {
-        return { found: true, ...exact }
-      }
-      const matches = handle.length >= 4 ? entries.filter((entry) => entry.id.startsWith(handle)) : []
+      const exact = entries.filter((entry) => entry.id === handle)
+      const matches = exact.length
+        ? exact
+        : handle.length >= 4 ? entries.filter((entry) => entry.id.startsWith(handle)) : []
       if (matches.length === 1) {
         return { found: true, ...matches[0] }
       }
       return matches.length
-        ? { found: false, reason: 'ambiguous', candidates: matches.map((m) => shortest(m.id, ids)) }
+        ? {
+          found: false,
+          reason: 'ambiguous',
+          candidates: matches.map((m) => shared(m.id) ? `@${m.path.join('.')}` : shortest(m.id, ids))
+        }
         : { found: false, reason: 'not-found' }
     }
   }
@@ -68,16 +79,18 @@ function shortest(id: string, ids: string[]): string {
   return id
 }
 
-function byPath(document: Descendant[], raw: string): HandleMatch {
+function byPath(document: Descendant[], raw: string, shared: (id: string) => boolean): HandleMatch {
   const path = raw.split('.').map(Number)
   if (!path.length || path.some((index) => !Number.isInteger(index) || index < 0)) {
     return { found: false, reason: 'not-found' }
   }
   try {
     const node = Node.get({ children: document } as Node, path)
-    return Element.isElement(node)
-      ? { found: true, ...(typeof node.id === 'string' ? { id: node.id } : {}), path, element: node }
-      : { found: false, reason: 'not-found' }
+    if (!Element.isElement(node)) {
+      return { found: false, reason: 'not-found' }
+    }
+    const unique = typeof node.id === 'string' && !shared(node.id)
+    return { found: true, ...(unique ? { id: node.id } : {}), path, element: node }
   } catch {
     return { found: false, reason: 'not-found' }
   }

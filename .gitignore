@@ -42,3 +42,6 @@ flake.nix
 flake.lock
 .envrc
 .direnv
+
+# The agent lab's shared document
+apps/agent-lab/.lab

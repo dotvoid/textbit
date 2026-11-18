@@ -93,7 +93,9 @@ under it:
   to tell it from the others. They need no state, so they stay the same from one request to
   the next. Any unique start of an id, at least four characters, is understood, and so is
   the whole id. An element without an id, which a text element may be, is `@` and its path,
-  such as `@3.1`, which changes when blocks before it move.
+  such as `@3.1`, which changes when blocks before it move. So is an element whose id
+  another element has too, as a merge of two copies of a shared document can leave; an edit
+  to it gives it an id of its own.
 - **Unknown elements**, whose plugin this editor lacks, show their type, `unknown` and their
   text.
 

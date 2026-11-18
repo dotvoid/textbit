@@ -25,8 +25,28 @@ const RUN_IDLE_MS = Number(process.env.LAB_RUN_IDLE_MS ?? 20000)
 
 const log = (...args: unknown[]) => console.error('[textbit-lab]', ...args)
 
+// The current incarnation of the lab document, see server.ts
+const documentName = await fetch(URL.replace(/^ws/, 'http') + '/lab')
+  .then((response) => response.json() as Promise<{ document: string }>)
+  .then((body) => body.document)
+  .catch(() => {
+    log(`No document server at ${URL}. Start it with: npm run lab`)
+    process.exit(1)
+  })
+
 const ydoc = new Y.Doc()
-const provider = new HocuspocusProvider({ url: URL, name: 'lab', document: ydoc })
+const provider = new HocuspocusProvider({
+  url: URL,
+  name: documentName,
+  document: ydoc,
+  token: 'lab',
+  // After a reset the document is another: working on the old copy would be
+  // working on nothing. The MCP client starts the server again on reconnect.
+  onAuthenticationFailed: () => {
+    log(`${documentName} was reset; reconnect the MCP server to join the new document`)
+    process.exit(1)
+  }
+})
 await new Promise<void>((resolve, reject) => {
   const timeout = setTimeout(() => reject(new Error(`No document server at ${URL}. Start it with: npm run lab`)), 8000)
   provider.on('synced', () => {
@@ -34,7 +54,7 @@ await new Promise<void>((resolve, reject) => {
     resolve()
   })
 })
-log(`joined the document at ${URL}`)
+log(`joined ${documentName} at ${URL}`)
 
 const editor = createTextbitEditor({ plugins, shared: ydoc.get('content', Y.XmlText) })
 YjsEditor.connect(editor as YjsEditor & Editor)

@@ -252,3 +252,27 @@ describe('tools', () => {
     expect(editor.children).toHaveLength(4)
   })
 })
+
+describe('elements sharing an id', () => {
+  test('get path handles, and an edit to one gives it an id of its own', () => {
+    const twice = [
+      ...document().slice(0, 2),
+      ...structuredClone(document().slice(0, 2))
+    ]
+    const editor = createTextbitEditor({ plugins: PLUGINS, value: twice })
+    const agent = createDocumentAgent(editor, { plugins: PLUGINS })
+
+    const lines = agent.read().view.split('\n')
+    expect(lines[0]).toMatch(/^\[#@0 text/)
+    expect(lines[3]).toMatch(/^\[#@3 text\] Boats \[stay\]\{bold\} in\. See \[more\]\{link href="https:\/\/example\.com" #@3\.3\}\.$/)
+
+    expect(agent.edit({ operations: [{ op: 'delete', id: 'bbbbbb' }] }))
+      .toMatchObject({ ok: false, error: { code: 'ambiguous-id', message: 'bbbbbb could be @1 or @3' } })
+
+    const result = agent.edit({ operations: [{ op: 'setProperties', id: '@3.3', properties: { href: 'https://dotvoid.com' } }] })
+    ok(result)
+    const links = editor.children.map((block) => ((block as { children: { properties?: { href?: string } }[] }).children[3])?.properties?.href)
+    expect(links).toEqual([undefined, 'https://example.com', undefined, 'https://dotvoid.com'])
+    expect(result.view).toMatch(/link href="https:\/\/dotvoid\.com" #\w{6}\}/)
+  })
+})

@@ -82,7 +82,7 @@ export function planEdit(context: AgentContext, editor: Editor, operations: Edit
     const match = handles.resolve(handle)
     if (!match.found) {
       throw new StepError(match.reason === 'ambiguous'
-        ? { code: 'ambiguous-id', operation, message: `${handle} could be ${match.candidates?.join(' or ')}`, hint: 'Give more of the handle' }
+        ? { code: 'ambiguous-id', operation, message: `${handle} could be ${match.candidates?.join(' or ')}`, hint: 'Use one of those handles' }
         : { code: 'not-found', operation, message: `No element ${handle}`, hint: 'Read the document again for the current handles' })
     }
     if (match.id) {
