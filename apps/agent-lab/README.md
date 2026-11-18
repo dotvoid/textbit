@@ -91,3 +91,21 @@ Environment variables for `src/mcp.ts`, e.g. in the `env` of the client's config
 the lab against the built packages.
 
 The MCP server writes its log to stderr: what it joined, each tool call and whether it worked.
+
+## The demo movie
+
+```bash
+npm run film
+```
+
+Makes `film/out/textbit-agents.mp4`, about a minute at 1080p: Alice and Bob in the lab
+document side by side, the writing assistant's tool calls beside them, and captions. The
+assistant edits while Bob keeps typing, its changes show and fade, Alice undoes its run, then
+it suggests and they accept, reject and undo.
+
+`film/film.ts` plays the storyboard in headless Chrome against a fresh lab document, the
+demo's film stage (`/?film`) and the real MCP server, so every take is the same. Pointers and
+typing are simulated, the agent's calls are real. The screen is recorded at three times the
+resolution and encoded with `ffmpeg`, which must be installed. Edit the storyboard in
+`film.ts` and run it again; `FILM_DEBUG=1` logs what the page shows after the agent's edit, and
+a failed take leaves `film/out/failure.png`. `CHROME` points at another Chrome.

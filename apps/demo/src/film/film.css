@@ -1,0 +1,23 @@
+.film { position: fixed; inset: 0; display: flex; flex-direction: column; background: #eef1f4; font-family: system-ui, -apple-system, sans-serif; color: #1f2328; }
+.film-header { padding: 10px 20px; font-size: 13px; color: #57606a; }
+.film-header strong { color: #1f2328; }
+.film-stage { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr 250px; gap: 16px; padding: 0 20px 18px; }
+.film-person { min-height: 0; overflow: auto; scrollbar-width: none; }
+.film-person .demo-peer { font-size: 15px; font-weight: 600; color: #1f2328; }
+.film-person [data-tb="editor"] { padding: 16px 20px; }
+.film-person .demo-lab-status { font-size: 12px; }
+.film-agent { min-height: 0; overflow: hidden; padding: 14px 16px; background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgb(0 0 0 / 8%); font: 11px/1.45 ui-monospace, Menlo, monospace; }
+.film-agent-title { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font: 600 14px system-ui, sans-serif; }
+.film-agent-title span { width: 10px; height: 10px; border-radius: 50%; background: #7c3aed; }
+.film-agent ol { margin: 0; padding: 0; list-style: none; }
+.film-agent li { margin: 0 0 8px; padding: 6px 8px; border-radius: 6px; background: #f6f8fa; white-space: pre-wrap; word-break: break-word; animation: film-in 0.3s ease; }
+.film-agent li[data-kind="call"] { color: #7c3aed; }
+.film-agent li[data-kind="result"] { color: #1a7f37; }
+.film-agent li[data-kind="note"] { background: transparent; color: #57606a; font-family: system-ui, sans-serif; }
+.film-caption { position: fixed; left: 50%; bottom: 26px; max-width: 70%; padding: 12px 22px; transform: translate(-50%, 12px); border-radius: 12px; background: rgb(17 20 24 / 88%); color: #fff; font-size: 19px; line-height: 1.35; text-align: center; opacity: 0; transition: opacity 0.4s ease, transform 0.4s ease; pointer-events: none; }
+.film-caption[data-shown] { opacity: 1; transform: translate(-50%, 0); }
+.film-card { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; background: #11141a; color: #fff; animation: film-in 0.5s ease; }
+.film-card h1 { margin: 0; font-size: 48px; letter-spacing: -0.02em; }
+.film-card p { margin: 0; font-size: 20px; color: #a8b3c0; }
+@keyframes film-in { from { opacity: 0; } to { opacity: 1; } }
+.film-person .demo-editor { display: block; }
