@@ -101,7 +101,8 @@ npm run film
 Makes `film/out/textbit-agents.mp4`, about a minute at 1080p: Alice and Bob in the lab
 document side by side, the writing assistant's tool calls beside them, and captions. The
 assistant edits while Bob keeps typing, its changes show and fade, Alice undoes its run, then
-it suggests and they accept, reject and undo.
+it suggests and they accept, reject and undo. It opens on a title card and ends on the
+document.
 
 `film/film.ts` plays the storyboard in headless Chrome against a fresh lab document, the
 demo's film stage (`/?film`) and the real MCP server, so every take is the same. Pointers and
