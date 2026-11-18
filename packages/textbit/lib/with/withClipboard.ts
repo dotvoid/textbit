@@ -6,6 +6,7 @@ import {
   convertUnregistered,
   decodeTextbitTypes
 } from '../utils/clipboard'
+import { withoutEditorUi } from '../utils/clipboardText'
 
 /** The source editor's types for the paste in progress; null outside a paste */
 const PASTE_SOURCE_TYPES = new WeakMap<Editor, Set<string> | null>()
@@ -30,7 +31,7 @@ export function withClipboard(editor: Editor, components: Map<string, PluginRegi
     const { getFragment } = editor
     editor.getFragment = () => fragment
     try {
-      setFragmentData(data, originEvent)
+      setFragmentData(withoutUi(data), originEvent)
     } finally {
       editor.getFragment = getFragment
     }
@@ -58,4 +59,28 @@ export function withClipboard(editor: Editor, components: Map<string, PluginRegi
   }
 
   return editor
+}
+
+/**
+ * The clipboard as Slate writes it, with the editor's own UI taken out of its
+ * HTML and plain text. Slate writes the HTML first.
+ */
+function withoutUi(data: DataTransfer): DataTransfer {
+  let text: string | undefined
+  return new Proxy(data, {
+    get(target, property) {
+      if (property === 'setData') {
+        return (format: string, value: string) => {
+          if (format === 'text/html') {
+            const clean = withoutEditorUi(value)
+            text = clean?.text
+            return target.setData(format, clean?.html ?? value)
+          }
+          return target.setData(format, format === 'text/plain' && text !== undefined ? text : value)
+        }
+      }
+      const value = Reflect.get(target, property, target)
+      return typeof value === 'function' ? value.bind(target) : value
+    }
+  })
 }

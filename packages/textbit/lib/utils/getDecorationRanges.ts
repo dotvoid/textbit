@@ -3,6 +3,7 @@ import { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { PlaceholdersVisibility } from '../contexts/TextbitContext'
 import { Decoration, SpellcheckLookupTable, SpellingError } from '../types'
 import { getDecorationMarkRanges } from './decorationMarks'
+import { agentChangeRanges, type ResolvedAgentChange } from './agentChanges'
 
 // Non-breaking space (U+00A0). Sourced from its char code so the file stays
 // ASCII and a literal NBSP is never confused with a regular space.
@@ -41,7 +42,8 @@ export function getDecorationRanges(
   placeholder?: string,
   editorIsEmpty?: boolean,
   isSpellingAccepted?: (error: SpellingError) => boolean,
-  decorations?: readonly Decoration[]
+  decorations?: readonly Decoration[],
+  agentChanges?: readonly ResolvedAgentChange[]
 ): Range[] {
   const [node, path] = nodeEntry
   const ranges: Range[] = []
@@ -108,6 +110,11 @@ export function getDecorationRanges(
   // Caller decorations
   if (decorations?.length && Text.isText(node)) {
     ranges.push(...getDecorationMarkRanges(decorations, path, node.text.length))
+  }
+
+  // What agents changed
+  if (agentChanges?.length && Text.isText(node)) {
+    ranges.push(...agentChangeRanges(agentChanges, path, node))
   }
 
   // Placeholders

@@ -169,6 +169,11 @@ blocks it changed after an edit, `thinking` during a run between those, `idle` w
 ends. Editors outline the blocks it names, with its name. Nothing is locked. `presence.set()`
 says something else, `presence.clear()` leaves.
 
+It also publishes what each edit changed in the text, word by word: "teh" to "the" is one
+change, not a rewritten paragraph. Editors show added text tinted and removed text struck
+through where it was, and say it to screen readers. The changes of a run stay until the next
+run starts or the run is undone; the 50 latest are kept.
+
 ## Runs
 
 A task an agent carries out, from the request to the last edit, is a run:

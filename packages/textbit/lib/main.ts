@@ -122,8 +122,10 @@ export { useBlockSelection } from './hooks/useBlockSelection'
 export { useSelectionStats, type SelectionStats } from './hooks/useSelectionStats'
 export { usePendingDrops } from './hooks/usePendingDrops'
 export { useAgents } from './hooks/useAgents'
+export { useAgentChanges } from './hooks/useAgentChanges'
+export type { ResolvedAgentChange as TBAgentChange } from './utils/agentChanges'
 export type { PresentAgent } from './contexts/AgentPresenceContext'
-export { AGENT_PRESENCE_FIELD, type AgentPresenceState, type AgentStatus } from './types/agentPresence'
+export { AGENT_PRESENCE_FIELD, type AgentPresenceState, type AgentStatus, type AgentChange } from './types/agentPresence'
 export { PendingDropsContext, type PendingDrop } from './contexts/PendingDropsContext'
 
 export {

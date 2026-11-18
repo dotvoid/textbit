@@ -98,6 +98,12 @@ export type TextbitRange = BaseRange & {
   spellingAccepted?: boolean
   nbsp?: boolean
   newline?: boolean
+  /** Text an agent added: its change's id, and the agent's colour */
+  agentChange?: string
+  agentColor?: string
+  /** Text an agent removed, shown struck through before (or after) this text */
+  agentRemoved?: string
+  agentRemovedAt?: 'before' | 'after'
 }
 
 // Declare module augmentation

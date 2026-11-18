@@ -6,6 +6,7 @@ import { planEdit, runEdit, isStepError, pathOf, type EditOperation, type EditRe
 import { changedSince, recordRevision, revisionOf } from './revisions'
 import { asAgent, startRun, type AgentRun, type RunRecorder } from './runs'
 import type { AgentPresence } from './presence'
+import { textChanges, textsById } from './changes'
 
 export interface ReadInput {
   /** Start at this top-level element, by handle. Default: the first. */
@@ -207,6 +208,7 @@ export function createDocumentAgent(
         }
       }
 
+      const before = presence ? textsById(editor) : undefined
       const error = runEdit(editor, options.plugins, plan, (change) => asAgent(editor, change, recorder?.record))
       if (error) {
         return fail({ ok: false, revision: current, error })
@@ -215,6 +217,9 @@ export function createDocumentAgent(
 
       const changed = blocksOf([...plan.steps.flatMap((step) => step.targets), ...plan.inserted])
       presence?.set('writing', changed.flatMap(([element]) => typeof element.id === 'string' ? [element.id] : []))
+      if (presence && before) {
+        presence.addChanges(textChanges(editor, before, changed.map(([, path]) => path[0])))
+      }
 
       const result: EditResult = {
         ok: true,
@@ -231,6 +236,8 @@ export function createDocumentAgent(
     },
 
     startRun: () => {
+      // A new task: what the last one changed is no longer news
+      presence?.clearChanges()
       presence?.set('thinking')
       const started = startRun(editor, () => {
         if (recorder === started.recorder) {
@@ -239,7 +246,20 @@ export function createDocumentAgent(
         presence?.set('idle')
       })
       recorder = started.recorder
-      return started.run
+      const { run } = started
+      return {
+        get edits() {
+          return run.edits
+        },
+        finish: () => run.finish(),
+        undo: () => {
+          const result = run.undo()
+          if (result.ok) {
+            presence?.clearChanges()
+          }
+          return result
+        }
+      }
     }
   }
 }

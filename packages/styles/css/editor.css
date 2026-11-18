@@ -380,3 +380,18 @@
     outline-color: color-mix(in srgb, var(--tb-agent-color) 35%, transparent);
   }
 }
+
+/* Text an agent removed, struck through where it was */
+[data-tb="agent-removed"] {
+  margin-inline-end: 0.2em;
+}
+
+/* Says what agents change, for screen readers only */
+[data-tb="agent-announcer"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

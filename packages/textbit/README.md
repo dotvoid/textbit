@@ -105,7 +105,7 @@ The root component that provides context for the editor. All other Textbit compo
 | `placeholder` | `string` | `''` | Placeholder text when editor is empty. |
 | `placeholders` | `'none' \| 'single' \| 'multiple'` | `'none'` | Controls placeholder display mode. When using `multiple` text plugins displays their own placeholders per text object. |
 | `readOnly` | `boolean` | `false` | Makes editor read-only. |
-| `labels` | `Partial<TBLabels>` | English | Text textbit itself shows, for translation: `unknownToText` and `unknownRemove`, the actions on an [object whose plugin is missing](#objects-whose-plugin-is-missing), and `agentReading`, `agentWriting` and `agentThinking`, the labels on a block [an agent works on](#agents-in-the-document), where `{name}` is the agent's name. |
+| `labels` | `Partial<TBLabels>` | English | Text textbit itself shows, for translation: `unknownToText` and `unknownRemove`, the actions on an [object whose plugin is missing](#objects-whose-plugin-is-missing), `agentReading`, `agentWriting` and `agentThinking`, the labels on a block [an agent works on](#agents-in-the-document), and `agentReplaced`, `agentAdded` and `agentDeleted`, what is said when it changes text; `{name}`, `{added}` and `{removed}` are filled in. |
 | `debounce` | `number` | `1250` | Debounce time for onChange in milliseconds. |
 | `spellcheckDebounce` | `number` | `1250` | Debounce time for spellcheck in milliseconds. |
 | `onSpellcheck` | `SpellcheckFunction` | - | Async function to handle spellchecking. |
@@ -1230,6 +1230,10 @@ function SelectionHighlight() {
 
 The agents in the shared document and what they do. See [Agents in the Document](#agents-in-the-document).
 
+### useAgentChanges()
+
+What agents changed in the text and still stands, and `dismiss(ids?)`. See [Agents in the Document](#agents-in-the-document).
+
 ### useSelectionStats()
 
 Word and character counts for the current selection. Returns zeros when the selection is null or collapsed.
@@ -1513,9 +1517,22 @@ with a label such as "Writing assistant is writing". The marker is `[data-tb="ag
 with `data-status`, its label `[data-tb="agent-label"]`. It locks nothing: people can keep
 typing there.
 
-The marker is hidden from screen readers, which would read it as part of the text. To show or
-announce what agents do elsewhere, `useAgents()` gives the agents present, each with its
-awareness `clientId`:
+An agent can also publish what it changed, in `changes`: each with the text it added and
+removed, placed with Y.js relative positions so the place follows the text as people type.
+Editors show them in the text: added text tinted in the agent's colour (`.tb-agent-change`),
+removed text struck through where it was (`[data-tb="agent-removed"]`). A change stays until
+someone edits the text it marks, the agent starts its next run or undoes the run, or the
+host dismisses it: `useAgentChanges()` gives the changes still shown, where they now are,
+and `dismiss(ids?)`, for a "Mark as seen" button.
+
+Screen readers hear each change once, as a sentence from a polite live region
+(`[data-tb="agent-announcer"]`): "Writing assistant changed “teh” to “the”". The labels
+`agentReplaced`, `agentAdded` and `agentDeleted` translate it.
+
+The marker and the struck-through text are not part of the document: they are left out of
+copies, as is everything the editor shows that carries `data-tb-ui`. They are hidden from
+screen readers, which would read them as part of the text. To show or announce what agents do
+elsewhere, `useAgents()` gives the agents present, each with its awareness `clientId`:
 
 ```tsx
 const agents = useAgents()

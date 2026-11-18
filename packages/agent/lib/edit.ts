@@ -379,7 +379,7 @@ function replaceText(editor: Editor, path: Path, find: string, replace: string, 
  * The point at a character offset in an element's text. At the boundary of
  * two texts, the start of a range lies in the second, its end in the first.
  */
-function pointAt(element: Element, path: Path, offset: number, edge: 'start' | 'end'): Point {
+export function pointAt(element: Element, path: Path, offset: number, edge: 'start' | 'end'): Point {
   let remaining = offset
   let last: Point | undefined
   for (const [text, textPath] of Node.texts(element)) {
