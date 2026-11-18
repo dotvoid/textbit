@@ -30,16 +30,26 @@ import { enterBlockFromEnd, enterBlockFromStart } from './handleOnKeyDown/blockU
 import { trimWhitespace } from '../../utils/trimWhitespace'
 import { prepareBlockAwarePaste } from '../../utils/blockAwarePaste'
 
-interface TextbitEditableProps {
+/** What `Textbit.Editable` takes */
+export interface TextbitEditableProps {
+  /** Focus the editor when it mounts: `true` or `'start'` at the start, `'end'` at the end. Default: `false`. */
   autoFocus?: boolean | 'start' | 'end'
+  /** Called when the editor gets focus */
   onFocus?: React.FocusEventHandler<HTMLDivElement>
+  /** Called when the editor loses focus */
   onBlur?: React.FocusEventHandler<HTMLDivElement>
+  /** Rules for all text in this editor */
   constraints?: {
+    /** Whether text may start or end with whitespace; trailing whitespace is trimmed on blur when not. Default: `true`. */
     allowEdgeWhitespace?: boolean
   }
+  /** A class on the editable element */
   className?: string
+  /** A style on the editable element */
   style?: React.CSSProperties
+  /** What goes with the editable: toolbar, context menu, markers */
   children?: React.ReactNode
+  /** The editable's accessible name, e.g. `Article`. Give one: screen readers announce it. */
   'aria-label'?: string
   /**
    * Answer whether a reported spelling error is accepted for this document.
@@ -61,6 +71,17 @@ interface TextbitEditableProps {
   contextMenu?: ContextMenuMode
 }
 
+/**
+ * Where the document is edited. Goes inside `Textbit.Root`, with the
+ * toolbar, context menu and markers as its children.
+ *
+ * ```tsx
+ * <Textbit.Editable aria-label='Article' autoFocus='end'>
+ *   <Toolbar.Root>…</Toolbar.Root>
+ *   <Textbit.DropMarker />
+ * </Textbit.Editable>
+ * ```
+ */
 export function TextbitEditable(props: TextbitEditableProps) {
   const editor = useSlateStatic()
   const { placeholders, placeholder, readOnly, dir, collaborative, verbose } = useTextbit()

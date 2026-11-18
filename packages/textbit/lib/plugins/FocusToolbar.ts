@@ -28,10 +28,12 @@ export function focusToolbar(editor: Editor): boolean {
   return !!(map?.get('toolbar')?.() || map?.get('gutter')?.())
 }
 
+/** Options of `FocusToolbar` */
 export type FocusToolbarOptions = {
   /**
-   * Defaults to Alt+F10 (Option+F10 on macOS), the toolbar key in other web
-   * editors. `false` removes it.
+   * The key that moves focus to the toolbar, or to the gutter's menu when no
+   * toolbar shows. Defaults to Alt+F10 (Option+F10 on macOS), the toolbar key
+   * in other web editors. `false` removes it.
    */
   hotkey?: string | false
 }

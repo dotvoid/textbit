@@ -14,6 +14,11 @@
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lab": "npm run build -w @dotvoid/textbit -w @dotvoid/textbit-plugins -w @dotvoid/textbit-agent && npm run server -w textbit-agent-lab",
-    "lab:reset": "node -e \"require('fs').rmSync('apps/agent-lab/.lab', { recursive: true, force: true })\""
+    "lab:reset": "node -e \"require('fs').rmSync('apps/agent-lab/.lab', { recursive: true, force: true })\"",
+    "docs:api": "typedoc"
+  },
+  "devDependencies": {
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.14.1"
   }
 }

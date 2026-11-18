@@ -6,10 +6,15 @@ import type { Suggestion } from './types'
 /** Where suggestions are kept in a shared document: a map of the same Y.Doc */
 export const SUGGESTIONS_MAP = 'textbitSuggestions'
 
+/** The suggestions of a document; see `suggestionStore` */
 export interface SuggestionStore {
+  /** Every suggestion, oldest first */
   list(): Suggestion[]
+  /** A suggestion by id */
   get(id: string): Suggestion | undefined
+  /** Add a suggestion, or settle blocks of one: blocks it no longer lists are removed */
   put(suggestion: Suggestion): void
+  /** Remove a suggestion and all its blocks */
   remove(id: string): void
   /** Called on every change, by anyone; returns the unsubscribe */
   subscribe(listener: () => void): () => void

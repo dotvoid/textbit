@@ -4,6 +4,7 @@ import { SPECIAL_CHARACTERS } from './characters'
 import { openSpecialCharacters, SPECIAL_CHARACTERS_PLUGIN } from './open'
 import type { SpecialCharacter } from './search'
 
+/** Options of the `SpecialCharacters` plugin */
 export type SpecialCharactersOptions = {
   /**
    * Shortcut that opens the picker. None by default: most free-looking keys

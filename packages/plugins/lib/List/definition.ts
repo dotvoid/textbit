@@ -8,6 +8,7 @@ export const ORDERED = 'base/ordered-list'
 const LIST_TYPES = [UNORDERED, ORDERED]
 const ITEM_TYPES = LIST_TYPES.map((type) => `${type}/list-item`)
 
+/** Options of `UnorderedList` and `OrderedList` */
 export type ListOptions = {
   /** The action's name in menus and for screen readers, e.g. a translation */
   title?: string

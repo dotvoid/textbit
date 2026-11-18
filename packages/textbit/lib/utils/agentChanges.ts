@@ -5,13 +5,19 @@ import type { PresentAgent } from '../contexts/AgentPresenceContext'
 
 /** An agent's change where it now is in this editor's document */
 export interface ResolvedAgentChange {
+  /** The change's id */
   id: string
+  /** The agent's name */
   name: string
+  /** The agent's colour */
   color?: string
+  /** The top-level element it is in */
   block: string
   /** The new text; collapsed where text was only removed */
   range: Range
+  /** The text it added */
   added?: string
+  /** The text it removed */
   removed?: string
   /** On its way out: shown fading */
   fading?: boolean

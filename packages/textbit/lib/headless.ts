@@ -8,6 +8,10 @@
  */
 
 export { createTextbitEditor, type TextbitEditorOptions as TBEditorOptions } from './editor/createTextbitEditor'
+export type { OnSpellcheckCallback as TBOnSpellcheck } from './with/withSpeling'
+export type { TextbitEditorInterface as TBEditorHelpers } from './utils/textbit-editor'
+export type { TextbitElementInterface as TBElementHelpers } from './utils/textbit-element'
+export type { TextbitPluginInterface as TBPluginHelpers } from './utils/textbit-plugin'
 export { TEXT_TYPE } from './utils/textType'
 export { TextbitEditor } from './utils/textbit-editor'
 export { TextbitElement } from './utils/textbit-element'

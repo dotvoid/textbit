@@ -27,10 +27,14 @@ import { withTrimWhitespace } from '../with/withTrimWhitespace'
 import { withSelectionGuard } from '../with/withSelectionGuard'
 import { withRemoteDeltaGuard } from '../with/withRemoteDeltaGuard'
 
+/** What `createTextbitEditor` takes */
 export interface TextbitEditorOptions {
-  /** The plugins, after core's own. Without any, a plain text block. */
+  /** The plugins, after core's own. Without any, a plain text block. Plugins with views work too; the views are not used. */
   plugins?: PluginDefinition[]
-  /** The document's language, 'en' when not given */
+  /**
+   * The document's language, e.g. `'sv'`. Default: the page's (`<html lang>`),
+   * else the runtime's (`navigator.language`), else `'en'`.
+   */
   lang?: string
   /** The content, when not shared through `shared` */
   value?: Descendant[]
@@ -41,15 +45,22 @@ export interface TextbitEditorOptions {
   shared?: Y.XmlText
   /** The origin of this editor's own changes to the shared document */
   localOrigin?: symbol
-  /** Share cursors through awareness */
+  /** Share a cursor through this awareness, with a shared document */
   awareness?: Awareness
+  /** The cursor shared through `awareness` */
   cursor?: {
+    /** The awareness field of the cursor's position. Default: Slate's. */
     stateField?: string
+    /** The awareness field of `data`. Default: Slate's. */
     dataField?: string
+    /** Whether the cursor is sent as it moves. Default: `true`. */
     autoSend?: boolean
+    /** Shown to others, e.g. `{ name, color }` */
     data?: Record<string, unknown>
   }
+  /** Check spelling, as `onSpellcheck` on `Textbit.Root` does */
   onSpellcheck?: OnSpellcheckCallback
+  /** Milliseconds the spellcheck waits for changes to pause. Default: `1250`, as in `Textbit.Root`. */
   spellcheckDebounce?: number
   /** The editor to build on, such as one made with slate-react's withReact */
   editor?: Editor
@@ -116,7 +127,7 @@ export function withTextbit(
 
   withLang(editor, options.lang)
   if (options.onSpellcheck) {
-    withSpeling(editor, options.onSpellcheck, options.spellcheckDebounce)
+    withSpeling(editor, options.onSpellcheck, options.spellcheckDebounce ?? 1250)
   }
   withTextbitElements(editor)
   withInsertText(editor, plugins)

@@ -3,6 +3,20 @@ import type { PluginDefinition, PropertySchema } from '../types/definition'
 import { createTextbitEditor } from '../editor/createTextbitEditor'
 import { getSchema, type DocumentSchema, type ElementTypeSchema } from './getSchema'
 
+/**
+ * What is wrong:
+ *
+ * - `not-an-element`: text at the top level
+ * - `unknown-type`: no plugin renders the type; kept as it is (a warning)
+ * - `class-mismatch`: the element's class is not its type's
+ * - `missing-id`, `duplicate-id`
+ * - `misplaced`: the type does not belong where it is
+ * - `invalid-children`: text where elements belong, or the other way round
+ * - `too-few`, `too-many`, `out-of-order`: children against their constraints
+ * - `missing-property`, `invalid-property`, `unknown-property` (a warning)
+ * - `inline-not-allowed`, `mark-not-allowed`, `unknown-mark` (a warning)
+ * - `would-change`: the editor would change the block when it loads (a warning)
+ */
 export type ValidationCode =
   | 'not-an-element'
   | 'unknown-type'
@@ -22,14 +36,19 @@ export type ValidationCode =
   | 'unknown-mark'
   | 'would-change'
 
+/** Something `validate` found */
 export interface ValidationIssue {
+  /** What is wrong */
   code: ValidationCode
   /** An error breaks the schema; a warning is worth knowing but allowed */
   severity: 'error' | 'warning'
   /** Where, as a Slate path */
   path: number[]
+  /** The element's id, when it has one */
   id?: string
+  /** The element's type */
   type?: string
+  /** What is wrong, and where it can say, what would be right */
   message: string
 }
 

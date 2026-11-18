@@ -42,7 +42,21 @@ export function suggestionFor(
     : null
 }
 
-export type ReviewResult = { ok: true } | { ok: false, reason: 'stale' | 'gone' }
+/**
+ * How accepting a block went: done, or refused because the block changed
+ * since it was suggested (`stale`) or the suggestion or block is gone (`gone`)
+ */
+export type ReviewResult =
+  | {
+      /** Accepted */
+      ok: true
+    }
+  | {
+      /** Refused */
+      ok: false
+      /** Why */
+      reason: 'stale' | 'gone'
+    }
 
 /** Whether a suggested block can still be accepted as suggested */
 export function suggestedBlockState(editor: Editor, suggestion: Suggestion, block: SuggestedBlock): 'ready' | 'stale' {
@@ -95,6 +109,7 @@ export function acceptSuggestion(editor: Editor, suggestionId: string): string[]
   return (suggestion?.blocks ?? []).flatMap((block) => acceptSuggestedBlock(editor, suggestionId, block.id).ok ? [] : [block.id])
 }
 
+/** Reject a whole suggestion: the document stays as it is */
 export function rejectSuggestion(editor: Editor, suggestionId: string): void {
   suggestionStore(editor).remove(suggestionId)
 }
@@ -105,7 +120,12 @@ export function rejectSuggestion(editor: Editor, suggestionId: string): void {
  * A text the suggestion takes away is all removed. `formatting` says the
  * suggestion also changes more than words: marks, properties or structure.
  */
-export function suggestedTextChanges(current: Element, after: Element): { texts: Map<string, TextChange[]>, formatting: boolean } {
+export function suggestedTextChanges(current: Element, after: Element): {
+  /** Word changes by the id of each text-holding element, placed in its text as it is now */
+  texts: Map<string, TextChange[]>
+  /** Whether the suggestion changes more than words: marks, properties or structure */
+  formatting: boolean
+} {
   const proposed = new Map(textElements(after).map((element) => [element.id as string, element]))
   const texts = new Map<string, TextChange[]>()
 

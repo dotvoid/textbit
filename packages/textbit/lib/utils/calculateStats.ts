@@ -3,6 +3,7 @@ import type { NodeEntry } from 'slate'
 import type { TextbitStats } from '../contexts/TextbitContext'
 import { TEXT_TYPE } from './textType'
 
+/** Words and characters in an editor's document, as `useTextbit().stats` has them */
 export function calculateStats(editor: Editor): TextbitStats {
   const textNodesArticle = Array.from(Editor.nodes(editor, {
     at: [],

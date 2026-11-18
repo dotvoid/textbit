@@ -17,11 +17,17 @@ import type { Path, PathRef } from 'slate'
  * code required.
  */
 export interface PendingDrop {
+  /** Tells drops apart */
   id: string
+  /** `own` for a drop in this editor, `peer` for one by someone else in the document */
   source: 'own' | 'peer'
+  /** Where the result will be inserted, as a top-level path */
   path: Path
+  /** What it will make, the type a consumer named, e.g. `base/image` */
   kind?: string
+  /** For a peer's drop: their Y.js client id */
   peerId?: number
+  /** For a peer's drop: their cursor data, e.g. `{ name, color }` */
   peerData?: unknown
 }
 
@@ -31,6 +37,8 @@ export interface PendingDrop {
  * remove entries. Also part of the context value below.
  */
 export interface PendingDropsController {
+  /** Mark a drop in progress at a place; returns its id */
   start: (opts: { pathRef: PathRef, kind?: string }) => string
+  /** The drop is done, or failed */
   end: (id: string) => void
 }

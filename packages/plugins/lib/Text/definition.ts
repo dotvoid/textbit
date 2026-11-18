@@ -3,9 +3,12 @@ import { TextbitEditor, TEXT_TYPE } from '@dotvoid/textbit/headless'
 import type { Element } from 'slate'
 import { hotkeyOption } from '../shared/hotkey'
 
+/** A heading level, 1 the highest */
 export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6
+/** What a text block is, stored as its `role`; a paragraph has none */
 export type TextRole = 'paragraph' | 'preamble' | `heading-${HeadingLevel}`
 
+/** Options of `Text` */
 export type TextOptions = {
   /** Heading levels to offer. Default: 1 to 4. */
   headings?: HeadingLevel[]

@@ -2,6 +2,7 @@ import type { DocumentSchema, ElementTypeSchema } from './getSchema'
 
 /** A JSON Schema, as plain data */
 export type JsonSchema = { [key: string]: JsonValue }
+/** @inline */
 type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
 
 /**

@@ -9,9 +9,13 @@ import { FORMAT_GUIDE } from './describe'
  * your model SDK in a few lines.
  */
 export interface AgentTool {
+  /** The tool's name for the model, e.g. `document_read` with the default prefix */
   name: string
+  /** What the tool does, for the model */
   description: string
+  /** The JSON Schema of its input */
   inputSchema: JsonSchema
+  /** Run it: given the model's input, returns its result, as JSON-safe data */
   handler: (input: Record<string, unknown>) => unknown
   /**
    * The handler's result as text for a model, the document's lines as they

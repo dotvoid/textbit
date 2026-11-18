@@ -404,3 +404,15 @@ describe('toolbar', () => {
     expect(new Set([...toolbar.querySelectorAll('[data-tb]')].map((n) => n.getAttribute('data-tb')))).toEqual(new Set(['toolbar-group', 'toolbar-item']))
   })
 })
+
+test('an icon-only menu trigger is named by its aria-label', async () => {
+  render(
+    <TextbitRoot value={[{ id: 'p', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'x' }] }] as Descendant[]}>
+      <TextbitEditable aria-label='Document' />
+      <MenuContext.Provider value={{ isOpen: false, setIsOpen: () => {}, focusRef: { current: undefined }, triggerRef: { current: null }, triggerId: 't', contentId: 'c' }}>
+        <ContentTools.Trigger aria-label='Insert'><span aria-hidden='true'>+</span></ContentTools.Trigger>
+      </MenuContext.Provider>
+    </TextbitRoot>
+  )
+  expect(screen.getByRole('button', { name: 'Insert' })).toBeTruthy()
+})

@@ -16,7 +16,8 @@ export const useSelectionBoundsNonReactive = () => {
 
 
 /**
- * Reactive hook
+ * Where the selection is on screen, updated as it moves: to place a toolbar or
+ * popup of your own beside it. Undefined while there is none.
  */
 export const useSelectionBounds = () => {
   const context = useContext(SelectionBoundsContext)

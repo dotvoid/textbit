@@ -14,19 +14,47 @@ import {
 import { TextbitElement } from './textbit-element'
 import { TEXT_TYPE } from './textType'
 
-interface TextbitEditorInterface extends EditorInterface {
+/** Slate's `Editor` functions, and textbit's; see `TextbitEditor` */
+export interface TextbitEditorInterface extends EditorInterface {
+  /** The index of the top-level block the selection starts in, or -1 without a selection */
   position: (editor: Editor) => number
+  /** How many top-level blocks the document has */
   length: (editor: Editor) => number
+  /** The top-level blocks, as Slate node entries */
   parents: (editor: Editor, options?: EditorNodesOptions<Element>) => Generator<NodeEntry<Element>, void, undefined>
+  /** The text nodes in the selection */
   selectedTextEntries: (editor: Editor) => NodeEntry<Node>[]
+  /** Whether the selection includes an element of a type */
   includes: (editor: Editor, type: string) => boolean
+  /** The text of a range, or of the selection */
   getSelectedText: (editor: Editor, range?: BaseRange) => string | undefined
+  /**
+   * Replace the occurrence of a text the caret is in with another, as a
+   * spelling correction from the context menu does
+   */
   replaceStringAtPosition: (editor: Editor, targetString: string, replacementString: string) => void
+  /** Insert one or more nodes as top-level blocks at an index */
   insertAt: (editor: Editor, position: number, nodes: Node | Node[]) => void
+  /** Whether any of the nodes holds text other than whitespace: useful in normalizers */
   hasText: (nodes: NodeEntry<Descendant>[]) => boolean
+  /**
+   * Turn the top-level text blocks in the selection into text of a type and
+   * role, as the paragraph and heading actions do. Blocks of core's text type
+   * (`base/text`) keep it and only get the role; other text blocks become
+   * `type`, with their text kept as plain text, and the caret moves to their
+   * start. Objects are left as they are. `nodes` is not used.
+   */
   convertToTextNode: (editor: Editor, type: string, role?: string, nodes?: NodeEntry<Node>[]) => void
 }
 
+/**
+ * Slate's `Editor` functions, with textbit's helpers for the document's
+ * top-level blocks and text.
+ *
+ * ```ts
+ * TextbitEditor.position(editor) // index of the block at the selection
+ * ```
+ */
 export const TextbitEditor: TextbitEditorInterface = {
   ...Editor,
 

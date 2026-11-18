@@ -4,6 +4,7 @@ import { imageNode, type ImageUpload } from './imageNode'
 
 export const TYPE = 'base/image'
 
+/** The image's texts, e.g. translations */
 export type ImageLabels = {
   /** The insert action's name in menus and for screen readers */
   title: string
@@ -15,9 +16,11 @@ export type ImageLabels = {
   alt: string
   /** Hint in the empty alternative text field */
   altHint: string
+  /** Shown instead of the image when it has no usable address. Default: 'Image not available'. */
   missing: string
 }
 
+/** Options of `Image` */
 export type ImageOptions = {
   /**
    * Store a dropped or picked file and return where it now lives. Return
@@ -27,7 +30,7 @@ export type ImageOptions = {
   upload?: (file: File) => Promise<ImageUpload | undefined>
   /** MIME types to accept. Default: JPEG, PNG, GIF, WebP and AVIF. */
   accept?: string[]
-  /** Largest file to accept, in bytes */
+  /** Largest file to accept, in bytes. Default: no limit. */
   maxSize?: number
   /** Labels and hints, e.g. translations */
   labels?: Partial<ImageLabels>

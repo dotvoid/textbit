@@ -7,9 +7,15 @@ import type { Element } from 'slate'
  * Plain data, so it can be stored as it is.
  */
 export interface Suggestion {
+  /** Tells suggestions apart */
   id: string
   /** Who suggests it */
-  author: { name: string, color?: string }
+  author: {
+    /** Shown to people, e.g. `Writing assistant` */
+    name: string
+    /** A CSS colour for its marks */
+    color?: string
+  }
   /** Milliseconds since 1970 */
   createdAt: number
   /** The suggestion block by block, in document order */
@@ -22,7 +28,31 @@ export interface Suggestion {
  * date and can only be rejected.
  */
 export type SuggestedBlock =
-  | { kind: 'change', id: string, before: string, after: Element }
-  | { kind: 'delete', id: string, before: string }
-  /** A new block, after the block `after` names, or first when it is null */
-  | { kind: 'insert', id: string, after: string | null, node: Element }
+  | {
+      /** A block changed */
+      kind: 'change'
+      /** The block's id */
+      id: string
+      /** `hashNode` of the block as it was */
+      before: string
+      /** The block as suggested */
+      after: Element
+    }
+  | {
+      /** A block deleted */
+      kind: 'delete'
+      /** The block's id */
+      id: string
+      /** `hashNode` of the block as it was */
+      before: string
+    }
+  | {
+      /** A new block */
+      kind: 'insert'
+      /** The new block's id */
+      id: string
+      /** The id of the block it goes after, or null to go first */
+      after: string | null
+      /** The new block */
+      node: Element
+    }

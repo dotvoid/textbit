@@ -1,9 +1,13 @@
 import { Editor, Path, Range, Text } from 'slate'
 import { useSlateSelector } from 'slate-react'
 
+/** Words and characters in the selection */
 export interface SelectionStats {
+  /** Words: runs of letters */
   words: number
+  /** Characters, spaces included */
   characters: number
+  /** Characters, without whitespace */
   charactersNoSpaces: number
 }
 

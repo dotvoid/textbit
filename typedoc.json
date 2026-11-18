@@ -1,0 +1,17 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "packages",
+  "entryPoints": ["packages/textbit", "packages/plugins", "packages/agent"],
+  "plugin": ["typedoc-plugin-markdown"],
+  "out": "docs/reference",
+  "name": "Textbit API reference",
+  "readme": "none",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "treatWarningsAsErrors": false,
+  "validation": {
+    "notExported": true,
+    "invalidLink": true,
+    "notDocumented": true
+  }
+}

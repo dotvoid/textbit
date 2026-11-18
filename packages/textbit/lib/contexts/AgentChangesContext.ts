@@ -1,6 +1,7 @@
 import { createContext } from 'react'
 import type { ResolvedAgentChange } from '../utils/agentChanges'
 
+/** What `useAgentChanges()` gives */
 export interface AgentChangesValue {
   /** The agents' changes still standing in the document, where they now are */
   changes: ResolvedAgentChange[]
