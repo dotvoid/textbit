@@ -1,4 +1,4 @@
-import { Editor, Path, Range, Text, type Point } from 'slate'
+import { Editor, Path, Point, Range, Text } from 'slate'
 import * as Y from 'yjs'
 import { YjsEditor, relativePositionToSlatePoint } from '@slate-yjs/core'
 import type { PresentAgent } from '../contexts/AgentPresenceContext'
@@ -15,6 +15,8 @@ export interface ResolvedAgentChange {
   removed?: string
   /** On its way out: shown fading */
   fading?: boolean
+  /** The first of the agent's changes in its block, which carries its name */
+  tagged?: boolean
 }
 
 /**
@@ -53,7 +55,21 @@ export function resolveAgentChanges(editor: Editor, agents: PresentAgent[], dism
       })
     }
   }
-  return resolved
+  return tagFirst(resolved)
+}
+
+/** Name the agent once per block it changed: on the first change there */
+function tagFirst(changes: ResolvedAgentChange[]): ResolvedAgentChange[] {
+  const first = new Map<string, ResolvedAgentChange>()
+  for (const change of changes) {
+    const key = `${change.name}\u0000${change.block}`
+    const current = first.get(key)
+    if (!current || Point.isBefore(Range.start(change.range), Range.start(current.range))) {
+      first.set(key, change)
+    }
+  }
+  const tagged = new Set(first.values())
+  return changes.map((change) => tagged.has(change) ? { ...change, tagged: true } : change)
 }
 
 /**
@@ -79,6 +95,7 @@ export function agentChangeRanges(changes: readonly ResolvedAgentChange[], path:
           agentChange: change.id,
           agentColor: color,
           ...(change.fading ? { agentFading: true } : {}),
+          ...(first && change.tagged ? { agentName: change.name } : {}),
           ...(first && change.removed ? { agentRemoved: change.removed, agentRemovedAt: 'before' as const } : {})
         })
       }
@@ -98,7 +115,8 @@ export function agentChangeRanges(changes: readonly ResolvedAgentChange[], path:
       agentColor: color,
       agentRemoved: change.removed,
       agentRemovedAt: atEnd ? 'after' : 'before',
-      ...(change.fading ? { agentFading: true } : {})
+      ...(change.fading ? { agentFading: true } : {}),
+      ...(change.tagged ? { agentName: change.name } : {})
     })
   }
   return ranges

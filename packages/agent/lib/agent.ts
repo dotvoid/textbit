@@ -216,9 +216,11 @@ export function createDocumentAgent(
       recorder?.edited()
 
       const changed = blocksOf([...plan.steps.flatMap((step) => step.targets), ...plan.inserted])
-      presence?.set('writing', changed.flatMap(([element]) => typeof element.id === 'string' ? [element.id] : []))
+      // The edit is done the moment it is made: show what changed, not a
+      // block being written in, which would read as "wait"
       if (presence && before) {
         presence.addChanges(textChanges(editor, before, changed.map(([, path]) => path[0])))
+        presence.set(recorder ? 'thinking' : 'idle')
       }
 
       const result: EditResult = {

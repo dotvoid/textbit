@@ -164,9 +164,10 @@ const presence = createAgentPresence(provider.awareness, { name: 'Writing assist
 const agent = createDocumentAgent(editor, { plugins, presence })
 ```
 
-The agent keeps it up to date: `reading` while it reads or searches, `writing` with the
-blocks it changed after an edit, `thinking` during a run between those, `idle` when the run
-ends. Editors outline the blocks it names, with its name. Nothing is locked. `presence.set()`
+The agent keeps it up to date: `reading` while it reads or searches, `thinking` during a run
+otherwise, `idle` when the run ends. An edit is made at once, so the agent is never shown as
+`writing` in a block for long, which would read as "wait": what it changed shows in the text
+instead. Nothing is locked. `presence.set()`
 says something else, `presence.clear()` leaves.
 
 It also publishes what each edit changed in the text, word by word: "teh" to "the" is one

@@ -103,7 +103,7 @@ const LabEditor = ({ name, onGone }: { name: string, onGone: () => void }) => {
 /** What the agents in the document do, said for screen readers too, and undo */
 const AgentStatus = ({ onUndo }: { onUndo: () => void }) => {
   const agents = useAgents()
-  const said = agents.map((agent) => agent.status === 'idle' ? `${agent.name} is here` : `${agent.name} is ${agent.status}`)
+  const said = agents.map((agent) => agent.status === 'idle' ? `${agent.name} is here` : `${agent.name} is working on the document`)
 
   return (
     <div className='demo-lab-status'>

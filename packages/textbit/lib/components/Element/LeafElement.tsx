@@ -5,6 +5,7 @@ import { TextbitPlugin } from '../../utils/textbit-plugin'
 import type { SpellingError } from '../../types'
 import { getLeafMarkIds } from '../../utils/decorationMarks'
 import { AgentRemoved } from './AgentRemoved'
+import { AgentTag } from './AgentTag'
 
 /**
  * Render a leaf
@@ -83,6 +84,12 @@ export function LeafElement(props: RenderLeafProps) {
       backgroundColor: leaf.agentFading ? 'transparent' : `color-mix(in srgb, ${color} 18%, transparent)`,
       borderRadius: 2
     }
+  }
+  if (typeof leaf.agentName === 'string' && leaf.agentName) {
+    const color = typeof leaf.agentColor === 'string' && leaf.agentColor ? leaf.agentColor : undefined
+    const tag = <AgentTag name={leaf.agentName} color={color} fading={!!leaf.agentFading} />
+    style = { ...style, position: 'relative' }
+    props = { ...props, children: <>{tag}{props.children}</> }
   }
   if (typeof leaf.agentRemoved === 'string' && leaf.agentRemoved) {
     const color = typeof leaf.agentColor === 'string' ? leaf.agentColor : undefined

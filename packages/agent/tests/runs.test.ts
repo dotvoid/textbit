@@ -89,7 +89,7 @@ describe('a run of agent edits', () => {
 })
 
 describe('presence', () => {
-  test('follows the agent: thinking, reading, writing on the blocks it changes, idle', () => {
+  test('follows the agent: thinking, reading, back to thinking once an edit is made, idle', () => {
     const states: unknown[] = []
     const awareness = { setLocalStateField: (field: string, value: unknown) => states.push([field, value]) }
     const editor = createTextbitEditor({ plugins: PLUGINS, value: [paragraph('aaaaaaaa-1', 'One')] })
@@ -107,7 +107,7 @@ describe('presence', () => {
     expect(states).toEqual([
       [AGENT_PRESENCE_FIELD, { name: 'Assistant', color: 'green', status: 'thinking', blocks: [] }],
       [AGENT_PRESENCE_FIELD, { name: 'Assistant', color: 'green', status: 'reading', blocks: [] }],
-      [AGENT_PRESENCE_FIELD, { name: 'Assistant', color: 'green', status: 'writing', blocks: ['aaaaaaaa-1'] }],
+      [AGENT_PRESENCE_FIELD, { name: 'Assistant', color: 'green', status: 'thinking', blocks: [] }],
       [AGENT_PRESENCE_FIELD, { name: 'Assistant', color: 'green', status: 'idle', blocks: [] }]
     ])
   })

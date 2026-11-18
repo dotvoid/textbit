@@ -1512,16 +1512,20 @@ does in its awareness state, under `AGENT_PRESENCE_FIELD` (`textbitAgent`):
 { name: 'Writing assistant', color: '#7c3aed', status: 'writing', blocks: ['<id of a top-level element>'] }
 ```
 
-`status` is `thinking`, `reading`, `writing` or `idle`. Every editor in the document, read-only
-ones too, outlines each block in `blocks` in the agent's colour (else `--tb-agent-color`),
-with a label such as "Writing assistant is writing". The marker is `[data-tb="agent-marker"]`
-with `data-status`, its label `[data-tb="agent-label"]`. It locks nothing: people can keep
-typing there.
+`status` is `thinking`, `reading`, `writing` or `idle`. While an agent is `writing`, every
+editor in the document, read-only ones too, shows a thin bar at the edge of each block in
+`blocks`, in the agent's colour (else `--tb-agent-color`), with a small label such as "Writing
+assistant is writing": `[data-tb="agent-marker"]` with `data-status`, its label
+`[data-tb="agent-label"]`. It is light on purpose: it locks nothing, and people can keep
+typing there. An edit that is made at once, as with `@dotvoid/textbit-agent`, is not
+`writing` for long: what it changed shows in the text instead.
 
 An agent can also publish what it changed, in `changes`: each with the text it added and
 removed, placed with Y.js relative positions so the place follows the text as people type.
 Editors show them in the text: added text tinted in the agent's colour (`.tb-agent-change`),
-removed text struck through where it was (`[data-tb="agent-removed"]`). A change is marked for
+removed text struck through where it was (`[data-tb="agent-removed"]`), and the agent's name
+above its first change in each block (`[data-tb="agent-tag"]`), like the name on a
+collaborator's cursor. A change is marked for
 `agentChangeDuration` milliseconds, 8000 by default, from when the editor first shows it,
 counting only while the page is visible: someone who looked away still sees it when they come
 back. Then it fades (`.tb-agent-fading`, and `data-fading` on removed text) and goes. With

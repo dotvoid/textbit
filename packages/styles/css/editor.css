@@ -358,9 +358,9 @@
   outline-offset: 2px;
 }
 
-/* A block an agent works on: its colour comes from the agent, as --tb-agent-color */
+/* A block while an agent writes in it: a bar at its edge, in the agent's colour (--tb-agent-color) */
 [data-tb="agent-marker"] {
-  border-radius: var(--tb-radius);
+  opacity: 0.8;
 }
 
 [data-tb="agent-label"] {
@@ -377,8 +377,15 @@
 
 @keyframes tb-agent-writing {
   50% {
-    outline-color: color-mix(in srgb, var(--tb-agent-color) 35%, transparent);
+    opacity: 0.35;
   }
+}
+
+/* The agent's name on the first of its changes in a block */
+[data-tb="agent-tag"] {
+  font-family: var(--tb-font-ui);
+  font-weight: 500;
+  letter-spacing: 0.01em;
 }
 
 /* Text an agent removed, struck through where it was */
@@ -399,7 +406,8 @@
 /* What an agent changed fades once its time is up */
 @media (prefers-reduced-motion: no-preference) {
   [data-tb="editable"] .tb-agent-change,
-  [data-tb="agent-removed"] {
+  [data-tb="agent-removed"],
+  [data-tb="agent-tag"] {
     transition: background-color 1.2s ease, opacity 1.2s ease;
   }
 }
