@@ -107,15 +107,18 @@ export const Table = (options: TableOptions = {}): TBPluginDefinition => {
     ],
     element: {
       class: 'block',
+      schema: { description: 'A table of text cells. Every row has the same number of cells.' },
       constraints: {
         normalizeNode: normalizeTable
       },
       children: [{
         type: 'row',
         class: 'block',
+        schema: { description: 'A row of the table' },
         children: [{
           type: 'cell',
           class: 'text',
+          schema: { description: 'A cell, one line of text' },
           constraints: { allowBreak: false }
         }]
       }]

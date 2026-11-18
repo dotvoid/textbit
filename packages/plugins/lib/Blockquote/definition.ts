@@ -47,9 +47,20 @@ export const Blockquote = (options: BlockquoteOptions = {}): TBPluginDefinition 
     }],
     element: {
       class: 'block',
+      schema: { description: 'A quotation with its source' },
       children: [
-        { type: 'body', class: 'text', constraints: { min: 1, max: 1, allowSoftBreak: true } },
-        { type: 'citation', class: 'text', constraints: { min: 1, max: 1, allowBreak: false } }
+        {
+          type: 'body',
+          class: 'text',
+          schema: { description: 'The quoted text' },
+          constraints: { min: 1, max: 1, allowSoftBreak: true }
+        },
+        {
+          type: 'citation',
+          class: 'text',
+          schema: { description: 'Who or what is quoted; may be empty' },
+          constraints: { min: 1, max: 1, allowBreak: false }
+        }
       ]
     }
   }

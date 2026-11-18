@@ -4,7 +4,7 @@ import { PluginRegistryProvider } from '../contexts/PluginRegistry/PluginRegistr
 import type { Plugin, SpellingError } from '../types'
 import type { Awareness } from 'y-protocols/awareness'
 
-import { basePlugins, StandardPlugins } from '../plugins'
+import { editorPlugins } from '../editor/editorPlugins'
 import { ContextMenuHintsProvider } from './ContextMenu/ContextMenuHintsProvider'
 import { SelectionBoundsProvider } from '../contexts/SelectionBoundsProvider'
 import { Descendant } from 'slate'
@@ -95,10 +95,7 @@ export function TextbitRoot(props: TextbitRootProps) {
       >
         <PluginRegistryProvider
           verbose={!!verbose}
-          plugins={[
-            ...basePlugins.map((p) => p()),
-            ...Array.isArray(plugins) && plugins.length ? plugins : StandardPlugins.map((sp) => sp())
-          ]}
+          plugins={editorPlugins(plugins)}
         >
           {/* @ts-expect-error - Props are correctly typed at the public interface level */}
           <SlateContainer {...props}>

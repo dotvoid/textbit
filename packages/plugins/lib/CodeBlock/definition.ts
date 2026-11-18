@@ -48,9 +48,11 @@ export const CodeBlock = (options: CodeBlockOptions = {}): TBPluginDefinition =>
   ],
   element: {
     class: 'block',
+    schema: { description: 'A block of preformatted code' },
     children: [{
       type: 'body',
       class: 'text',
+      schema: { description: 'The code, lines broken by Enter', marks: 'none', inlines: 'none' },
       constraints: {
         min: 1,
         max: 1,

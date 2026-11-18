@@ -13,6 +13,9 @@ export { TextbitEditor } from './utils/textbit-editor'
 export { TextbitElement } from './utils/textbit-element'
 export { TextbitPlugin } from './utils/textbit-plugin'
 export { Text } from './plugins/Text'
+export { getSchema, type DocumentSchema, type ElementTypeSchema } from './schema/getSchema'
+export { validate, type ValidationIssue, type ValidationCode } from './schema/validate'
+export { toJsonSchema, type JsonSchema } from './schema/toJsonSchema'
 
 export type {
   PluginDefinition as TBPluginDefinition,
@@ -32,7 +35,9 @@ export type {
   ConsumesFunction as TBConsumesFunction,
   GetLeafStyle as TBGetLeafStyle,
   LeafStyle as TBLeafStyle,
-  Options as TBPluginOptions
+  Options as TBPluginOptions,
+  ElementSchema as TBElementSchema,
+  PropertySchema as TBPropertySchema
 } from './types/definition'
 export type {
   TextbitEditor as TBEditor,

@@ -40,6 +40,16 @@ export const Text = (options: TextOptions = {}): TBPluginDefinition => {
     name: TEXT_TYPE,
     element: {
       class: 'text',
+      schema: {
+        description: 'A paragraph. With a role, a heading or the lead-in that opens an article.',
+        properties: {
+          role: {
+            type: 'string',
+            description: 'heading-1 to heading-6 for headings, preamble for a lead-in; none for a paragraph',
+            enum: roles.filter((role) => role !== 'paragraph')
+          }
+        }
+      },
       placeholder: (element: Element) => options.placeholders?.[roleOf(element)] ?? '',
       constraints: {
         allowBreak: !singleLine,

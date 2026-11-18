@@ -11,6 +11,7 @@ import { consume } from './consume'
 export const LocalizedQuotationMarks = (): TBPluginDefinition => ({
   class: 'generic',
   name: 'base/localized-quotation-marks',
+  description: 'Typographic quotation marks and dashes as you type, following the language',
   consumer: {
     consumes,
     consume

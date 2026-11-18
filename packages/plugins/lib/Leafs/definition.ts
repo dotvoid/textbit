@@ -13,24 +13,25 @@ export type LeafOptions = {
 // belong in a stylesheet: it renders with the class tb-code.
 
 export const Bold = (options?: LeafOptions) =>
-  leaf('base/bold', 'toggle-bold', options?.title ?? 'Bold', hotkeyOption(options?.hotkey, 'mod+b'), { fontWeight: 'bold' })
+  leaf('Bold text', 'base/bold', 'toggle-bold', options?.title ?? 'Bold', hotkeyOption(options?.hotkey, 'mod+b'), { fontWeight: 'bold' })
 
 export const Italic = (options?: LeafOptions) =>
-  leaf('base/italic', 'toggle-italic', options?.title ?? 'Italic', hotkeyOption(options?.hotkey, 'mod+i'), { fontStyle: 'italic' })
+  leaf('Italic text', 'base/italic', 'toggle-italic', options?.title ?? 'Italic', hotkeyOption(options?.hotkey, 'mod+i'), { fontStyle: 'italic' })
 
 export const Underline = (options?: LeafOptions) =>
-  leaf('base/underline', 'toggle-underline', options?.title ?? 'Underline', hotkeyOption(options?.hotkey, 'mod+u'), { textDecoration: 'underline' })
+  leaf('Underlined text', 'base/underline', 'toggle-underline', options?.title ?? 'Underline', hotkeyOption(options?.hotkey, 'mod+u'), { textDecoration: 'underline' })
 
 export const Strikethrough = (options?: LeafOptions) =>
-  leaf('base/strikethrough', 'toggle-strikethrough', options?.title ?? 'Strikethrough', hotkeyOption(options?.hotkey), { textDecoration: 'line-through' })
+  leaf('Struck through text', 'base/strikethrough', 'toggle-strikethrough', options?.title ?? 'Strikethrough', hotkeyOption(options?.hotkey), { textDecoration: 'line-through' })
 
 export const Code = (options?: LeafOptions) =>
-  leaf('base/code', 'toggle-code', options?.title ?? 'Code', hotkeyOption(options?.hotkey), 'tb-code')
+  leaf('Code within a line of text', 'base/code', 'toggle-code', options?.title ?? 'Code', hotkeyOption(options?.hotkey), 'tb-code')
 
-function leaf(name: string, action: string, title: string, hotkey: string | undefined, style: TBLeafStyle | string): TBPluginDefinition {
+function leaf(description: string, name: string, action: string, title: string, hotkey: string | undefined, style: TBLeafStyle | string): TBPluginDefinition {
   return {
     class: 'leaf',
     name,
+    description,
     actions: [{ name: action, title, hotkey, handler: () => true }],
     getStyle: () => style
   }
