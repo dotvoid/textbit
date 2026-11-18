@@ -28,6 +28,7 @@ import { withInsertFragment } from '../with/withInsertFragment'
 import { withTrimWhitespace } from '../with/withTrimWhitespace'
 import { withSelectionGuard } from '../with/withSelectionGuard'
 import { withRemoteDeltaGuard } from '../with/withRemoteDeltaGuard'
+import { withRemoteNormalization } from '../with/withRemoteNormalization'
 import { TEXT_TYPE } from '../utils/textType'
 
 interface SlateContainerBaseProps {
@@ -107,6 +108,7 @@ export function SlateContainer(props: SlateContainerProps) {
       // bound to the same shared root in this client.
       if (YjsEditor.isYjsEditor(editor)) {
         withRemoteDeltaGuard(editor)
+        withRemoteNormalization(editor)
       }
     }
 

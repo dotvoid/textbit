@@ -3,6 +3,7 @@ import type { PluginDefinition, ChildComponentEntry } from '../types/textbit'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { TextbitElement } from '../utils/textbit-element'
 import { TEXT_TYPE } from '../utils/textType'
+import { isApplyingRemote } from './withRemoteNormalization'
 
 export function withNormalizeNode(editor: Editor, _: PluginDefinition[], components: Map<string, PluginRegistryComponent>) {
   const { normalizeNode } = editor
@@ -40,6 +41,11 @@ export function withNormalizeNode(editor: Editor, _: PluginDefinition[], compone
         return
       }
 
+      return normalizeNode(nodeEntry)
+    }
+
+    // The shared document's content is repaired by the peer that writes it
+    if (isApplyingRemote(editor)) {
       return normalizeNode(nodeEntry)
     }
 

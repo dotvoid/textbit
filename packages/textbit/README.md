@@ -1491,6 +1491,15 @@ interface CursorConfig {
 }
 ```
 
+### Who Repairs What
+
+Each peer repairs only the changes it makes. Content that arrives from another peer, or that
+is already in the shared document when an editor connects, is shown as it is: the plugins'
+constraints and normalizers do not run on it. Otherwise every connected editor would write
+its own repair, and repairs that insert add up, so two editors adding a missing caption
+would give two captions. Content that arrives invalid is repaired by whoever edits it next.
+Anything writing to the shared document outside an editor should write valid content.
+
 ### Full Collaborative Example
 
 ```tsx
@@ -1640,7 +1649,7 @@ A child component entry (an item in a parent's `children` array) can declare how
 
 Textbit enforces these automatically:
 
-- **Normalization:** on every change, `min <= count <= max` is restored by inserting placeholders or removing excess siblings, in the order defined by the parent's `children` array.
+- **Normalization:** on every change, `min <= count <= max` is restored by inserting placeholders or removing excess siblings, in the order defined by the parent's `children` array. With collaboration, only for changes made in this editor; see [Who Repairs What](#who-repairs-what).
 - **Enter:** blocked inside a child whose type is already at `max` in the parent.
 - **Paste:** pasting a block-level fragment inside any child text element (e.g., a caption — whether or not it has `min`/`max` set) is flattened to plain text so it cannot corrupt the parent block's structure.
 - **Delete / Backspace:** handled reactively by the normalizer — a `min: 1` child is re-inserted synchronously if removed.
