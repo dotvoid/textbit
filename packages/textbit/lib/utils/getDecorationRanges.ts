@@ -4,6 +4,8 @@ import { PlaceholdersVisibility } from '../contexts/TextbitContext'
 import { Decoration, SpellcheckLookupTable, SpellingError } from '../types'
 import { getDecorationMarkRanges } from './decorationMarks'
 import { agentChangeRanges, type ResolvedAgentChange } from './agentChanges'
+import { suggestionRanges } from './suggestionRanges'
+import type { ShownSuggestion } from '../contexts/SuggestionsContext'
 
 // Non-breaking space (U+00A0). Sourced from its char code so the file stays
 // ASCII and a literal NBSP is never confused with a regular space.
@@ -43,7 +45,8 @@ export function getDecorationRanges(
   editorIsEmpty?: boolean,
   isSpellingAccepted?: (error: SpellingError) => boolean,
   decorations?: readonly Decoration[],
-  agentChanges?: readonly ResolvedAgentChange[]
+  agentChanges?: readonly ResolvedAgentChange[],
+  suggestions?: ReadonlyMap<string, ShownSuggestion>
 ): Range[] {
   const [node, path] = nodeEntry
   const ranges: Range[] = []
@@ -115,6 +118,11 @@ export function getDecorationRanges(
   // What agents changed
   if (agentChanges?.length && Text.isText(node)) {
     ranges.push(...agentChangeRanges(agentChanges, path, node))
+  }
+
+  // What is suggested
+  if (suggestions?.size && Text.isText(node)) {
+    ranges.push(...suggestionRanges(editor, suggestions, node, path))
   }
 
   // Placeholders

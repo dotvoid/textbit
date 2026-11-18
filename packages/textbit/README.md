@@ -105,7 +105,7 @@ The root component that provides context for the editor. All other Textbit compo
 | `placeholder` | `string` | `''` | Placeholder text when editor is empty. |
 | `placeholders` | `'none' \| 'single' \| 'multiple'` | `'none'` | Controls placeholder display mode. When using `multiple` text plugins displays their own placeholders per text object. |
 | `readOnly` | `boolean` | `false` | Makes editor read-only. |
-| `labels` | `Partial<TBLabels>` | English | Text textbit itself shows, for translation: `unknownToText` and `unknownRemove`, the actions on an [object whose plugin is missing](#objects-whose-plugin-is-missing), `agentReading`, `agentWriting` and `agentThinking`, the labels on a block [an agent works on](#agents-in-the-document), and `agentReplaced`, `agentAdded` and `agentDeleted`, what is said when it changes text; `{name}`, `{added}` and `{removed}` are filled in. |
+| `labels` | `Partial<TBLabels>` | English | Text textbit itself shows, for translation: `unknownToText` and `unknownRemove`, the actions on an [object whose plugin is missing](#objects-whose-plugin-is-missing), `agentReading`, `agentWriting` and `agentThinking`, the labels on a block [an agent works on](#agents-in-the-document), `agentReplaced`, `agentAdded` and `agentDeleted`, what is said when it changes text, and `suggestionFrom`, `suggestionFormatting`, `suggestionStale`, `suggestionAccept`, `suggestionReject` and `suggestionArrived` for [suggestions](#suggestions); `{name}`, `{added}`, `{removed}` and `{count}` are filled in. |
 | `agentChangeDuration` | `number` | `8000` | Milliseconds what an agent changed stays marked in the text before it fades; `0` until dismissed. See [Agents in the Document](#agents-in-the-document). |
 | `debounce` | `number` | `1250` | Debounce time for onChange in milliseconds. |
 | `spellcheckDebounce` | `number` | `1250` | Debounce time for spellcheck in milliseconds. |
@@ -1235,6 +1235,10 @@ The agents in the shared document and what they do. See [Agents in the Document]
 
 What agents changed in the text and still stands, and `dismiss(ids?)`. See [Agents in the Document](#agents-in-the-document).
 
+### useSuggestions()
+
+The suggestions in the document, where each block of them shows, and `accept` and `reject`. See [Suggestions](#suggestions).
+
 ### useSelectionStats()
 
 Word and character counts for the current selection. Returns zeros when the selection is null or collapsed.
@@ -1547,6 +1551,39 @@ elsewhere, `useAgents()` gives the agents present, each with its awareness `clie
 const agents = useAgents()
 return <div role='status'>{agents.filter((a) => a.status !== 'idle').map((a) => `${a.name} is ${a.status}`).join(', ')}</div>
 ```
+
+### Suggestions
+
+A suggestion is a change proposed for a person to accept or reject, block by block: from an
+agent in review mode (`review: 'suggest'` in `@dotvoid/textbit-agent`), or from anything that
+calls `suggestionFor(before, after, author)` and puts the result in `suggestionStore(editor)`.
+It is kept beside the document, not in it: in a shared document in a map of the same Y.Doc
+(`SUGGESTIONS_MAP`), so everyone sees it and it outlives whoever made it; otherwise in memory
+with the editor. The document's content never holds suggestion marks.
+
+Editors show each block of a suggestion where it applies, until someone decides; unlike what
+an agent changed, suggestions do not fade:
+
+- a changed block: the words it would remove struck through (`.tb-suggested-delete`), the
+  words it would add beside them (`[data-tb="suggested-text"]`). A change of more than words,
+  such as formatting, is noted in the bar.
+- a deleted block: struck through whole.
+- an inserted block: a preview of its text where it would go (`[data-tb="suggested-block"]`).
+- on each, who suggests it and **Accept** and **Reject** (`[data-tb="suggestion-bar"]`).
+  Read-only editors show who, without the buttons.
+
+Accepting is the person's own edit, in their undo. A block that changed since it was suggested
+is out of date (`data-state="stale"`): it can only be rejected.
+
+The marks in the text are for the eye: not editable, left out of copies, hidden from screen
+readers. `Textbit.Suggestions`, placed inside `Textbit.Root`, lists every suggestion with what
+each block does ("Change “teh” to “the”") and its Accept and Reject, and Accept all and Reject
+all: what keyboard and screen reader users review with, and a review panel for anyone. New
+suggestions are announced. `useSuggestions()` gives the same to build your own.
+
+The functions behind it, also in `@dotvoid/textbit/headless`: `acceptSuggestedBlock`,
+`rejectSuggestedBlock`, `acceptSuggestion`, `rejectSuggestion`, `suggestedBlockState` and
+`suggestedTextChanges`. Moving a block cannot be suggested yet.
 
 ### Full Collaborative Example
 

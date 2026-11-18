@@ -122,7 +122,7 @@ attribution and diff model is built for this.
 | 1 | Headless core entry, plugin split, schema, `validate` | M | done |
 | 2 | Agent package: view and parser, operations, errors, revisions, tool descriptors, an eval harness | M | done, evals with models still to come |
 | 3 | Presence convention, block markers, undo per agent run | M | done |
-| 4 | Review in the editor, accept and reject per block | L |  |
+| 4 | Review in the editor, accept and reject per block | L | done: suggestions beside the document, in a Y.Doc map; moves not yet |
 | 5 | Own Y.js 14 binding, then stored suggestions and attribution | L |  |
 
 ## Evals

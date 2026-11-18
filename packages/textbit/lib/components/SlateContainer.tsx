@@ -15,6 +15,7 @@ import { YjsEditor } from '@slate-yjs/core'
 import { TEXT_TYPE } from '../utils/textType'
 import { AgentPresenceProvider } from '../contexts/AgentPresenceProvider'
 import { AgentChangesProvider } from '../contexts/AgentChangesProvider'
+import { SuggestionsProvider } from '../contexts/SuggestionsProvider'
 
 interface SlateContainerBaseProps {
   children: React.ReactNode
@@ -150,7 +151,9 @@ export function SlateContainer(props: SlateContainerProps) {
     <Slate editor={editor} initialValue={initialValue} onChange={onChangeCallback ?? noop}>
       <AgentPresenceProvider editor={editor}>
         <AgentChangesProvider>
-          {children}
+          <SuggestionsProvider>
+            {children}
+          </SuggestionsProvider>
         </AgentChangesProvider>
       </AgentPresenceProvider>
     </Slate>

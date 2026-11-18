@@ -61,8 +61,11 @@ YjsEditor.connect(editor as YjsEditor & Editor)
 
 const presence = createAgentPresence(provider.awareness!, { name: NAME, color: COLOR })
 presence.set('idle')
-const agent = createDocumentAgent(editor, { plugins, presence })
-const tools = createAgentTools(agent)
+// Edit, or suggest for people to accept or reject: the demo's switch, shared
+// through the document, else LAB_REVIEW
+const review = () => (ydoc.getMap('lab').get('review') ?? process.env.LAB_REVIEW ?? 'apply') === 'suggest' ? 'suggest' : 'apply'
+const agent = createDocumentAgent(editor, { plugins, presence, review: review() })
+let tools = createAgentTools(agent)
 
 // Runs: the first tool call starts one, a pause ends it
 let run: AgentRun | undefined
@@ -85,6 +88,12 @@ function touchRun() {
 // The demo's "Undo the agent's run" button asks through the document
 const commands = ydoc.getMap('lab')
 commands.observe((event) => {
+  if (event.keysChanged.has('review')) {
+    agent.context.options.review = review()
+    tools = createAgentTools(agent)
+    log(`the agent now ${review() === 'suggest' ? 'suggests' : 'edits'}`)
+    server.sendToolListChanged().catch(() => {})
+  }
   if (!event.keysChanged.has('undo') || event.transaction.local) {
     return
   }
@@ -102,7 +111,7 @@ commands.observe((event) => {
 const server = new Server(
   { name: 'textbit-lab', version: '0.0.0' },
   {
-    capabilities: { tools: {} },
+    capabilities: { tools: { listChanged: true } },
     instructions: `A shared document people are editing at the same time, in a browser. Read it first, plan small, targeted edits, pass the revision of your read, and keep to what you were asked. Use ${tools.map((t) => t.name).join(', ')}.`
   }
 )

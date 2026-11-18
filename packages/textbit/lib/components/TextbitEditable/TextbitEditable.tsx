@@ -3,6 +3,7 @@ import { Editor, Element, Node, type NodeEntry, Path, Range, Text, Transforms } 
 import { Editable, ReactEditor, useFocused, useSlateSelector, type RenderElementProps, type RenderLeafProps } from 'slate-react'
 import { getDecorationRanges } from '../../utils/getDecorationRanges'
 import { useAgentChanges } from '../../hooks/useAgentChanges'
+import { useSuggestions } from '../../hooks/useSuggestions'
 import { AgentAnnouncer } from './AgentAnnouncer'
 import { YjsEditor } from '@slate-yjs/core'
 import { ElementComponent } from '../Element/Element'
@@ -172,6 +173,8 @@ export function TextbitEditable(props: TextbitEditableProps) {
 
   // What agents changed, shown in the text
   const { changes: agentChanges } = useAgentChanges()
+  // What is suggested, shown in the text
+  const { onBlock: suggestionsOnBlock } = useSuggestions()
 
   // Render decorate callback
   const decorate = useCallback((entry: NodeEntry) => {
@@ -185,7 +188,8 @@ export function TextbitEditable(props: TextbitEditableProps) {
       editorIsEmpty,
       isSpellingAccepted,
       decorations,
-      agentChanges
+      agentChanges,
+      suggestionsOnBlock
     )
   }, [
     editor,
@@ -196,7 +200,8 @@ export function TextbitEditable(props: TextbitEditableProps) {
     editorIsEmpty,
     isSpellingAccepted,
     decorations,
-    agentChanges
+    agentChanges,
+    suggestionsOnBlock
   ])
 
   const handleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
@@ -595,7 +600,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
                   aria-label={props['aria-label']}
                 />
                 {props.children}
-                {YjsEditor.isYjsEditor(editor) && <AgentAnnouncer />}
+                {(YjsEditor.isYjsEditor(editor) || suggestionsOnBlock.size > 0) && <AgentAnnouncer />}
               </PresenceOverlay>
             </PendingDropsProvider>
           </DragStateProvider>

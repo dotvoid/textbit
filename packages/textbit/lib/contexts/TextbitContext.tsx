@@ -21,6 +21,16 @@ export interface TextbitLabels {
   agentReplaced: string
   agentAdded: string
   agentDeleted: string
+  /** On a suggestion: who it is from, with {name} */
+  suggestionFrom: string
+  /** On a suggestion that changes more than words */
+  suggestionFormatting: string
+  /** On a suggestion whose block changed since */
+  suggestionStale: string
+  suggestionAccept: string
+  suggestionReject: string
+  /** Announced when suggestions arrive: {name} and {count} blocks */
+  suggestionArrived: string
 }
 
 export const DEFAULT_LABELS: TextbitLabels = {
@@ -31,7 +41,13 @@ export const DEFAULT_LABELS: TextbitLabels = {
   agentThinking: '{name} is thinking',
   agentReplaced: '{name} changed “{removed}” to “{added}”',
   agentAdded: '{name} added “{added}”',
-  agentDeleted: '{name} removed “{removed}”'
+  agentDeleted: '{name} removed “{removed}”',
+  suggestionFrom: 'Suggested by {name}',
+  suggestionFormatting: 'also formatting',
+  suggestionStale: 'changed since',
+  suggestionAccept: 'Accept',
+  suggestionReject: 'Reject',
+  suggestionArrived: '{name} suggests changes to {count} blocks'
 }
 
 export interface TextbitState {

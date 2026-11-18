@@ -4,6 +4,7 @@ import { formatElements } from './format'
 import { describeSchema } from './describe'
 import { planEdit, runEdit, isStepError, pathOf, type EditOperation, type EditResult } from './edit'
 import { changedSince, recordRevision, revisionOf } from './revisions'
+import { suggestionFor, suggestionStore } from '@dotvoid/textbit/headless'
 import { asAgent, startRun, type AgentRun, type RunRecorder } from './runs'
 import type { AgentPresence } from './presence'
 import { textChanges, textsById } from './changes'
@@ -23,6 +24,8 @@ export interface ReadResult {
   total: number
   /** Where the next page starts, when there is more */
   next?: string
+  /** Suggestions in the document waiting for a person to accept or reject them */
+  suggestions: number
 }
 
 export interface SearchInput {
@@ -100,6 +103,47 @@ export function createDocumentAgent(
     })
   }
 
+  /** The changes as a suggestion, for people to accept or reject; the document stays */
+  const suggest = (input: EditInput, plan: ReturnType<typeof planEdit>, current: string): EditResult => {
+    if (input.operations.some((operation) => operation?.op === 'move')) {
+      return {
+        ok: false,
+        revision: current,
+        error: {
+          code: 'not-allowed',
+          message: 'Moving a block cannot be suggested yet',
+          hint: 'Suggest the content where it should go, and deleting it where it is'
+        }
+      }
+    }
+    const outcome = runEdit(editor, options.plugins, plan, null)
+    if ('error' in outcome) {
+      return { ok: false, revision: current, error: outcome.error }
+    }
+
+    const author = options.author ?? presence?.identity ?? { name: 'Agent' }
+    const suggestion = suggestionFor(editor.children, outcome.copy.children, author)
+    if (!suggestion) {
+      return { ok: true, revision: current, view: '' }
+    }
+    suggestionStore(editor).put(suggestion)
+
+    // The suggested blocks as they would be
+    const proposed = new Set(suggestion.blocks.map((block) => block.id))
+    const entries = outcome.copy.children.flatMap((node, index): [Element, Path][] =>
+      Element.isElement(node) && typeof node.id === 'string' && proposed.has(node.id) ? [[node, [index]]] : [])
+    const result: EditResult = {
+      ok: true,
+      revision: current,
+      suggestion: suggestion.id,
+      view: formatElements({ schema: context.schema, names: context.names, handles: context.handles(outcome.copy.children) }, entries)
+    }
+    if (input.opId) {
+      DONE.get(editor)?.set(input.opId, result)
+    }
+    return result
+  }
+
   return {
     context,
 
@@ -131,6 +175,7 @@ export function createDocumentAgent(
         revision,
         view: lines.join('\n'),
         total: blocks.length,
+        suggestions: suggestionStore(editor).list().length,
         ...(end < blocks.length ? { next: handles.of(blocks[end][0], blocks[end][1]) } : {})
       }
     },
@@ -208,10 +253,14 @@ export function createDocumentAgent(
         }
       }
 
+      if (options.review === 'suggest') {
+        return suggest(input, plan, current)
+      }
+
       const before = presence ? textsById(editor) : undefined
-      const error = runEdit(editor, options.plugins, plan, (change) => asAgent(editor, change, recorder?.record))
-      if (error) {
-        return fail({ ok: false, revision: current, error })
+      const outcome = runEdit(editor, options.plugins, plan, (change) => asAgent(editor, change, recorder?.record))
+      if ('error' in outcome) {
+        return fail({ ok: false, revision: current, error: outcome.error })
       }
       recorder?.edited()
 

@@ -196,6 +196,18 @@ sharing, it works while nobody else changed the document, and says so otherwise.
 In a shared document, agent edits reach Y.js under an origin of their own. The undo of the
 person at the same editor, Ctrl+Z, therefore never undoes them: only the run does.
 
+## Suggesting Instead
+
+With `review: 'suggest'`, the agent changes nothing: each batch is planned and checked as an
+edit would be, and stored as a suggestion, block by block, for the people in the document to
+accept or reject (see Suggestions in the editor's README). The edit tool says so to the model,
+its result is the suggested blocks as they would be, and reads say how many suggestions wait.
+Moving a block cannot be suggested yet. `author` names who suggestions are from; by default
+the presence's name.
+
+The option can change while the agent runs (`agent.context.options.review`); rebuild the tools
+with `createAgentTools` then, so the edit tool's description follows.
+
 ## Unknown Elements
 
 Elements whose plugin the editor lacks are kept as they are, here as in the editor. An agent
@@ -211,6 +223,8 @@ for people. `unknownElements: 'all'` lifts this, for hosts that trust their agen
 | `unknownElements` | `'move'` | `'all'` lets agents change and remove unknown elements |
 | `pageSize` | `24000` | Characters a read returns at most before it pages |
 | `presence` | none | From `createAgentPresence`, to show people what the agent does |
+| `review` | `'apply'` | `'suggest'` proposes changes for people to accept or reject instead |
+| `author` | the presence's name | Who suggestions are from: `{ name, color }` |
 
 ## Licence
 

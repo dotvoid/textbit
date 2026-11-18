@@ -411,3 +411,105 @@
     transition: background-color 1.2s ease, opacity 1.2s ease;
   }
 }
+
+/* Suggestions: changes waiting for a person to accept or reject them */
+[data-tb="suggested-text"] {
+  text-underline-offset: 0.2em;
+}
+
+[data-tb="suggestion-bar"] {
+  font-family: var(--tb-font-ui);
+  font-weight: 500;
+}
+
+[data-tb="suggestion-from"] {
+  margin-inline-end: 0.25rem;
+}
+
+[data-tb="suggestion-accept"],
+[data-tb="suggestion-reject"] {
+  padding: 0 0.4rem;
+  color: var(--tb-text);
+  background: var(--tb-surface);
+  border: 1px solid var(--tb-border);
+  border-radius: calc(var(--tb-radius) - 2px);
+  font: inherit;
+  cursor: pointer;
+}
+
+[data-tb="suggestion-accept"] {
+  color: var(--tb-surface);
+  background: var(--tb-agent-color);
+  border-color: var(--tb-agent-color);
+}
+
+[data-tb="suggestion-accept"]:focus-visible,
+[data-tb="suggestion-reject"]:focus-visible {
+  outline: var(--tb-focus);
+  outline-offset: 2px;
+}
+
+[data-tb="suggestion-bar"][data-state="stale"],
+[data-tb="suggested-block"][data-state="stale"] {
+  opacity: 0.6;
+}
+
+[data-tb="suggested-block"] {
+  font-family: var(--tb-font-text);
+}
+
+/* The list of suggestions, Textbit.Suggestions */
+[data-tb="suggestions"] {
+  font-family: var(--tb-font-ui);
+  font-size: 0.875rem;
+  color: var(--tb-text);
+}
+
+[data-tb="suggestion"] {
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--tb-border);
+  border-radius: var(--tb-radius);
+}
+
+[data-tb="suggestion"] ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+[data-tb="suggestion-item"] {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+[data-tb="suggestion-item"] span {
+  flex: 1;
+}
+
+[data-tb="suggestion-item"][data-state="stale"] span {
+  color: var(--tb-muted);
+}
+
+[data-tb="suggestion-all"] {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+}
+
+[data-tb="suggestions"] button {
+  padding: 0.125rem 0.5rem;
+  color: inherit;
+  background: var(--tb-surface);
+  border: 1px solid var(--tb-border);
+  border-radius: calc(var(--tb-radius) - 2px);
+  font: inherit;
+  cursor: pointer;
+}
+
+[data-tb="suggestions"] button:focus-visible {
+  outline: var(--tb-focus);
+  outline-offset: 2px;
+}

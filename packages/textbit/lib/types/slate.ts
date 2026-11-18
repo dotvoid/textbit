@@ -108,6 +108,15 @@ export type TextbitRange = BaseRange & {
   agentFading?: boolean
   /** The agent's name, on the first of its changes in a block */
   agentName?: string
+  /** Text a suggestion removes, and text it adds beside this text */
+  suggestDelete?: boolean
+  suggestInsert?: string
+  suggestInsertAt?: 'before' | 'after'
+  /** The new text replaces the struck text before it */
+  suggestReplaces?: boolean
+  suggestColor?: string
+  /** The suggestion is out of date */
+  suggestStale?: boolean
 }
 
 // Declare module augmentation

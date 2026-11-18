@@ -85,7 +85,7 @@ const LabEditor = ({ name, onGone }: { name: string, onGone: () => void }) => {
         cursor={{ data: { name: 'You', color: '#2f9e44' } }}
         plugins={plugins}
       >
-        <AgentStatus onUndo={() => doc.getMap('lab').set('undo', Date.now())} />
+        <AgentStatus doc={doc} onUndo={() => doc.getMap('lab').set('undo', Date.now())} />
         <div className='demo-editor'>
           <Textbit.Gutter>
             <GutterMenu />
@@ -95,20 +95,33 @@ const LabEditor = ({ name, onGone }: { name: string, onGone: () => void }) => {
             <EditorContextMenu />
           </Textbit.Editable>
         </div>
+        <Textbit.Suggestions className='demo-lab-suggestions' aria-label='Suggestions from the agent' />
       </Textbit.Root>
     </div>
   )
 }
 
 /** What the agents in the document do, said for screen readers too, and undo */
-const AgentStatus = ({ onUndo }: { onUndo: () => void }) => {
+const AgentStatus = ({ doc, onUndo }: { doc: Y.Doc, onUndo: () => void }) => {
   const agents = useAgents()
+  // Whether the agent edits or suggests: shared, so the agent follows it
+  const [suggest, setSuggest] = useState(() => doc.getMap('lab').get('review') === 'suggest')
+  useEffect(() => {
+    const map = doc.getMap('lab')
+    const update = () => setSuggest(map.get('review') === 'suggest')
+    map.observe(update)
+    return () => map.unobserve(update)
+  }, [doc])
   const said = agents.map((agent) => agent.status === 'idle' ? `${agent.name} is here` : `${agent.name} is working on the document`)
 
   return (
     <div className='demo-lab-status'>
       <span role='status'>{said.length ? said.join(', ') : 'No agent in the document'}</span>
-      {agents.length > 0 && <button type='button' onClick={onUndo}>Undo the agent’s last run</button>}
+      <label>
+        <input type='checkbox' checked={suggest} onChange={(e) => doc.getMap('lab').set('review', e.target.checked ? 'suggest' : 'apply')} />
+        {' '}The agent suggests
+      </label>
+      {agents.length > 0 && !suggest && <button type='button' onClick={onUndo}>Undo the agent’s last run</button>}
     </div>
   )
 }

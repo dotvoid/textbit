@@ -20,3 +20,4 @@ body { margin: 0; font-family: system-ui, sans-serif; }
 .demo section [data-tb="editor"]:not(.demo-together [data-tb="editor"]) { padding: 1rem 1.5rem; }
 .demo-lab-join { font-size: 0.875rem; color: var(--tb-muted); }
 .demo-lab-status { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.75rem; font-size: 0.875rem; color: var(--tb-muted); }
+.demo-lab-suggestions { margin-top: 1rem; }

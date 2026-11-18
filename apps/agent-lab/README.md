@@ -59,6 +59,13 @@ server hands out: a browser tab or MCP server still holding the old one is turne
 rather than merging its copy back in, which would give every element twice. The demo then
 asks you to join again; reconnect the MCP server with `/mcp` in Claude Code.
 
+## Edit or suggest
+
+**The agent suggests**, above the lab document, switches the agent between editing and
+suggesting; the MCP server follows the switch, and tells its client the edit tool changed.
+Suggestions show in the text and in the list under the editor, for you to accept or reject.
+`LAB_REVIEW=suggest` makes suggesting the default.
+
 ## What to watch
 
 - The marker on the blocks the agent changes, with its name, while it writes.
@@ -78,6 +85,7 @@ Environment variables for `src/mcp.ts`, e.g. in the `env` of the client's config
 | `LAB_AGENT_NAME` | `Agent` | The name on its markers |
 | `LAB_AGENT_COLOR` | `#7c3aed` | Their colour |
 | `LAB_RUN_IDLE_MS` | `20000` | A pause that ends a run |
+| `LAB_REVIEW` | `apply` | `suggest` to start out suggesting |
 
 `LAB_PORT` sets the document server's port. `npm run check -w textbit-agent-lab` type-checks
 the lab against the built packages.

@@ -56,6 +56,7 @@ import { ContextTools } from './components/ContextTools'
 import { ContentTools } from './components/ContentTools'
 import { ContextMenu } from './components/ContextMenu/'
 import { SpecialCharacterPicker } from './components/SpecialCharacters/Picker'
+import { Suggestions } from './components/Suggestions'
 
 // Main library composed exports
 export const Textbit = {
@@ -66,7 +67,8 @@ export const Textbit = {
   UploadMarker,
   Plugins: StandardPlugins,
   ContextMenu,
-  SpecialCharacterPicker
+  SpecialCharacterPicker,
+  Suggestions
 }
 
 export const Menu = {
@@ -123,6 +125,8 @@ export { useSelectionStats, type SelectionStats } from './hooks/useSelectionStat
 export { usePendingDrops } from './hooks/usePendingDrops'
 export { useAgents } from './hooks/useAgents'
 export { useAgentChanges } from './hooks/useAgentChanges'
+export { useSuggestions } from './hooks/useSuggestions'
+export type { ShownSuggestion as TBShownSuggestion } from './contexts/SuggestionsContext'
 export type { ResolvedAgentChange as TBAgentChange } from './utils/agentChanges'
 export type { PresentAgent } from './contexts/AgentPresenceContext'
 export { AGENT_PRESENCE_FIELD, type AgentPresenceState, type AgentStatus, type AgentChange } from './types/agentPresence'
@@ -138,6 +142,10 @@ export { createTextbitEditor, type TextbitEditorOptions } from './editor/createT
 export { getSchema, type DocumentSchema, type ElementTypeSchema } from './schema/getSchema'
 export { validate, type ValidationIssue, type ValidationCode } from './schema/validate'
 export { toJsonSchema, type JsonSchema } from './schema/toJsonSchema'
+
+// Suggestions: changes proposed for a person to accept or reject
+export * from './suggestions'
+export { hashNode } from './utils/hashNode'
 
 export { calculateStats } from './utils/calculateStats'
 export { TextbitEditor } from './utils/textbit-editor'

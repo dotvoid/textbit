@@ -14,6 +14,8 @@ export interface AgentPresence {
   clearChanges(): void
   /** Leave: nothing is shown any more */
   clear(): void
+  /** Who the agent is to people */
+  readonly identity: { name: string, color?: string }
 }
 
 /**
@@ -48,6 +50,7 @@ export function createAgentPresence(awareness: AwarenessLike, identity: { name: 
   }
 
   return {
+    identity,
     set: (nextStatus, nextBlocks = []) => {
       present = true
       status = nextStatus

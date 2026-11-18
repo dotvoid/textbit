@@ -16,6 +16,13 @@ export interface AgentOptions {
   unknownElements?: 'move' | 'all'
   /** Characters a read returns at most before it pages. Default: 24000. */
   pageSize?: number
+  /**
+   * 'apply' (default) makes edits; 'suggest' proposes them instead, for the
+   * people in the document to accept or reject block by block.
+   */
+  review?: 'apply' | 'suggest'
+  /** Who suggestions are from. Default: the presence's name, else "Agent". */
+  author?: { name: string, color?: string }
 }
 
 /** What every part of the agent shares */

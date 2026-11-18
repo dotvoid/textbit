@@ -4,6 +4,9 @@ import type { RenderEntry } from './renderEntry'
 import { useAdjacentBlock } from '../../hooks/useAdjacentBlock'
 import { useBlockSelection } from '../../hooks/useBlockSelection'
 import { AgentMarker } from './AgentMarker'
+import { SuggestionBar } from './SuggestionBar'
+import { SuggestedBlock } from './SuggestedBlock'
+import { useSuggestions } from '../../hooks/useSuggestions'
 import { CSSProperties } from 'react'
 
 interface ParentElementProps extends RenderElementProps {
@@ -23,7 +26,14 @@ export function ParentElement(renderProps: ParentElementProps) {
   const adjacentBlock = useAdjacentBlock()
   const blockSelection = useBlockSelection()
   const { element, attributes, entry } = renderProps
+  const suggestions = useSuggestions()
   if (entry.asOwnElement) return null
+
+  // What is suggested on this block, and blocks suggested after it (or, on
+  // the first block, before it)
+  const onBlock = element.id ? suggestions.onBlock.get(element.id) : undefined
+  const inserted = element.id ? suggestions.after.get(element.id) ?? [] : []
+  const insertedFirst = editor.children[0] === element ? suggestions.after.get('') ?? [] : []
 
   // Block-level selection: check if this element is within the selected range
   const isBlockSelected = (() => {
@@ -81,6 +91,7 @@ export function ParentElement(renderProps: ParentElementProps) {
         style={{ position: 'relative', ...(isBlockSelected ? { userSelect: 'none' } : {}) }}
         {...attributes}
       >
+        {insertedFirst.map((shown) => <SuggestedBlock key={shown.block.id} shown={shown} />)}
         <entry.component element={element} options={renderProps.options} editor={editor}>
           {renderProps.children}
         </entry.component>
@@ -110,6 +121,8 @@ export function ParentElement(renderProps: ParentElementProps) {
           />
         )}
         <AgentMarker blockId={element.id} />
+        {onBlock && <SuggestionBar shown={onBlock} />}
+        {inserted.map((shown) => <SuggestedBlock key={shown.block.id} shown={shown} />)}
         {adjacentState === 'before' && (
           <div
             aria-hidden

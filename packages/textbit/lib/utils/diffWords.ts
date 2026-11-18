@@ -2,6 +2,8 @@
 export interface TextChange {
   /** Where it is in the new text */
   at: number
+  /** Where it is in the old text */
+  from: number
   /** What the new text has there */
   added: string
   /** What the old text had there */
@@ -22,7 +24,7 @@ export function diffWords(before: string, after: string): TextChange[] {
   const a = tokens(before)
   const b = tokens(after)
   if (a.length > MAX_TOKENS || b.length > MAX_TOKENS) {
-    return [{ at: 0, added: after, removed: before }]
+    return [{ at: 0, from: 0, added: after, removed: before }]
   }
 
   // Longest common subsequence of tokens, from the end
@@ -37,6 +39,7 @@ export function diffWords(before: string, after: string): TextChange[] {
   let i = 0
   let j = 0
   let at = 0
+  let from = 0
   let current: TextChange | null = null
   const flush = () => {
     if (current && (current.added || current.removed)) {
@@ -49,16 +52,18 @@ export function diffWords(before: string, after: string): TextChange[] {
     if (i < a.length && j < b.length && a[i] === b[j]) {
       flush()
       at += b[j].length
+      from += a[i].length
       i++
       j++
     } else if (j < b.length && (i >= a.length || lcs[i][j + 1] >= lcs[i + 1][j])) {
-      current ??= { at, added: '', removed: '' }
+      current ??= { at, from, added: '', removed: '' }
       current.added += b[j]
       at += b[j].length
       j++
     } else {
-      current ??= { at, added: '', removed: '' }
+      current ??= { at, from, added: '', removed: '' }
       current.removed += a[i]
+      from += a[i].length
       i++
     }
   }
