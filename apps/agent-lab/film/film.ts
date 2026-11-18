@@ -295,8 +295,7 @@ try {
   await sleep(4000)
 
   await caption('')
-  await card('Textbit 3', '@dotvoid/textbit · @dotvoid/textbit-agent · works with any MCP client')
-  await sleep(4000)
+  await sleep(1500)
 
   await send('Page.stopScreencast')
   await sleep(300)
