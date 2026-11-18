@@ -26,7 +26,7 @@ export function suggestionStore(editor: Editor): SuggestionStore {
   if (YjsEditor.isYjsEditor(editor) && editor.sharedRoot.doc) {
     const doc = editor.sharedRoot.doc
     // Written as this editor's own changes, so its undo can take them back
-    return sharedStore(doc.getMap<Suggestion>(SUGGESTIONS_MAP), (change) => doc.transact(change, YjsEditor.origin(editor)))
+    return sharedStore(doc.getMap<SharedEntry>(SUGGESTIONS_MAP), (change) => doc.transact(change, YjsEditor.origin(editor)))
   }
   let store = MEMORY.get(editor)
   if (!store) {
@@ -36,12 +36,60 @@ export function suggestionStore(editor: Editor): SuggestionStore {
   return store
 }
 
-function sharedStore(map: Y.Map<Suggestion>, transact: (change: () => void) => void): SuggestionStore {
+/**
+ * In a shared document each block of a suggestion is an entry of its own,
+ * keyed by the suggestion's id and the block's. A decision removes just its
+ * block's entry: two people deciding different blocks at once do not undo each
+ * other, and undoing a decision brings back exactly that block.
+ */
+interface SharedEntry {
+  id: string
+  author: Suggestion['author']
+  createdAt: number
+  /** Where the block comes in its suggestion */
+  order: number
+  block: Suggestion['blocks'][number]
+}
+
+const SEPARATOR = '\u0000'
+const keyOf = (suggestionId: string, blockId: string) => `${suggestionId}${SEPARATOR}${blockId}`
+
+function sharedStore(map: Y.Map<SharedEntry>, transact: (change: () => void) => void): SuggestionStore {
+  const all = (): Suggestion[] => {
+    const grouped = new Map<string, SharedEntry[]>()
+    for (const entry of map.values()) {
+      grouped.set(entry.id, [...grouped.get(entry.id) ?? [], entry])
+    }
+    return [...grouped.values()]
+      .map((entries) => {
+        const [first] = entries
+        return {
+          id: first.id,
+          author: first.author,
+          createdAt: first.createdAt,
+          blocks: entries.sort((x, y) => x.order - y.order).map((entry) => entry.block)
+        }
+      })
+      .sort((a, b) => a.createdAt - b.createdAt)
+  }
+  const keysOf = (id: string) => [...map.keys()].filter((key) => key.startsWith(`${id}${SEPARATOR}`))
+
   return {
-    list: () => [...map.values()].sort((a, b) => a.createdAt - b.createdAt),
-    get: (id) => map.get(id),
-    put: (suggestion) => transact(() => map.set(suggestion.id, structuredClone(suggestion))),
-    remove: (id) => transact(() => map.delete(id)),
+    list: all,
+    get: (id) => all().find((suggestion) => suggestion.id === id),
+    put: (suggestion) => transact(() => {
+      const keep = new Set(suggestion.blocks.map((block) => keyOf(suggestion.id, block.id)))
+      keysOf(suggestion.id).filter((key) => !keep.has(key)).forEach((key) => map.delete(key))
+      suggestion.blocks.forEach((block, order) => {
+        const key = keyOf(suggestion.id, block.id)
+        // Blocks already there stay as they are: rewriting them would
+        // overwrite what others did to them meanwhile
+        if (!map.has(key)) {
+          map.set(key, structuredClone({ id: suggestion.id, author: suggestion.author, createdAt: suggestion.createdAt, order, block }))
+        }
+      })
+    }),
+    remove: (id) => transact(() => keysOf(id).forEach((key) => map.delete(key))),
     subscribe: (listener) => {
       map.observe(listener)
       return () => map.unobserve(listener)

@@ -176,3 +176,49 @@ describe('suggestions with several people', () => {
     expect(suggestionStore(a).get(suggestion.id)).toBeDefined()
   })
 })
+
+describe('decisions on a suggestion by several people', () => {
+  const sync = (a: Y.Doc, b: Y.Doc) => {
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a, Y.encodeStateVector(b)))
+    Y.applyUpdate(a, Y.encodeStateAsUpdate(b, Y.encodeStateVector(a)))
+  }
+  const peer = (doc: Y.Doc) => {
+    const editor = createTextbitEditor({ shared: doc.get('content', Y.XmlText) }) as YjsEditor & Editor
+    YjsEditor.connect(editor)
+    return editor
+  }
+  function three() {
+    const before = [p('a', 'Spelling: teh mistake.'), p('b', 'Second.'), p('c', 'Third.')]
+    const base = new Y.Doc()
+    base.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta(structuredClone(before)))
+    const docs = [new Y.Doc(), new Y.Doc(), new Y.Doc()]
+    docs.forEach((doc) => sync(base, doc))
+    const [agent, alice, bob] = docs.map(peer)
+    const suggestion = suggestionFor(before, [p('a', 'Spelling: the mistake.'), p('b', 'Second!'), p('c', 'Third!')], AUTHOR)!
+    suggestionStore(agent).put(suggestion)
+    sync(docs[0], docs[1])
+    sync(docs[0], docs[2])
+    return { docs, alice, bob, suggestion }
+  }
+
+  test('two people deciding different blocks at once both count', () => {
+    const { docs, alice, bob, suggestion } = three()
+    rejectSuggestedBlock(alice, suggestion.id, 'b')
+    rejectSuggestedBlock(bob, suggestion.id, 'c')
+    sync(docs[1], docs[2])
+    expect(suggestionStore(alice).get(suggestion.id)?.blocks.map((block) => block.id)).toEqual(['a'])
+  })
+
+  test('undoing an accept brings its block back, whatever others decided after', () => {
+    const { docs, alice, bob, suggestion } = three()
+    acceptSuggestedBlock(bob, suggestion.id, 'a')
+    YjsEditor.flushLocalChanges(bob)
+    sync(docs[2], docs[1])
+    rejectSuggestedBlock(alice, suggestion.id, 'c')
+    sync(docs[1], docs[2])
+
+    bob.undo()
+    expect(Node.string(bob.children[0])).toBe('Spelling: teh mistake.')
+    expect(suggestionStore(bob).get(suggestion.id)?.blocks.map((block) => block.id)).toEqual(['a', 'b'])
+  })
+})
