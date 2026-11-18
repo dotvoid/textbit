@@ -3,12 +3,17 @@ import type { PluginDefinition, ChildElementSpec } from '../types/textbit'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { TextbitElement } from '../utils/textbit-element'
 import { TEXT_TYPE } from '../utils/textType'
+import { hashNode } from '../utils/hashNode'
 
 export function withNormalizeNode(editor: Editor, _: PluginDefinition[], components: Map<string, PluginRegistryComponent>) {
   const { normalizeNode } = editor
 
   editor.normalizeNode = (nodeEntry) => {
     const [node, path] = nodeEntry
+
+    if (Editor.isEditor(node) && removeExactCopy(editor)) {
+      return
+    }
 
     // Declarative constraints only apply to Elements
     if (!Element.isElement(node)) {
@@ -223,3 +228,31 @@ function placeholderForChild(def: ChildElementSpec, fullType: string): Descendan
   }
 }
 
+
+/**
+ * Remove a top-level block that is an exact copy of an earlier one: the same
+ * id and the same content, which no edit means to make. Two people accepting
+ * the same suggestion at the same moment each insert the block; once their
+ * changes meet there are two. Every peer removes the same, later, copy, and
+ * removing the same block twice is removing it once, so they all agree.
+ * Blocks that share an id but differ are left: they hold someone's work.
+ */
+function removeExactCopy(editor: Editor): boolean {
+  const seen = new Map<string, string>()
+  for (let index = 0; index < editor.children.length; index++) {
+    const node = editor.children[index]
+    if (!Element.isElement(node) || typeof node.id !== 'string') {
+      continue
+    }
+    const hash = hashNode(node)
+    const earlier = seen.get(node.id)
+    if (earlier === hash) {
+      Transforms.removeNodes(editor, { at: [index] })
+      return true
+    }
+    if (earlier === undefined) {
+      seen.set(node.id, hash)
+    }
+  }
+  return false
+}

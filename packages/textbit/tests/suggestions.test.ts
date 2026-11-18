@@ -97,3 +97,82 @@ describe('a suggestion', () => {
     expect(suggestionStore(one).get(suggestion.id)?.blocks.map((b) => b.id)).toEqual(['n1', 'n2', 'b'])
   })
 })
+
+describe('suggestions with several people', () => {
+  const peer = (doc: Y.Doc) => {
+    const editor = createTextbitEditor({ shared: doc.get('content', Y.XmlText) }) as YjsEditor & Editor
+    YjsEditor.connect(editor)
+    return editor
+  }
+  const sync = (a: Y.Doc, b: Y.Doc) => {
+    Y.applyUpdate(b, Y.encodeStateAsUpdate(a, Y.encodeStateVector(b)))
+    Y.applyUpdate(a, Y.encodeStateAsUpdate(b, Y.encodeStateVector(a)))
+  }
+  function two() {
+    const base = new Y.Doc()
+    base.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta([p('a', 'Spelling: teh mistake.'), p('z', 'Last.')]))
+    const A = new Y.Doc()
+    const B = new Y.Doc()
+    sync(base, A)
+    sync(base, B)
+    const a = peer(A)
+    const b = peer(B)
+    // Suggested from elsewhere, as an agent does
+    const agentDoc = new Y.Doc()
+    sync(base, agentDoc)
+    const agent = peer(agentDoc)
+    const suggestion = suggestionFor(agent.children as Descendant[], [p('a', 'Spelling: the mistake.'), p('z', 'Last.')], AUTHOR)!
+    suggestionStore(agent).put(suggestion)
+    sync(agentDoc, A)
+    sync(A, B)
+    return { A, B, a, b, suggestion }
+  }
+
+  test('two accepting the same block at once end up with it once', () => {
+    const { A, B, a, b, suggestion } = two()
+    expect(acceptSuggestedBlock(a, suggestion.id, 'a')).toEqual({ ok: true })
+    expect(acceptSuggestedBlock(b, suggestion.id, 'a')).toEqual({ ok: true })
+    YjsEditor.flushLocalChanges(a)
+    YjsEditor.flushLocalChanges(b)
+    sync(A, B)
+    YjsEditor.flushLocalChanges(a)
+    YjsEditor.flushLocalChanges(b)
+    sync(A, B)
+
+    for (const editor of [a, b]) {
+      expect(editor.children.map((n) => Node.string(n))).toEqual(['Spelling: the mistake.', 'Last.'])
+    }
+    expect(suggestionStore(a).list()).toEqual([])
+  })
+
+  test('once one has accepted and it has reached the other, the other cannot', () => {
+    const { A, B, a, b, suggestion } = two()
+    acceptSuggestedBlock(a, suggestion.id, 'a')
+    YjsEditor.flushLocalChanges(a)
+    sync(A, B)
+    expect(acceptSuggestedBlock(b, suggestion.id, 'a')).toEqual({ ok: false, reason: 'gone' })
+  })
+
+  test('blocks that share an id but differ are both kept', () => {
+    const editor = createTextbitEditor({ value: [p('a', 'One'), p('a', 'One, edited'), p('a', 'One')] })
+    Editor.normalize(editor, { force: true })
+    expect(editor.children.map((n) => Node.string(n))).toEqual(['One', 'One, edited'])
+  })
+
+  test('a reject can be undone by the person who rejected', async () => {
+    const { a, suggestion } = two()
+    rejectSuggestedBlock(a, suggestion.id, 'a')
+    expect(suggestionStore(a).list()).toEqual([])
+    a.undo()
+    expect(suggestionStore(a).get(suggestion.id)?.blocks.map((block) => block.id)).toEqual(['a'])
+  })
+
+  test('undoing an accept brings back the text and the suggestion', async () => {
+    const { a, suggestion } = two()
+    acceptSuggestedBlock(a, suggestion.id, 'a')
+    YjsEditor.flushLocalChanges(a)
+    a.undo()
+    expect(Node.string(a.children[0])).toBe('Spelling: teh mistake.')
+    expect(suggestionStore(a).get(suggestion.id)).toBeDefined()
+  })
+})

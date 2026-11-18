@@ -24,7 +24,9 @@ const MEMORY = new WeakMap<Editor, SuggestionStore>()
  */
 export function suggestionStore(editor: Editor): SuggestionStore {
   if (YjsEditor.isYjsEditor(editor) && editor.sharedRoot.doc) {
-    return sharedStore(editor.sharedRoot.doc.getMap<Suggestion>(SUGGESTIONS_MAP))
+    const doc = editor.sharedRoot.doc
+    // Written as this editor's own changes, so its undo can take them back
+    return sharedStore(doc.getMap<Suggestion>(SUGGESTIONS_MAP), (change) => doc.transact(change, YjsEditor.origin(editor)))
   }
   let store = MEMORY.get(editor)
   if (!store) {
@@ -34,12 +36,12 @@ export function suggestionStore(editor: Editor): SuggestionStore {
   return store
 }
 
-function sharedStore(map: Y.Map<Suggestion>): SuggestionStore {
+function sharedStore(map: Y.Map<Suggestion>, transact: (change: () => void) => void): SuggestionStore {
   return {
     list: () => [...map.values()].sort((a, b) => a.createdAt - b.createdAt),
     get: (id) => map.get(id),
-    put: (suggestion) => map.set(suggestion.id, structuredClone(suggestion)),
-    remove: (id) => map.delete(id),
+    put: (suggestion) => transact(() => map.set(suggestion.id, structuredClone(suggestion))),
+    remove: (id) => transact(() => map.delete(id)),
     subscribe: (listener) => {
       map.observe(listener)
       return () => map.unobserve(listener)

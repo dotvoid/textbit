@@ -255,10 +255,11 @@ describe('tools', () => {
 
 describe('elements sharing an id', () => {
   test('get path handles, and an edit to one gives it an id of its own', () => {
-    const twice = [
-      ...document().slice(0, 2),
-      ...structuredClone(document().slice(0, 2))
-    ]
+    // Copies that went their own ways since: an exact copy would be removed
+    const copy = structuredClone(document().slice(0, 2))
+    ;(copy[0] as { children: { text: string }[] }).children[0].text = 'A harbour [town], again'
+    ;(copy[1] as { children: { text: string }[] }).children[0].text = 'Boats '
+    const twice = [...document().slice(0, 2), ...copy]
     const editor = createTextbitEditor({ plugins: PLUGINS, value: twice })
     const agent = createDocumentAgent(editor, { plugins: PLUGINS })
 
@@ -276,3 +277,4 @@ describe('elements sharing an id', () => {
     expect(result.view).toMatch(/link href="https:\/\/dotvoid\.com" #\w{6}\}/)
   })
 })
+
