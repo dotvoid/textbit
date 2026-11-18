@@ -1,6 +1,6 @@
 {
   "name": "@dotvoid/textbit-styles",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "license": "MIT",
   "description": "A default look for @dotvoid/textbit and @dotvoid/textbit-plugins, in plain CSS with custom properties.",
   "author": {
