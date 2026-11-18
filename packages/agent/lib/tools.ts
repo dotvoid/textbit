@@ -101,8 +101,9 @@ export function createAgentTools(agent: DocumentAgent, options: { prefix?: strin
         ...(typeof input.limit === 'number' ? { limit: input.limit } : {})
       }),
       toText: (result) => {
-        const { revision, total, next, view } = result as ReadResult
-        return `revision: ${revision}\n${total} top-level elements${next ? `; more from ${next}` : ''}\n\n${view}`
+        const { revision, total, next, view, suggestions } = result as ReadResult
+        const waiting = suggestions ? `\n${suggestions} suggestion${suggestions === 1 ? '' : 's'} waiting for review; the document does not include them` : ''
+        return `revision: ${revision}\n${total} top-level elements${next ? `; more from ${next}` : ''}${waiting}\n\n${view}`
       }
     },
     {
@@ -143,7 +144,9 @@ export function createAgentTools(agent: DocumentAgent, options: { prefix?: strin
     tools.push({
       name: `${prefix}edit`,
       description: [
-        'Change the document: a batch of operations, applied together or not at all.',
+        agent.context.options.review === 'suggest'
+          ? 'Suggest changes to the document: a batch of operations, checked together. Nothing changes: the people in the document see your suggestion and accept or reject it, block by block. Moving a block cannot be suggested.'
+          : 'Change the document: a batch of operations, applied together or not at all.',
         'Pass the revision of the read you planned from: if someone changed the elements you change since, nothing is applied and you get their current content. Changes elsewhere do not matter.',
         'On success you get the new revision and the changed top-level elements, new handles included.',
         'Content is written in the line format of read, without handles.'
@@ -166,6 +169,9 @@ export function createAgentTools(agent: DocumentAgent, options: { prefix?: strin
 }
 
 function editText(result: EditResult): string {
+  if (result.ok && result.suggestion) {
+    return `Suggested, for a person to accept or reject; the document has not changed. suggestion: ${result.suggestion}\n\nThe blocks as suggested:\n${result.view}`
+  }
   if (result.ok) {
     return `Done. revision: ${result.revision}\n\n${result.view}`
   }

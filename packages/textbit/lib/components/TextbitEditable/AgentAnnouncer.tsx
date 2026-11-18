@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useAgentChanges } from '../../hooks/useAgentChanges'
+import { useSuggestions } from '../../hooks/useSuggestions'
 import { useTextbit } from '../../hooks/useTextbit'
 import type { TextbitLabels } from '../../contexts/TextbitContext'
 import type { ResolvedAgentChange } from '../../utils/agentChanges'
@@ -11,18 +12,26 @@ import type { ResolvedAgentChange } from '../../utils/agentChanges'
  */
 export function AgentAnnouncer() {
   const { changes } = useAgentChanges()
+  const { suggestions } = useSuggestions()
   const { labels } = useTextbit()
   const said = useRef(new Set<string>())
   const [message, setMessage] = useState('')
 
   useEffect(() => {
     const fresh = changes.filter((change) => !said.current.has(change.id))
-    if (!fresh.length) {
+    const suggested = suggestions.filter((suggestion) => !said.current.has(suggestion.id))
+    if (!fresh.length && !suggested.length) {
       return
     }
     fresh.forEach((change) => said.current.add(change.id))
-    setMessage(fresh.slice(0, 3).map((change) => describe(labels, change)).join('. '))
-  }, [changes, labels])
+    suggested.forEach((suggestion) => said.current.add(suggestion.id))
+    setMessage([
+      ...fresh.slice(0, 3).map((change) => describe(labels, change)),
+      ...suggested.map((suggestion) => labels.suggestionArrived
+        .replace('{name}', suggestion.author.name)
+        .replace('{count}', String(suggestion.blocks.length)))
+    ].join('. '))
+  }, [changes, suggestions, labels])
 
   return (
     <div

@@ -2,7 +2,7 @@ import { Editor, Element, Node, Text, type Path } from 'slate'
 import * as Y from 'yjs'
 import { YjsEditor, slatePointToRelativePosition } from '@slate-yjs/core'
 import type { AgentChange } from '@dotvoid/textbit/headless'
-import { diffWords } from './diff'
+import { diffWords } from '@dotvoid/textbit/headless'
 import { pointAt } from './edit'
 
 /** The text of every text-holding element with an id, by id */

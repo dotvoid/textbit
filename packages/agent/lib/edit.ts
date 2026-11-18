@@ -46,7 +46,8 @@ export interface EditError {
 }
 
 export type EditResult =
-  | { ok: true, revision: string, view: string }
+  /** `suggestion` is set when the changes were suggested, not made */
+  | { ok: true, revision: string, view: string, suggestion?: string }
   | { ok: false, revision: string, error: EditError, view?: string }
 
 /** A step of a batch: what it changes, and how, given ids */
@@ -294,9 +295,9 @@ export function runEdit(
   editor: Editor,
   plugins: TBPluginDefinition[] | undefined,
   plan: ReturnType<typeof planEdit>,
-  /** How the changes run on the editor itself */
-  live: (change: () => void) => void = (change) => change()
-): EditError | null {
+  /** How the changes run on the editor itself; null leaves it as it is, to suggest them */
+  live: ((change: () => void) => void) | null = (change) => change()
+): { error: EditError } | { copy: Editor } {
   const run = (target: Editor) => {
     Editor.withoutNormalizing(target, () => {
       for (const { path, id } of plan.assignIds) {
@@ -310,27 +311,31 @@ export function runEdit(
   try {
     run(copy)
   } catch (error) {
-    return error instanceof StepError
-      ? error.error
-      : { code: 'invalid-operation', message: `The changes cannot be made: ${String(error)}` }
+    return {
+      error: error instanceof StepError
+        ? error.error
+        : { code: 'invalid-operation', message: `The changes cannot be made: ${String(error)}` }
+    }
   }
 
   const before = new Set(errors(validate(editor.children, plugins)).map(key))
   const added = errors(validate(copy.children, plugins)).filter((issue) => !before.has(key(issue)))
   if (added.length) {
     return {
-      code: 'invalid-content',
-      message: 'The result would break the document\'s rules; nothing was changed',
-      issues: added.map((issue) => ({
-        code: issue.code,
-        ...(issue.id ? { element: issue.id } : {}),
-        message: issue.message
-      }))
+      error: {
+        code: 'invalid-content',
+        message: 'The result would break the document\'s rules; nothing was changed',
+        issues: added.map((issue) => ({
+          code: issue.code,
+          ...(issue.id ? { element: issue.id } : {}),
+          message: issue.message
+        }))
+      }
     }
   }
 
-  live(() => run(editor))
-  return null
+  live?.(() => run(editor))
+  return { copy }
 }
 
 export function isStepError(error: unknown): error is StepError {

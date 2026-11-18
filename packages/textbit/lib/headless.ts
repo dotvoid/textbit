@@ -13,10 +13,15 @@ export { TextbitEditor } from './utils/textbit-editor'
 export { TextbitElement } from './utils/textbit-element'
 export { TextbitPlugin } from './utils/textbit-plugin'
 export { Text } from './plugins/Text'
+export { diffWords, type TextChange } from './utils/diffWords'
 export { AGENT_PRESENCE_FIELD, type AgentPresenceState, type AgentStatus, type AgentChange } from './types/agentPresence'
 export { getSchema, type DocumentSchema, type ElementTypeSchema } from './schema/getSchema'
 export { validate, type ValidationIssue, type ValidationCode } from './schema/validate'
 export { toJsonSchema, type JsonSchema } from './schema/toJsonSchema'
+
+// Suggestions: changes proposed for a person to accept or reject
+export * from './suggestions'
+export { hashNode } from './utils/hashNode'
 
 export type {
   PluginDefinition as TBPluginDefinition,
