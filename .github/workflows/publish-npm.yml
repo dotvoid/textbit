@@ -8,9 +8,10 @@ on:
       # @dotvoid/textbit
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+-*'
-      # @dotvoid/textbit-plugins and @dotvoid/textbit-styles
+      # @dotvoid/textbit-plugins, @dotvoid/textbit-styles and @dotvoid/textbit-agent
       - 'textbit-plugins@[0-9]+.[0-9]+.[0-9]+*'
       - 'textbit-styles@[0-9]+.[0-9]+.[0-9]+*'
+      - 'textbit-agent@[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
 
 permissions:
@@ -41,6 +42,7 @@ jobs:
           case "$GITHUB_REF_NAME" in
             textbit-plugins@*) echo "dir=packages/plugins" >> "$GITHUB_OUTPUT" ;;
             textbit-styles@*)  echo "dir=packages/styles" >> "$GITHUB_OUTPUT" ;;
+            textbit-agent@*)   echo "dir=packages/agent" >> "$GITHUB_OUTPUT" ;;
             *)                 echo "dir=packages/textbit" >> "$GITHUB_OUTPUT" ;;
           esac
       - name: Check the tag matches the package version

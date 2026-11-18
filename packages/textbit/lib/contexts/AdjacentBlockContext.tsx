@@ -1,9 +1,7 @@
 import { createContext } from 'react'
+import type { AdjacentBlockState } from '../types/adjacentBlock'
 
-export interface AdjacentBlockState {
-  blockId: string
-  direction: 'before' | 'after' // 'before' = cursor arrived from preceding block, 'after' = from following block
-}
+export type { AdjacentBlockState }
 
 export const AdjacentBlockContext = createContext<AdjacentBlockState | null>(null)
 

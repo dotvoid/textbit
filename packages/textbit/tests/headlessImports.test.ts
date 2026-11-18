@@ -10,7 +10,9 @@ import { dirname, resolve } from 'node:path'
  */
 
 const REACT = /^(react|react-dom|slate-react|@slate-yjs\/react)(\/|$)/
-const IMPORT = /^\s*(import|export)\s+(?!type\b)[^'"]*?from\s+['"]([^'"]+)['"]|^\s*import\s+['"]([^'"]+)['"]/gm
+// Type-only imports are followed too: they load nothing, but a component file
+// among them makes a type check of the headless source need JSX
+const IMPORT = /^\s*(import|export)\s+(type\s)?[^'"]*?from\s+['"]([^'"]+)['"]|^\s*import\s+['"]([^'"]+)['"]/gm
 
 function resolveModule(from: string, specifier: string): string | null {
   const base = resolve(dirname(from), specifier)
@@ -40,8 +42,9 @@ function reactImports(entry: string): string[] {
 
     const source = readFileSync(file, 'utf8')
     for (const match of source.matchAll(IMPORT)) {
-      const specifier = match[2] ?? match[3]
-      if (REACT.test(specifier)) {
+      const specifier = match[3] ?? match[4]
+      const typeOnly = !!match[2]
+      if (REACT.test(specifier) && !typeOnly) {
         offenders.push(`${file} -> ${specifier}`)
       } else if (specifier.startsWith('.')) {
         const target = resolveModule(file, specifier)

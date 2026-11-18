@@ -1,0 +1,56 @@
+{
+  "name": "@dotvoid/textbit-agent",
+  "version": "0.0.0",
+  "license": "MIT",
+  "description": "Tools for AI agents to read and edit @dotvoid/textbit documents, alongside people, in any agent framework.",
+  "author": {
+    "name": "Danne Lundqvist"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotvoid/textbit.git",
+    "directory": "packages/agent"
+  },
+  "homepage": "https://github.com/dotvoid/textbit/tree/main/packages/agent#readme",
+  "bugs": {
+    "url": "https://github.com/dotvoid/textbit/issues"
+  },
+  "scripts": {
+    "build": "npm run typecheck && vite build && node scripts/check-headless.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --cache --max-warnings 0",
+    "test": "vitest run",
+    "preversion": "vitest run && npm run build",
+    "postversion": "node ../../scripts/commit-version.mjs textbit-agent@ && git push && git push --tags"
+  },
+  "peerDependencies": {
+    "@dotvoid/textbit": "^2.1.0 || ^3.0.0",
+    "slate": "^0.147.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "esbuild": "*",
+    "eslint": "^9.29.0",
+    "globals": "^16.2.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^7.3.7",
+    "vite-plugin-dts": "^5.0.0",
+    "vitest": "^4.1.12"
+  }
+}

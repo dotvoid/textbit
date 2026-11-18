@@ -2,7 +2,7 @@ import type { BaseEditor, BaseElement, BaseRange, BaseText, Element } from 'slat
 import type { ReactEditor } from 'slate-react'
 import type { HistoryEditor } from 'slate-history'
 import { DebounceFunction } from '../utils/debounce'
-import type { PendingDropsController } from '../contexts/PendingDropsContext'
+import type { PendingDropsController } from './pendingDrops'
 
 export type SpellingError = {
   id: string

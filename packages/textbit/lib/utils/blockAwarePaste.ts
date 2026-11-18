@@ -1,5 +1,5 @@
 import { Editor, Element, Transforms, type Descendant } from 'slate'
-import type { AdjacentBlockState } from '../contexts/AdjacentBlockContext'
+import type { AdjacentBlockState } from '../types/adjacentBlock'
 import type { BlockSelectionState } from '../contexts/BlockSelectionContext'
 import { TEXT_TYPE } from './textType'
 import { convertUnregistered, decodeTextbitTypes } from './clipboard'
