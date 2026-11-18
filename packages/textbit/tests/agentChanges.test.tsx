@@ -59,6 +59,29 @@ describe('what an agent changed, in the text', () => {
     expect(removed?.getAttribute('contenteditable')).toBe('false')
     expect(removed?.hasAttribute('data-tb-ui')).toBe(true)
     expect(container.querySelector('[data-tb="agent-announcer"]')?.textContent).toBe('Assistant changed “teh” to “the”')
+    // The name, once, and no marker on the block: the edit is done
+    expect([...container.querySelectorAll('[data-tb="agent-tag"]')].map((tag) => tag.textContent)).toEqual(['Assistant'])
+    expect(container.querySelector('[data-tb="agent-marker"]')).toBeNull()
+  })
+
+  test('the name shows once per block, on its first change', async () => {
+    const { doc, content } = shared()
+    const awareness = new Awareness(doc)
+    const { container } = render(
+      <TextbitRoot value={content} awareness={awareness}><TextbitEditable /></TextbitRoot>
+    )
+    await settle()
+    const later = change(doc, { path: [0, 0], offset: 14 }, { path: [0, 0], offset: 21 }, 'mistake', 'error')
+    const earlier = change(doc, { path: [0, 0], offset: 10 }, { path: [0, 0], offset: 13 }, 'the', 'teh')
+    await act(async () => {
+      const agent = new Awareness(new Y.Doc())
+      agent.setLocalStateField(AGENT_PRESENCE_FIELD, { name: 'Assistant', status: 'thinking', blocks: [], changes: [later, earlier] })
+      applyAwarenessUpdate(awareness, encodeAwarenessUpdate(agent, [agent.clientID]), 'test')
+    })
+    await settle()
+    const tags = [...container.querySelectorAll('[data-tb="agent-tag"]')]
+    expect(tags).toHaveLength(1)
+    expect(tags[0].closest('.tb-agent-change')?.querySelector('[data-slate-string]')?.textContent).toBe('the')
   })
 
   test('the mark goes when someone edits what it marks', async () => {

@@ -36,7 +36,7 @@ export const App = () => {
 
       <section>
         <h2>With an agent</h2>
-        <p>A document an AI agent edits with you, through MCP. Start <code>npm run lab</code>, connect an MCP client to the agent, see apps/agent-lab, and ask it to change the article. Its marker shows where it works.</p>
+        <p>A document an AI agent edits with you, through MCP. Start <code>npm run lab</code>, connect an MCP client to the agent, see apps/agent-lab, and ask it to change the article. What it changes shows in the text for a moment, and you can keep writing.</p>
         <AgentLab />
       </section>
 

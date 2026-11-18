@@ -58,7 +58,7 @@ describe('agents in the document', () => {
     }
   })
 
-  test('nothing is marked when the agent is idle, or names no block', async () => {
+  test('only writing marks a block: not idle, thinking or reading', async () => {
     const { doc, content } = shared()
     const awareness = new Awareness(doc)
     const { container } = render(
@@ -67,7 +67,8 @@ describe('agents in the document', () => {
     await settle()
     await act(async () => {
       agentPeer(doc, awareness, { name: 'A', status: 'idle', blocks: ['a'] })
-      agentPeer(doc, awareness, { name: 'B', status: 'thinking', blocks: [] })
+      agentPeer(doc, awareness, { name: 'B', status: 'thinking', blocks: ['a'] })
+      agentPeer(doc, awareness, { name: 'C', status: 'reading', blocks: ['b'] })
     })
     await settle()
     expect(container.querySelectorAll('[data-tb="agent-marker"]')).toHaveLength(0)
