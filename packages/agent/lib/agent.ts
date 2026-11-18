@@ -1,7 +1,7 @@
 import { Editor, Element, Node, Text, type Path } from 'slate'
 import { createContext, type AgentContext, type AgentOptions } from './context'
 import { formatElements } from './format'
-import { describeSchema } from './describe'
+import { describeWith } from './describe'
 import { planEdit, runEdit, isStepError, pathOf, type EditOperation, type EditResult } from './edit'
 import { changedSince, recordRevision, revisionOf } from './revisions'
 import { suggestionFor, suggestionStore } from '@dotvoid/textbit/headless'
@@ -203,7 +203,7 @@ export function createDocumentAgent(
       return { revision, matches }
     },
 
-    describe: () => describeSchema(context.schema, context.names),
+    describe: () => describeWith(context.schema, context.names),
 
     edit: (input) => {
       const done = DONE.get(editor) ?? new Map<string, EditResult>()

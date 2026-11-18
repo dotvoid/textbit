@@ -1,4 +1,4 @@
-import { AGENT_PRESENCE_FIELD, type AgentChange, type AgentPresenceState, type AgentStatus } from '@dotvoid/textbit/headless'
+import { AGENT_PRESENCE_FIELD, type TBAgentChange as AgentChange, type TBAgentPresence as AgentPresenceState, type TBAgentStatus as AgentStatus } from '@dotvoid/textbit/headless'
 
 /** What presence needs of a Y.js awareness: setting a field of the local state */
 export interface AwarenessLike {

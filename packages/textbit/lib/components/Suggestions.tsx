@@ -1,6 +1,6 @@
 import { Element, Node } from 'slate'
 import { useSlateStatic } from 'slate-react'
-import { useSuggestions } from '../hooks/useSuggestions'
+import { useSuggestionPlacement } from '../hooks/useSuggestions'
 import { useTextbit } from '../hooks/useTextbit'
 import type { ShownSuggestion } from '../contexts/SuggestionsContext'
 import type { SuggestedBlock } from '../suggestions/types'
@@ -13,7 +13,7 @@ import type { SuggestedBlock } from '../suggestions/types'
  * while there are none.
  */
 export function Suggestions({ className, 'aria-label': label = 'Suggestions' }: { className?: string, 'aria-label'?: string }) {
-  const { suggestions, onBlock, after, accept, reject } = useSuggestions()
+  const { suggestions, onBlock, after, accept, reject } = useSuggestionPlacement()
   const { labels, readOnly } = useTextbit()
   const editor = useSlateStatic()
   if (!suggestions.length) {

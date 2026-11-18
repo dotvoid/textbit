@@ -1,7 +1,7 @@
-import React, { type PropsWithChildren, useContext } from 'react'
+import { type PropsWithChildren, useContext } from 'react'
 import { ReactEditor, useSlateSelection, useSlateStatic } from 'slate-react'
 import { type BaseSelection, Editor, Element } from 'slate'
-import { pipeFromFileInput } from '../../utils/pipes'
+import { consumeFilesFor } from '../../utils/consumeFiles'
 import { TextbitElement } from '../../utils/textbit-element'
 import type { PluginRegistryAction } from '../../contexts/PluginRegistry/lib/types'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
@@ -13,7 +13,7 @@ export function Item({ children, className, action: actionName }: PropsWithChild
   className?: string
   action: string
 }) {
-  const { plugins, actions } = usePluginRegistry()
+  const { actions } = usePluginRegistry()
   const editor = useSlateStatic()
   const selection = useSlateSelection()
   const { setIsOpen } = useContext(MenuContext)
@@ -64,15 +64,7 @@ export function Item({ children, className, action: actionName }: PropsWithChild
       editor,
       type: action.plugin.name,
       options: action.plugin.options,
-      api: {
-        // FIXME: This is just to expose some functionality, but it is not a good way to give access to an api...
-        consumeFileInputChangeEvent: (
-          editor: Editor,
-          e: React.ChangeEvent<HTMLInputElement>
-        ) => {
-          pipeFromFileInput(editor, plugins, e)
-        }
-      }
+      consumeFiles: consumeFilesFor(editor)
     })
 
     // Back to the editor, unless the action moved focus somewhere on purpose

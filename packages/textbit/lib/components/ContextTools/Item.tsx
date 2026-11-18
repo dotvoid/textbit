@@ -1,3 +1,4 @@
+import { consumeFilesFor } from '../../utils/consumeFiles'
 import { Children } from 'react'
 import { useSlateSelection, useSlateSelector, useSlateStatic } from 'slate-react'
 import type { PluginRegistryAction } from '../../contexts/PluginRegistry/lib/types'
@@ -63,6 +64,7 @@ export function Item({ action, className, children }: {
     const defaultAccepted = action.handler({
       editor,
       event,
+      consumeFiles: consumeFilesFor(editor),
       type: action.plugin.name,
       options: {
         ...action.plugin.options

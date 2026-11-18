@@ -1,5 +1,5 @@
 import { Editor, Element, Node, Path, Text, Transforms, type Point } from 'slate'
-import { createTextbitEditor, validate, type TBPluginDefinition, type ValidationIssue } from '@dotvoid/textbit/headless'
+import { createTextbitEditor, validate, type TBPluginDefinition, type TBValidationIssue as ValidationIssue } from '@dotvoid/textbit/headless'
 import type { AgentContext } from './context'
 import { parseElements, FormatError, type ParsedElement } from './format'
 

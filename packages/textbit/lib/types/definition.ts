@@ -21,23 +21,18 @@ export interface ActionEvent {
   stopPropagation(): void
 }
 
-/**
- * @type
- * Defines a generic api function.
- * @todo There must be a better way to expose functionality like this.
- */
-export type ActionHandlerAPI = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: (...args: any[]) => any
-}
-
 export interface ActionHandlerArgs {
   editor: Editor
   type: string
   options?: Options
-  api?: ActionHandlerAPI
   args?: Record<string, unknown>
   event?: ActionEvent
+  /**
+   * Hand files to the plugins that consume them, as a drop does: e.g. what a
+   * person picked in a file dialog an action opened. Given wherever the
+   * editor runs an action: menus, the toolbar and shortcuts.
+   */
+  consumeFiles?: (files: File[]) => void
 }
 
 /**

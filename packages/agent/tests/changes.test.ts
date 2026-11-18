@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest'
 import { Editor, type Descendant } from 'slate'
 import * as Y from 'yjs'
 import { YjsEditor, relativePositionToSlatePoint, slateNodesToInsertDelta } from '@slate-yjs/core'
-import { createTextbitEditor, AGENT_PRESENCE_FIELD, type AgentChange, type AgentPresenceState } from '@dotvoid/textbit/headless'
+import { createTextbitEditor, AGENT_PRESENCE_FIELD, type TBAgentChange as AgentChange, type TBAgentPresence as AgentPresenceState } from '@dotvoid/textbit/headless'
 import { Text, Bold } from '@dotvoid/textbit-plugins/definitions'
 import { createDocumentAgent, createAgentPresence } from '../lib'
 

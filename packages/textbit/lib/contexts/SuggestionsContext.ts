@@ -17,18 +17,29 @@ export interface ShownSuggestion {
   node?: Element
 }
 
+/** What useSuggestions gives hosts */
 export interface SuggestionsValue {
+  /** The suggestions in the document, oldest first */
   suggestions: Suggestion[]
+  /** Each suggested block as the editor shows it, in document order */
+  shown: ShownSuggestion[]
+  /** Accept a block of a suggestion, or every block of it that can be */
+  accept: (suggestionId: string, blockId?: string) => void
+  /** Reject a block of a suggestion, or all of it */
+  reject: (suggestionId: string, blockId?: string) => void
+}
+
+/** The same, and where in the document each block shows: for the editor itself */
+export interface SuggestionsPlacement extends SuggestionsValue {
   /** Changes and deletions, by the id of the block they are on */
   onBlock: Map<string, ShownSuggestion>
   /** Inserted blocks, by the id of the block they follow, or '' for the start */
   after: Map<string, ShownSuggestion[]>
-  accept: (suggestionId: string, blockId?: string) => void
-  reject: (suggestionId: string, blockId?: string) => void
 }
 
-export const SuggestionsContext = createContext<SuggestionsValue>({
+export const SuggestionsContext = createContext<SuggestionsPlacement>({
   suggestions: [],
+  shown: [],
   onBlock: new Map(),
   after: new Map(),
   accept: () => {},

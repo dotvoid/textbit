@@ -8,6 +8,7 @@ import type { PluginDefinition } from '../types'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { createRegistry } from '../contexts/PluginRegistry/lib/createRegistry'
 import { editorPlugins } from './editorPlugins'
+import { rememberPlugins } from './pluginsOf'
 import { withLang } from '../with/withLang'
 import { withSpeling, type OnSpellcheckCallback } from '../with/withSpeling'
 import { withTextbitElements } from '../with/withTextbitElements'
@@ -82,6 +83,7 @@ export function withTextbit(
 ): Editor {
   const { plugins, components } = options
   let editor = base
+  rememberPlugins(base, plugins)
 
   if (!options.shared) {
     editor = withHistory(editor)

@@ -48,7 +48,8 @@ export function SuggestionsProvider({ children }: { children: ReactNode }) {
     }
   }, [editor])
 
-  const value = useMemo(() => ({ suggestions, onBlock, after, accept, reject }), [suggestions, onBlock, after, accept, reject])
+  const shown = useMemo(() => inOrder(editor, onBlock, after), [editor, onBlock, after])
+  const value = useMemo(() => ({ suggestions, shown, onBlock, after, accept, reject }), [suggestions, shown, onBlock, after, accept, reject])
   return <SuggestionsContext.Provider value={value}>{children}</SuggestionsContext.Provider>
 }
 
@@ -76,6 +77,18 @@ function placed(editor: Editor, suggestions: Suggestion[]) {
     }
   }
   return { onBlock, after }
+}
+
+/** Every shown block in document order: inserts at the start, then each block and what follows it */
+function inOrder(editor: Editor, onBlock: Map<string, ShownSuggestion>, after: Map<string, ShownSuggestion[]>): ShownSuggestion[] {
+  const ordered = [...after.get('') ?? []]
+  for (const node of editor.children) {
+    if (Element.isElement(node) && typeof node.id === 'string') {
+      const here = onBlock.get(node.id)
+      ordered.push(...here ? [here] : [], ...after.get(node.id) ?? [])
+    }
+  }
+  return ordered
 }
 
 /** The block an inserted one shows after: its anchor, or the anchor's, until one is in the document */

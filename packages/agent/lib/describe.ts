@@ -1,5 +1,5 @@
-import type { DocumentSchema, ElementTypeSchema, TBPropertySchema } from '@dotvoid/textbit/headless'
-import type { Names } from './names'
+import type { TBDocumentSchema as DocumentSchema, TBElementTypeSchema as ElementTypeSchema, TBPropertySchema } from '@dotvoid/textbit/headless'
+import { createNames, type Names } from './names'
 
 /** How the document reads and is written, for a model */
 export const FORMAT_GUIDE = `The document is shown one element per line, children indented two spaces under their parent:
@@ -12,8 +12,17 @@ A line starts with its header: the element's handle after #, its type, and its p
 Refer to an element by its handle. Write new content in the same lines, without handles: the editor gives new elements their ids and adds required children you leave out.
 An element marked unknown belongs to a plugin this editor does not have. Leave it as it is.`
 
-/** The element types, marks and inline elements of a schema, for a model */
-export function describeSchema(schema: DocumentSchema, names: Names): string {
+/**
+ * The element types, marks and inline elements of a schema, as a model reads
+ * them, with the short names of the line format: what the `document_types`
+ * tool returns. `schema` is from `getSchema(plugins)`.
+ */
+export function describeSchema(schema: DocumentSchema): string {
+  return describeWith(schema, createNames(schema))
+}
+
+/** The same, with names an agent already has */
+export function describeWith(schema: DocumentSchema, names: Names): string {
   const elements = Object.values(schema.elements)
   const top = schema.topLevel.map((type) => schema.elements[type])
   const inlines = elements.filter((element) => element.class === 'inline' && !element.parent)

@@ -97,6 +97,7 @@ export { StandardPlugins as Plugins }
 export const Gutter = Gutter$1.Content
 export { ContextMenu }
 export { SpecialCharacterPicker }
+export { Suggestions }
 
 // Opt-in plugins. Kept out of the Textbit object so hosts that never use them
 // do not keep their data.
@@ -121,16 +122,16 @@ export { useContextMenuHints } from './components/ContextMenu/useContextMenuHint
 export { useSelectionBounds } from './hooks/useSelectionBounds'
 export { useEditor } from './hooks/useEditor'
 export { useBlockSelection } from './hooks/useBlockSelection'
-export { useSelectionStats, type SelectionStats } from './hooks/useSelectionStats'
+export { useSelectionStats, type SelectionStats as TBSelectionStats } from './hooks/useSelectionStats'
 export { usePendingDrops } from './hooks/usePendingDrops'
 export { useAgents } from './hooks/useAgents'
 export { useAgentChanges } from './hooks/useAgentChanges'
 export { useSuggestions } from './hooks/useSuggestions'
 export type { ShownSuggestion as TBShownSuggestion } from './contexts/SuggestionsContext'
-export type { ResolvedAgentChange as TBAgentChange } from './utils/agentChanges'
-export type { PresentAgent } from './contexts/AgentPresenceContext'
-export { AGENT_PRESENCE_FIELD, type AgentPresenceState, type AgentStatus, type AgentChange } from './types/agentPresence'
-export { PendingDropsContext, type PendingDrop } from './contexts/PendingDropsContext'
+export type { ResolvedAgentChange as TBShownAgentChange } from './utils/agentChanges'
+export type { PresentAgent as TBPresentAgent } from './contexts/AgentPresenceContext'
+export { AGENT_PRESENCE_FIELD, type AgentPresenceState as TBAgentPresence, type AgentStatus as TBAgentStatus, type AgentChange as TBAgentChange } from './types/agentPresence'
+export { PendingDropsContext, type PendingDrop as TBPendingDrop } from './contexts/PendingDropsContext'
 
 export {
   pipeFromDrop as consumeFileDropEvent,
@@ -138,14 +139,29 @@ export {
 } from './utils/pipes'
 
 // An editor without a user interface, to read, change or check documents
-export { createTextbitEditor, type TextbitEditorOptions } from './editor/createTextbitEditor'
-export { getSchema, type DocumentSchema, type ElementTypeSchema } from './schema/getSchema'
-export { validate, type ValidationIssue, type ValidationCode } from './schema/validate'
-export { toJsonSchema, type JsonSchema } from './schema/toJsonSchema'
+export { createTextbitEditor, type TextbitEditorOptions as TBEditorOptions } from './editor/createTextbitEditor'
+export { getSchema, type DocumentSchema as TBDocumentSchema, type ElementTypeSchema as TBElementTypeSchema } from './schema/getSchema'
+export { validate, type ValidationIssue as TBValidationIssue, type ValidationCode as TBValidationCode } from './schema/validate'
+export { toJsonSchema, type JsonSchema as TBJsonSchema } from './schema/toJsonSchema'
 
 // Suggestions: changes proposed for a person to accept or reject
-export * from './suggestions'
+export {
+  suggestionStore,
+  SUGGESTIONS_MAP,
+  suggestionFor,
+  suggestedBlockState,
+  suggestedTextChanges,
+  acceptSuggestedBlock,
+  rejectSuggestedBlock,
+  acceptSuggestion,
+  rejectSuggestion,
+  type Suggestion as TBSuggestion,
+  type SuggestedBlock as TBSuggestedBlock,
+  type SuggestionStore as TBSuggestionStore,
+  type ReviewResult as TBReviewResult
+} from './suggestions'
 export { hashNode } from './utils/hashNode'
+export { diffWords, type TextChange as TBTextChange } from './utils/diffWords'
 
 export { calculateStats } from './utils/calculateStats'
 export { TextbitEditor } from './utils/textbit-editor'

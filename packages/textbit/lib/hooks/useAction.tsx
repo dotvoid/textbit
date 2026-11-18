@@ -1,3 +1,4 @@
+import { consumeFilesFor } from '../utils/consumeFiles'
 import { useSlateStatic } from 'slate-react'
 import { usePluginRegistry } from './usePluginRegistry'
 
@@ -15,6 +16,7 @@ export function useAction(pluginName: string, actionName: string): ((args?: Reco
   return (args) => {
     action.handler({
       editor,
+      consumeFiles: consumeFilesFor(editor),
       type: pluginName,
       options: action.plugin.options,
       args

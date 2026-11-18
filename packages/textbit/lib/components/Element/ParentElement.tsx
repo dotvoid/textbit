@@ -6,7 +6,7 @@ import { useBlockSelection } from '../../hooks/useBlockSelection'
 import { AgentMarker } from './AgentMarker'
 import { SuggestionBar } from './SuggestionBar'
 import { SuggestedBlock } from './SuggestedBlock'
-import { useSuggestions } from '../../hooks/useSuggestions'
+import { useSuggestionPlacement } from '../../hooks/useSuggestions'
 import { CSSProperties } from 'react'
 
 interface ParentElementProps extends RenderElementProps {
@@ -26,7 +26,7 @@ export function ParentElement(renderProps: ParentElementProps) {
   const adjacentBlock = useAdjacentBlock()
   const blockSelection = useBlockSelection()
   const { element, attributes, entry } = renderProps
-  const suggestions = useSuggestions()
+  const suggestions = useSuggestionPlacement()
   if (entry.asOwnElement) return null
 
   // What is suggested on this block, and blocks suggested after it (or, on

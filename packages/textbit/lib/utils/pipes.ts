@@ -34,12 +34,14 @@ export type AggregatedPipe = Array<AggregatedPipeItem>
  * Create and execute a consumer pipe from a file input change event
  */
 export function pipeFromFileInput(editor: Editor, plugins: PluginDefinition[], e: ChangeEvent<HTMLInputElement>) {
-  const pipe = []
-  const files = e.target.files
-
-  if (!files) {
-    return
+  if (e.target.files) {
+    pipeFromFiles(editor, plugins, [...e.target.files], e)
   }
+}
+
+/** Hand files to the consumers, after the selected block or at the end */
+export function pipeFromFiles(editor: Editor, plugins: PluginDefinition[], files: File[], e?: ChangeEvent<HTMLInputElement>) {
+  const pipe = []
 
   for (const file of files) {
     const item = {
@@ -61,18 +63,13 @@ export function pipeFromFileInput(editor: Editor, plugins: PluginDefinition[], e
   const aggregatedPipe = aggregateConsumersInPipe(pipe)
 
   let position = 0
-  const entries = getSelectedNodeEntries(editor)
+  // Without a selection, at the end
+  const entries = editor.selection ? getSelectedNodeEntries(editor) : undefined
   if (entries) {
     const [, entry] = entries[entries.length - 1]
     position = entry[0] + 1
   } else {
-    const nodes = Array.from(Editor.nodes(editor, {
-      at: [0],
-      match: (n) => {
-        return (!Editor.isEditor(n) && Element.isElement(n))
-      }
-    }))
-    position = nodes.length
+    position = editor.children.length
   }
 
   executeAggregatedPipe(editor, aggregatedPipe, plugins, e, position)
@@ -225,10 +222,10 @@ function initPipeForDrop(dt: DataTransfer) {
  * +---+    +---+---+
  *   ^
  */
-async function executeAggregatedPipe(editor: Editor, aggregatedPipe: AggregatedPipe, plugins: PluginDefinition[], e: React.DragEvent | React.ChangeEvent, position: number) {
+async function executeAggregatedPipe(editor: Editor, aggregatedPipe: AggregatedPipe, plugins: PluginDefinition[], e: React.DragEvent | React.ChangeEvent | undefined, position: number) {
   if (aggregatedPipe.length) {
-    e.preventDefault()
-    e.stopPropagation()
+    e?.preventDefault()
+    e?.stopPropagation()
 
     let offset = 0
     for (const pipe of aggregatedPipe) {

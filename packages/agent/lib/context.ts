@@ -1,5 +1,5 @@
 import type { Descendant } from 'slate'
-import { getSchema, type DocumentSchema, type TBPluginDefinition } from '@dotvoid/textbit/headless'
+import { getSchema, type TBDocumentSchema as DocumentSchema, type TBPluginDefinition } from '@dotvoid/textbit/headless'
 import { createNames, type Names } from './names'
 import { createHandles, type Handles } from './handles'
 
