@@ -24,7 +24,6 @@ import { withInsertFragment } from '../with/withInsertFragment'
 import { withTrimWhitespace } from '../with/withTrimWhitespace'
 import { withSelectionGuard } from '../with/withSelectionGuard'
 import { withRemoteDeltaGuard } from '../with/withRemoteDeltaGuard'
-import { withRemoteNormalization } from '../with/withRemoteNormalization'
 
 export interface TextbitEditorOptions {
   /** The plugins, after core's own. Without any, a plain text block. */
@@ -107,7 +106,6 @@ export function withTextbit(
     // bound to the same shared root in this client.
     if (YjsEditor.isYjsEditor(editor)) {
       withRemoteDeltaGuard(editor)
-      withRemoteNormalization(editor)
     }
   }
 
