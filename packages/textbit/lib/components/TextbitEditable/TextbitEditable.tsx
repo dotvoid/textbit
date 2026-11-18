@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Editor, Element, Node, type NodeEntry, Path, Range, Text, Transforms } from 'slate'
 import { Editable, ReactEditor, useFocused, useSlateSelector, type RenderElementProps, type RenderLeafProps } from 'slate-react'
 import { getDecorationRanges } from '../../utils/getDecorationRanges'
+import { useAgentChanges } from '../../hooks/useAgentChanges'
+import { AgentAnnouncer } from './AgentAnnouncer'
+import { YjsEditor } from '@slate-yjs/core'
 import { ElementComponent } from '../Element/Element'
 import { LeafElement } from '../Element/LeafElement'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
@@ -167,6 +170,9 @@ export function TextbitEditable(props: TextbitEditableProps) {
     (e) => e.children.every((c) => Node.string(c) === '')
   )
 
+  // What agents changed, shown in the text
+  const { changes: agentChanges } = useAgentChanges()
+
   // Render decorate callback
   const decorate = useCallback((entry: NodeEntry) => {
     return getDecorationRanges(
@@ -178,7 +184,8 @@ export function TextbitEditable(props: TextbitEditableProps) {
       placeholder,
       editorIsEmpty,
       isSpellingAccepted,
-      decorations
+      decorations,
+      agentChanges
     )
   }, [
     editor,
@@ -188,7 +195,8 @@ export function TextbitEditable(props: TextbitEditableProps) {
     spellingLookupTable,
     editorIsEmpty,
     isSpellingAccepted,
-    decorations
+    decorations,
+    agentChanges
   ])
 
   const handleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
@@ -587,6 +595,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
                   aria-label={props['aria-label']}
                 />
                 {props.children}
+                {YjsEditor.isYjsEditor(editor) && <AgentAnnouncer />}
               </PresenceOverlay>
             </PendingDropsProvider>
           </DragStateProvider>

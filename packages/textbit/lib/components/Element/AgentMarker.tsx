@@ -27,6 +27,7 @@ export function AgentMarker({ blockId }: { blockId?: string }) {
       contentEditable={false}
       aria-hidden
       data-tb='agent-marker'
+      data-tb-ui=''
       data-status={first.status}
       style={{
         position: 'absolute',

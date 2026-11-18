@@ -14,6 +14,7 @@ import { debounce as debounceCall } from '../utils/debounce'
 import { YjsEditor } from '@slate-yjs/core'
 import { TEXT_TYPE } from '../utils/textType'
 import { AgentPresenceProvider } from '../contexts/AgentPresenceProvider'
+import { AgentChangesProvider } from '../contexts/AgentChangesProvider'
 
 interface SlateContainerBaseProps {
   children: React.ReactNode
@@ -148,7 +149,9 @@ export function SlateContainer(props: SlateContainerProps) {
   return (
     <Slate editor={editor} initialValue={initialValue} onChange={onChangeCallback ?? noop}>
       <AgentPresenceProvider editor={editor}>
-        {children}
+        <AgentChangesProvider>
+          {children}
+        </AgentChangesProvider>
       </AgentPresenceProvider>
     </Slate>
   )

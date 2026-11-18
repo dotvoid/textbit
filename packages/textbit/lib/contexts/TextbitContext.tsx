@@ -17,6 +17,10 @@ export interface TextbitLabels {
   agentReading: string
   agentWriting: string
   agentThinking: string
+  /** Announced when an agent changes text; {name}, {added} and {removed} are filled in */
+  agentReplaced: string
+  agentAdded: string
+  agentDeleted: string
 }
 
 export const DEFAULT_LABELS: TextbitLabels = {
@@ -24,7 +28,10 @@ export const DEFAULT_LABELS: TextbitLabels = {
   unknownRemove: 'Remove',
   agentReading: '{name} is reading',
   agentWriting: '{name} is writing',
-  agentThinking: '{name} is thinking'
+  agentThinking: '{name} is thinking',
+  agentReplaced: '{name} changed “{removed}” to “{added}”',
+  agentAdded: '{name} added “{added}”',
+  agentDeleted: '{name} removed “{removed}”'
 }
 
 export interface TextbitState {

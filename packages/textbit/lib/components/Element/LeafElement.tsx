@@ -4,6 +4,7 @@ import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 import { TextbitPlugin } from '../../utils/textbit-plugin'
 import type { SpellingError } from '../../types'
 import { getLeafMarkIds } from '../../utils/decorationMarks'
+import { AgentRemoved } from './AgentRemoved'
 
 /**
  * Render a leaf
@@ -69,6 +70,24 @@ export function LeafElement(props: RenderLeafProps) {
   const mark = markIds.length ? markIds.join(' ') : undefined
   if (mark) {
     className += ' tb-mark'
+  }
+
+  // What an agent changed: its new text tinted in its colour, and the text
+  // it removed struck through beside it
+  if (leaf.agentChange) {
+    className += ' tb-agent-change'
+    const color = (typeof leaf.agentColor === 'string' && leaf.agentColor) || 'var(--tb-agent-color, #7c3aed)'
+    style = { ...style, backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)`, borderRadius: 2 }
+  }
+  if (typeof leaf.agentRemoved === 'string' && leaf.agentRemoved) {
+    const color = typeof leaf.agentColor === 'string' ? leaf.agentColor : undefined
+    const removed = <AgentRemoved text={leaf.agentRemoved} color={color} />
+    props = {
+      ...props,
+      children: leaf.agentRemovedAt === 'after'
+        ? <>{props.children}{removed}</>
+        : <>{removed}{props.children}</>
+    }
   }
 
   if (leaf.spellingError) {
@@ -150,6 +169,7 @@ function Placeholder({ value, style, ref }: { value: string, style: CSSPropertie
     <div
       ref={ref}
       data-slate-placeholder={true}
+      data-tb-ui=''
       style={{
         ...style,
         opacity: 0.333,
