@@ -1,0 +1,27 @@
+{
+  "name": "textbit-agent-lab",
+  "private": true,
+  "type": "module",
+  "description": "A real agent in a shared textbit document: a document server and an MCP server for any MCP client.",
+  "scripts": {
+    "server": "node src/server.ts",
+    "mcp": "node src/mcp.ts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dotvoid/textbit": "*",
+    "@dotvoid/textbit-agent": "*",
+    "@dotvoid/textbit-plugins": "*",
+    "@hocuspocus/provider": "^4.8.0",
+    "@hocuspocus/server": "^4.8.0",
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@slate-yjs/core": "^1.0.2",
+    "slate": "^0.147.4",
+    "y-protocols": "^1.0.5",
+    "yjs": "^13.6.26"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "~5.8.3"
+  }
+}

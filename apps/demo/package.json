@@ -12,11 +12,12 @@
     "@dotvoid/textbit": "*",
     "@dotvoid/textbit-plugins": "*",
     "@dotvoid/textbit-styles": "*",
+    "@hocuspocus/provider": "^4.8.0",
+    "@slate-yjs/core": "^1.0.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "slate": "^0.147.4",
     "slate-react": "^0.147.6",
-    "@slate-yjs/core": "^1.0.2",
     "y-protocols": "^1.0.5",
     "yjs": "^13.6.26"
   },

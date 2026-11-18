@@ -36,7 +36,7 @@
     "url": "https://github.com/dotvoid/textbit/issues"
   },
   "scripts": {
-    "build": "npm run typecheck && vite build && node scripts/check-treeshake.mjs",
+    "build": "npm run typecheck && vite build && node ../../scripts/fix-dts-extensions.mjs && node scripts/check-treeshake.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint . --cache --max-warnings 0",
     "test": "vitest run",

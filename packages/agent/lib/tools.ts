@@ -1,5 +1,6 @@
 import type { JsonSchema } from '@dotvoid/textbit/headless'
-import type { DocumentAgent } from './agent'
+import type { DocumentAgent, ReadResult, SearchResult } from './agent'
+import type { EditResult } from './edit'
 import { FORMAT_GUIDE } from './describe'
 
 /**
@@ -12,6 +13,12 @@ export interface AgentTool {
   description: string
   inputSchema: JsonSchema
   handler: (input: Record<string, unknown>) => unknown
+  /**
+   * The handler's result as text for a model, the document's lines as they
+   * are rather than escaped in JSON. For hosts that pass tool results as text,
+   * as MCP and most model SDKs do.
+   */
+  toText: (result: unknown) => string
 }
 
 const PLACEMENT = {
@@ -92,7 +99,11 @@ export function createAgentTools(agent: DocumentAgent, options: { prefix?: strin
       handler: (input) => agent.read({
         ...(typeof input.from === 'string' ? { from: input.from } : {}),
         ...(typeof input.limit === 'number' ? { limit: input.limit } : {})
-      })
+      }),
+      toText: (result) => {
+        const { revision, total, next, view } = result as ReadResult
+        return `revision: ${revision}\n${total} top-level elements${next ? `; more from ${next}` : ''}\n\n${view}`
+      }
     },
     {
       name: `${prefix}search`,
@@ -108,13 +119,23 @@ export function createAgentTools(agent: DocumentAgent, options: { prefix?: strin
       handler: (input) => agent.search({
         query: String(input.query ?? ''),
         ...(typeof input.limit === 'number' ? { limit: input.limit } : {})
-      })
+      }),
+      toText: (result) => {
+        const { revision, matches } = result as SearchResult
+        return [
+          `revision: ${revision}`,
+          matches.length ? `${matches.length} found` : 'Not found',
+          '',
+          ...matches.map((match) => match.in ? `${match.line}    (in #${match.in})` : match.line)
+        ].join('\n')
+      }
     },
     {
       name: `${prefix}types`,
       description: 'The element types this document can hold, with their properties, children, marks and inline elements.',
       inputSchema: { type: 'object', properties: {} },
-      handler: () => ({ types: agent.describe() })
+      handler: () => ({ types: agent.describe() }),
+      toText: (result) => (result as { types: string }).types
     }
   ]
 
@@ -136,9 +157,24 @@ export function createAgentTools(agent: DocumentAgent, options: { prefix?: strin
         },
         required: ['operations']
       },
-      handler: (input) => agent.edit(input as unknown as Parameters<DocumentAgent['edit']>[0])
+      handler: (input) => agent.edit(input as unknown as Parameters<DocumentAgent['edit']>[0]),
+      toText: (result) => editText(result as EditResult)
     })
   }
 
   return tools
+}
+
+function editText(result: EditResult): string {
+  if (result.ok) {
+    return `Done. revision: ${result.revision}\n\n${result.view}`
+  }
+  const { error } = result
+  return [
+    `Nothing was changed. ${error.code}${error.operation !== undefined ? ` in operation ${error.operation}` : ''}: ${error.message}`,
+    ...error.hint ? [error.hint] : [],
+    ...(error.issues ?? []).map((issue) => `- ${issue.code}${issue.element ? ` at #${issue.element.slice(0, 8)}` : ''}: ${issue.message}`),
+    `revision: ${result.revision}`,
+    ...result.view ? ['', result.view] : []
+  ].join('\n')
 }
