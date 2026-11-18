@@ -1,4 +1,4 @@
-import type { TBConsumeFunction } from '@dotvoid/textbit'
+import type { TBConsumeFunction } from '@dotvoid/textbit/headless'
 import { type BaseRange, Editor, Node, Path, Text, Transforms } from 'slate'
 
 const LOCALIZED_QUOTES: Record<string, string[]> = {

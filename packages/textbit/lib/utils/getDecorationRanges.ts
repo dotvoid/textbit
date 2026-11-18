@@ -125,7 +125,7 @@ export function getDecorationRanges(
         || (placeholders === 'single' && isFirstBlock && editorIsEmpty !== false)
 
       if (showPlaceholder) {
-        const entryPlaceholder = components.get(parentNode.type)?.componentEntry?.placeholder
+        const entryPlaceholder = components.get(parentNode.type)?.spec?.placeholder
         const value = (placeholders === 'single')
           ? placeholder
           : (typeof entryPlaceholder === 'function')

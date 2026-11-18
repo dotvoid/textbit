@@ -5,10 +5,10 @@ import { Editor, Node, Transforms, type Descendant, type Element, type Point } f
 import { useSlateStatic } from 'slate-react'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
-import { Text } from '../lib/components/core/Text'
+import { Text } from '../lib/plugins/Text'
 import { prepareBlockAwarePaste } from '../lib/utils/blockAwarePaste'
 import { TEXTBIT_TYPES_FORMAT, clipboardFragment } from '../lib/utils/clipboard'
-import type { ComponentProps, PluginDefinition } from '../lib/types'
+import type { ComponentProps, Plugin } from '../lib/types'
 import { Bold } from './_leafs'
 
 // slate-react only handles events on editable targets, checked with
@@ -27,45 +27,67 @@ beforeAll(() => {
 
 const Box = ({ children }: ComponentProps) => <div>{children}</div>
 
-const Image: PluginDefinition = {
+const Image: Plugin = {
   class: 'block',
   name: 'test/image',
-  componentEntry: {
+  element: {
     class: 'block',
-    component: Box,
     children: [
-      { type: 'image', class: 'void', component: ({ children }) => <><div contentEditable={false}><img alt='' data-testid='img' /></div>{children}</> },
-      { type: 'caption', class: 'text', component: Box },
-      { type: 'byline', class: 'text', component: Box }
+      { type: 'image', class: 'void' },
+      { type: 'caption', class: 'text' },
+      { type: 'byline', class: 'text' }
     ]
+  },
+  view: {
+    components: {
+      'test/image': { component: Box },
+      'test/image/image': {
+        component: ({ children }) => <><div contentEditable={false}><img alt='' data-testid='img' /></div>{children}</>
+      },
+      'test/image/caption': { component: Box },
+      'test/image/byline': { component: Box }
+    }
   }
 }
 
 const onHeaderButton = vi.fn()
-const Factbox: PluginDefinition = {
+const Factbox: Plugin = {
   class: 'block',
   name: 'test/factbox',
-  componentEntry: {
+  element: {
     class: 'block',
-    component: ({ children }) => (
-      <div>
-        <div contentEditable={false} data-testid='factbox-header'>
-          Factbox <button type='button' onClick={onHeaderButton}>Collapse</button>
-        </div>
-        {children}
-      </div>
-    ),
     children: [
-      { type: 'title', class: 'text', component: Box },
-      { type: 'body', class: 'text', component: Box }
+      { type: 'title', class: 'text' },
+      { type: 'body', class: 'text' }
     ]
+  },
+  view: {
+    components: {
+      'test/factbox': {
+        component: ({ children }) => (
+          <div>
+            <div contentEditable={false} data-testid='factbox-header'>
+              Factbox <button type='button' onClick={onHeaderButton}>Collapse</button>
+            </div>
+            {children}
+          </div>
+        )
+      },
+      'test/factbox/title': { component: Box },
+      'test/factbox/body': { component: Box }
+    }
   }
 }
 
-const Link: PluginDefinition = {
+const Link: Plugin = {
   class: 'inline',
   name: 'test/link',
-  componentEntry: { class: 'inline', component: ({ children }) => <a href='#'>{children}</a> }
+  element: { class: 'inline' },
+  view: {
+    components: {
+      'test/link': { component: ({ children }) => <a href='#'>{children}</a> }
+    }
+  }
 }
 
 const ALL = [Text(), Bold(), Image, Factbox, Link]
@@ -92,7 +114,7 @@ const article = (): Descendant[] => [
   p('p0', 'Before image'), image(), p('p2', 'After one'), p('p3', 'After two'), factbox()
 ]
 
-function setup(options: { plugins?: PluginDefinition[], value?: Descendant[], readOnly?: boolean, extra?: React.ReactNode } = {}) {
+function setup(options: { plugins?: Plugin[], value?: Descendant[], readOnly?: boolean, extra?: React.ReactNode } = {}) {
   let editor: Editor | undefined
   function Capture() {
     editor = useSlateStatic()

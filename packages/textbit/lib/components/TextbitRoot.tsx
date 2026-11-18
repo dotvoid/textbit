@@ -1,10 +1,10 @@
 import type { PlaceholdersVisibility } from '../contexts/TextbitContext'
 import { TextbitProvider } from '../contexts/TextbitProvider'
 import { PluginRegistryProvider } from '../contexts/PluginRegistry/PluginRegistryProvider'
-import type { PluginDefinition, SpellingError } from '../types'
+import type { Plugin, SpellingError } from '../types'
 import type { Awareness } from 'y-protocols/awareness'
 
-import { basePlugins, StandardPlugins } from './core'
+import { basePlugins, StandardPlugins } from '../plugins'
 import { ContextMenuHintsProvider } from './ContextMenu/ContextMenuHintsProvider'
 import { SelectionBoundsProvider } from '../contexts/SelectionBoundsProvider'
 import { Descendant } from 'slate'
@@ -22,7 +22,7 @@ interface TextbitRootBaseProps {
   spellcheckDebounce?: number
   placeholders?: PlaceholdersVisibility
   placeholder?: string
-  plugins?: PluginDefinition[]
+  plugins?: Plugin[]
   className?: string
   style?: React.CSSProperties
   dir?: 'ltr' | 'rtl'

@@ -6,31 +6,35 @@ import type { Descendant, Editor, Element } from 'slate'
 import { Editor as SlateEditor } from 'slate'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
-import type { PluginDefinition } from '../lib/types'
+import type { Plugin } from '../lib/types'
 
 // Minimal plugin set: a base/text paragraph (the repair target) and a base/link
 // inline element (to prove inline children don't block the repair).
-const testTextPlugin: PluginDefinition = {
+const testTextPlugin: Plugin = {
   class: 'text',
   name: 'base/text',
-  componentEntry: {
-    class: 'text',
-    component: ({ children, attributes }) => <p {...attributes}>{children}</p>
+  element: { class: 'text' },
+  view: {
+    components: {
+      'base/text': { component: ({ children, attributes }) => <p {...attributes}>{children}</p> }
+    }
   }
 }
 
-const testLinkPlugin: PluginDefinition = {
+const testLinkPlugin: Plugin = {
   class: 'inline',
   name: 'base/link',
-  componentEntry: {
-    class: 'inline',
-    component: ({ children, attributes }) => <a {...attributes}>{children}</a>
+  element: { class: 'inline' },
+  view: {
+    components: {
+      'base/link': { component: ({ children, attributes }) => <a {...attributes}>{children}</a> }
+    }
   }
 }
 
 function makeEditor(
   content: Descendant[],
-  plugins: PluginDefinition[] = [testTextPlugin, testLinkPlugin]
+  plugins: Plugin[] = [testTextPlugin, testLinkPlugin]
 ): Editor {
   function Wrapper({ children }: PropsWithChildren) {
     return (

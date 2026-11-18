@@ -1,15 +1,15 @@
-import { TextbitEditor } from '../../../utils/textbit-editor'
-import { PluginInitFunction, ComponentProps } from '../../../types'
-import { TEXT_TYPE } from '../../../utils/textType'
+import { TextbitEditor } from '../utils/textbit-editor'
+import type { PluginDefinition } from '../types/definition'
+import { TEXT_TYPE } from '../utils/textType'
 
 
-export const Text: PluginInitFunction = () => {
+/** A plain paragraph, core's text block */
+export const Text = (): PluginDefinition => {
   return {
     class: 'text',
     name: TEXT_TYPE,
-    componentEntry: {
+    element: {
       class: 'text',
-      component: TextComponent,
       placeholder: '¶'
     },
     actions: [{
@@ -29,7 +29,3 @@ export const Text: PluginInitFunction = () => {
   }
 }
 
-
-function TextComponent(props: ComponentProps) {
-  return <>{props.children}</>
-}

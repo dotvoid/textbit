@@ -1,4 +1,4 @@
-import type { TBConsumesFunction } from '@dotvoid/textbit'
+import type { TBConsumesFunction } from '@dotvoid/textbit/headless'
 
 export const consumes: TBConsumesFunction = ({ input }) => {
   const { data, type } = input

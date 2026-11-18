@@ -17,10 +17,9 @@ function plugin(min: number, max: number): PluginDefinition {
   return {
     class: 'block',
     name: 'test/fields',
-    componentEntry: {
+    element: {
       class: 'block',
-      component: () => null,
-      children: [{ type: 'field', class: 'text', component: () => null, constraints: { min, max } }]
+      children: [{ type: 'field', class: 'text', constraints: { min, max } }]
     }
   }
 }
@@ -35,9 +34,9 @@ async function concurrently(
   edits: [(editor: YjsEditor) => void, (editor: YjsEditor) => void]
 ): Promise<[string[], string[]]> {
   const components = registerComponents(
-    registerComponents(new Map(), 'base/text', { class: 'text', component: () => null }),
+    registerComponents(new Map(), 'base/text', { type: 'base/text', class: 'text' }),
     definition.name,
-    definition.componentEntry!
+    { type: definition.name, ...definition.element ?? { class: 'block' } }
   )
   const base = new Y.Doc()
   base.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta([

@@ -17,7 +17,8 @@
     // Type-check against the editor's source, so nothing has to be built first.
     // The build keeps `@dotvoid/textbit` as an import; see vite.config.ts.
     "paths": {
-      "@dotvoid/textbit": ["../textbit/lib/main.ts"]
+      "@dotvoid/textbit": ["../textbit/lib/main.ts"],
+      "@dotvoid/textbit/headless": ["../textbit/lib/headless.ts"]
     }
   },
   "include": ["lib", "tests"]

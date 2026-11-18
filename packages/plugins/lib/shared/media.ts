@@ -1,4 +1,4 @@
-import type { TBActionHandlerArgs, TBConsumeFunction, TBConsumesFunction } from '@dotvoid/textbit'
+import type { TBActionHandlerArgs, TBConsumeFunction, TBConsumesFunction } from '@dotvoid/textbit/headless'
 import type { Element } from 'slate'
 
 /**

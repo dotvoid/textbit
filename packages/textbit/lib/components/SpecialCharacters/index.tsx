@@ -1,4 +1,4 @@
-import type { PluginInitFunction } from '../../types'
+import type { Plugin } from '../../types'
 import { insertTextAtCaret } from '../../utils/insertTextAtCaret'
 import { SPECIAL_CHARACTERS } from './characters'
 import { openSpecialCharacters, SPECIAL_CHARACTERS_PLUGIN } from './open'
@@ -21,7 +21,7 @@ export type SpecialCharactersOptions = {
  * caret. Place `Textbit.SpecialCharacterPicker` in the editor to show it, and
  * open it with the `open` action from a shortcut, menu or context menu.
  */
-export const SpecialCharacters: PluginInitFunction<SpecialCharactersOptions> = (options) => {
+export const SpecialCharacters = (options?: SpecialCharactersOptions): Plugin => {
   return {
     class: 'generic',
     name: SPECIAL_CHARACTERS_PLUGIN,
@@ -33,7 +33,6 @@ export const SpecialCharacters: PluginInitFunction<SpecialCharactersOptions> = (
         name: 'open',
         title: 'Insert special character',
         hotkey: options?.hotkey,
-        tool: () => <span aria-hidden='true'>Ω</span>,
         // Menu items only show actions that say they are visible
         visibility: () => [true, true, false],
         handler: ({ editor, event }) => {
@@ -49,7 +48,10 @@ export const SpecialCharacters: PluginInitFunction<SpecialCharactersOptions> = (
           }
         }
       }
-    ]
+    ],
+    view: {
+      tools: { open: () => <span aria-hidden='true'>Ω</span> }
+    }
   }
 }
 

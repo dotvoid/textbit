@@ -7,10 +7,13 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      '@dotvoid/textbit-plugins': resolve(__dirname, '../../packages/plugins/lib/index.ts'),
-      '@dotvoid/textbit': resolve(__dirname, '../../packages/textbit/lib/main.ts')
-    },
+    // Exact matches, so each package's second entry resolves to its own source
+    alias: [
+      { find: /^@dotvoid\/textbit-plugins$/, replacement: resolve(__dirname, '../../packages/plugins/lib/index.ts') },
+      { find: /^@dotvoid\/textbit-plugins\/definitions$/, replacement: resolve(__dirname, '../../packages/plugins/lib/definitions.ts') },
+      { find: /^@dotvoid\/textbit$/, replacement: resolve(__dirname, '../../packages/textbit/lib/main.ts') },
+      { find: /^@dotvoid\/textbit\/headless$/, replacement: resolve(__dirname, '../../packages/textbit/lib/headless.ts') }
+    ],
     dedupe: ['react', 'react-dom', 'slate', 'slate-react']
   }
 })

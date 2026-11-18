@@ -8,8 +8,19 @@ export type {
   TextbitRange as TBRange,
   PluginInitFunction as TBPluginInitFunction,
   Resource as TBResource,
-  ComponentEntry as TBComponentEntry,
-  ChildComponentEntry as TBChildComponentEntry,
+  Plugin as TBPlugin,
+  PluginView as TBPluginView,
+  ComponentView as TBComponentView,
+  ElementSpec as TBElementSpec,
+  ChildElementSpec as TBChildElementSpec,
+  ElementClass as TBElementClass,
+  ActionEvent as TBActionEvent,
+  LeafStyle as TBLeafStyle,
+  GetLeafStyle as TBGetLeafStyle,
+  ElementDefinition as TBElementDefinition,
+  LeafDefinition as TBLeafDefinition,
+  TopLevelConstraints as TBTopLevelConstraints,
+  ChildConstraints as TBChildConstraints,
   Component as TBComponent,
   ComponentProps as TBComponentProps,
   ElementAttributes as TBElementAttributes,
@@ -38,7 +49,7 @@ import { TextbitEditable } from './components/TextbitEditable/TextbitEditable'
 import { Gutter as Gutter$1 } from './components/GutterProvider'
 import { DropMarker } from './components/DropMarker'
 import { UploadMarker } from './components/UploadMarker'
-import { StandardPlugins } from './components/core'
+import { StandardPlugins } from './plugins'
 import { ContextTools } from './components/ContextTools'
 import { ContentTools } from './components/ContentTools'
 import { ContextMenu } from './components/ContextMenu/'
@@ -91,7 +102,7 @@ export {
 } from './components/SpecialCharacters'
 
 // Built in, exported to change or remove its key
-export { FocusToolbar, type FocusToolbarOptions as TBFocusToolbarOptions } from './components/core/FocusToolbar'
+export { FocusToolbar, type FocusToolbarOptions as TBFocusToolbarOptions } from './plugins/FocusToolbar'
 
 // The type of a plain text block, which core creates on Enter, paste and more
 export { TEXT_TYPE } from './utils/textType'

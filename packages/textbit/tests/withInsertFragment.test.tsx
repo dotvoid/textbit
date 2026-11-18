@@ -6,35 +6,28 @@ import type { Descendant, Editor, Element } from 'slate'
 import { Transforms, Editor as SlateEditor } from 'slate'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
-import type { PluginDefinition } from '../lib/types'
+import type { Plugin, PluginDefinition } from '../lib/types'
 import { consecutiveBlocksContent } from './_fixtures'
-import { Text } from '../lib/components/core/Text'
+import { Text } from '../lib/plugins/Text'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 // The block types these tests insert, registered so the editor renders them:
-// a pasted or inserted block this editor has no plugin for is turned into text
+// a pasted or inserted block this editor has no plugin for is turned into text.
+// They have no view, so they render as plain blocks.
 const block = (name: string, children: { type: string, class: 'text' | 'void' | 'block' }[]): PluginDefinition => ({
   class: 'block',
   name,
-  componentEntry: {
-    class: 'block',
-    component: ({ children: c }) => <div>{c}</div>,
-    children: children.map((child) => ({ ...child, component: ({ children: c }) => <div>{c}</div> }))
-  }
+  element: { class: 'block', children }
 })
 
 const blockPlugins: PluginDefinition[] = [
   Text(),
   block('base/image', [{ type: 'image', class: 'void' }]),
   block('base/table', [{ type: 'row', class: 'block' }]),
-  {
-    class: 'block',
-    name: 'base/table/row',
-    componentEntry: { class: 'block', component: ({ children: c }) => <div>{c}</div>, children: [{ type: 'cell', class: 'text', component: ({ children: c }) => <div>{c}</div> }] }
-  },
+  block('base/table/row', [{ type: 'cell', class: 'text' }]),
   block('base/factbox', [{ type: 'title', class: 'text' }, { type: 'body', class: 'block' }])
 ]
 
@@ -414,26 +407,30 @@ describe('withInsertFragment — wrapped text fragment', () => {
 // figure's structure on neither side.
 // ---------------------------------------------------------------------------
 
-const imageWithCaptionPlugin: PluginDefinition = {
+const imageWithCaptionPlugin: Plugin = {
   class: 'block',
   name: 'base/image',
-  componentEntry: {
+  element: {
     class: 'block',
-    component: ({ children, attributes }) => <figure {...attributes}>{children}</figure>,
     children: [
-      {
-        type: 'image',
-        class: 'void',
+      { type: 'image', class: 'void' },
+      { type: 'caption', class: 'text' }
+    ]
+  },
+  view: {
+    components: {
+      'base/image': {
+        component: ({ children, attributes }) => <figure {...attributes}>{children}</figure>
+      },
+      'base/image/image': {
         component: ({ attributes, children }) => (
           <div contentEditable={false} {...attributes}>image{children}</div>
         )
       },
-      {
-        type: 'caption',
-        class: 'text',
+      'base/image/caption': {
         component: ({ attributes, children }) => <figcaption {...attributes}>{children}</figcaption>
       }
-    ]
+    }
   }
 }
 

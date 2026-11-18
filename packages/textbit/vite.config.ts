@@ -40,29 +40,16 @@ export default defineConfig({
   publicDir: false,
   build: {
     lib: {
-      entry: resolve(__dirname, 'lib/main.ts'),
-      name: 'Textbit',
-      // .cjs so Node loads the UMD build as CommonJS: with "type": "module" a
-      // .js file is read as an ES module and require() got an empty object
-      fileName: (format) => format === 'umd' ? 'index.umd.cjs' : `index.${format}.js`
+      // The editor, and the same without a user interface
+      entry: {
+        index: resolve(__dirname, 'lib/main.ts'),
+        headless: resolve(__dirname, 'lib/headless.ts')
+      },
+      formats: ['es', 'cjs'],
+      fileName: (format, name) => `${name}.${format === 'es' ? 'js' : 'cjs'}`
     },
     rollupOptions: {
-      external: isExternal,
-      output: {
-        globals: {
-          'react': 'React',
-          'react-dom': 'ReactDOM',
-          'react/jsx-runtime': 'ReactJSXRuntime',
-          'slate': 'Slate',
-          'slate-react': 'SlateReact',
-          'slate-history': 'SlateHistory',
-          'yjs': 'Y',
-          '@slate-yjs/core': 'SlateYjsCore',
-          '@slate-yjs/react': 'SlateYjsReact',
-          'y-protocols/awareness': 'YProtocolsAwareness',
-          'is-hotkey': 'IsHotkey'
-        }
-      }
+      external: isExternal
     }
   }
 })

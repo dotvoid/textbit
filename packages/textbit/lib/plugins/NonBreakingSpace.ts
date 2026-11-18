@@ -1,5 +1,5 @@
-import type { PluginInitFunction } from '../../types'
-import { isMac } from '../../utils/modifier'
+import type { PluginDefinition } from '../types/definition'
+import { isMac } from '../utils/modifier'
 
 // Non-breaking space (U+00A0). Sourced from its char code so the file stays
 // ASCII and a literal NBSP is never confused with a regular space.
@@ -12,7 +12,7 @@ const HOTKEY = 'ctrl+shift+space'
 // Registered action name, `<plugin>/<action>`
 export const INSERT_NBSP_ACTION = 'core/nbsp/insert'
 
-export const NonBreakingSpace: PluginInitFunction = () => {
+export const NonBreakingSpace = (): PluginDefinition => {
   return {
     class: 'generic',
     name: 'core/nbsp',

@@ -1,22 +1,21 @@
 import type { KeyboardEventLike } from 'is-hotkey'
-import type { PluginDefinition, Action, ChildComponentEntry } from '../../../types'
+import type { Action, ChildElementSpec, ComponentView, Plugin, ToolComponent } from '../../../types'
 
 /**
  * @type
- * A renderable component.
+ * An element type the editor knows: its spec from the plugin's definition,
+ * and, in an editor with a user interface, the view that renders it.
  *
- * `componentEntry` / `parent` are typed as `ChildComponentEntry` — the widest
- * of the two entry types — so this field can store both top-level and child
- * entries. A top-level `ComponentEntry` is structurally assignable to
- * `ChildComponentEntry` because its `min`/`max` are typed `never` (a subtype
- * of `number`). Internal code can read `constraints?.min` / `constraints?.max`
- * through this field.
+ * `spec` and `parent` are typed as `ChildElementSpec`, the wider of the two
+ * spec types, so this can hold both a plugin's own element and its children.
+ * A top-level spec fits because its `min`/`max` are typed `never`.
  */
 export type PluginRegistryComponent = {
   type: string
   class: string
-  componentEntry: ChildComponentEntry
-  parent: ChildComponentEntry | null
+  spec: ChildElementSpec
+  view?: ComponentView
+  parent: ChildElementSpec | null
   pluginOptions: Record<string, unknown>
 }
 
@@ -25,8 +24,10 @@ export type PluginRegistryComponent = {
  * Hotkey registry
  */
 export type PluginRegistryAction = Action & {
-  plugin: PluginDefinition
+  plugin: Plugin
   isHotkey: (action: KeyboardEventLike) => boolean
+  /** The tool the plugin's view shows for it */
+  tool?: ToolComponent | [ToolComponent, ToolComponent]
 }
 
 /**
@@ -35,7 +36,7 @@ export type PluginRegistryAction = Action & {
  */
 export type PluginRegistryReducerAction = {
   action: 'add' | 'delete'
-  plugin: PluginDefinition
+  plugin: Plugin
 }
 
 
@@ -45,7 +46,7 @@ export type PluginRegistryReducerAction = {
  */
 export interface PluginRegistryProviderState {
   // Main plugin registry
-  plugins: Array<PluginDefinition>
+  plugins: Array<Plugin>
 
   // Component registries provide faster access in rendering cycles
   components: Map<string, PluginRegistryComponent>

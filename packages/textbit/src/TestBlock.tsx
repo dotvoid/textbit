@@ -106,37 +106,43 @@ export const TestBlock: TBPluginInitFunction = () => {
   return {
     class: 'block',
     name: 'test/block',
-    componentEntry: {
-      class: 'block',
-      component: TestBlockComponent
+    element: {
+      class: 'block'
     },
     actions: [{
       name: 'insert-test-block',
-      tool: [
-        () => <span style={{ fontWeight: 'bold' }}>□</span>,
-        () => (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '12px'
-          }}>
-            <span style={{ fontSize: '14px' }}>□</span>
-            <span>Test Block</span>
-            <kbd style={{
-              fontSize: '10px',
-              backgroundColor: '#f1f5f9',
-              padding: '2px 4px',
-              borderRadius: '2px',
-              border: '1px solid #e2e8f0'
-            }}>
-              ⌘T
-            </kbd>
-          </div>
-        )
-      ],
       hotkey: 'mod+t',
       handler: insertTestBlock
-    }]
+    }],
+    view: {
+      components: {
+        'test/block': { component: TestBlockComponent }
+      },
+      tools: {
+        'insert-test-block': [
+          () => <span style={{ fontWeight: 'bold' }}>□</span>,
+          () => (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '12px'
+            }}>
+              <span style={{ fontSize: '14px' }}>□</span>
+              <span>Test Block</span>
+              <kbd style={{
+                fontSize: '10px',
+                backgroundColor: '#f1f5f9',
+                padding: '2px 4px',
+                borderRadius: '2px',
+                border: '1px solid #e2e8f0'
+              }}>
+                ⌘T
+              </kbd>
+            </div>
+          )
+        ]
+      }
+    }
   }
 }

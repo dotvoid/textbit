@@ -16,9 +16,8 @@ function imageConsumerPlugin(consume: ConsumeFunction) {
   return {
     class: 'block' as const,
     name: 'base/image',
-    componentEntry: {
+    element: {
       class: 'block' as const,
-      component: () => null,
       constraints: {}
     },
     consumer: {

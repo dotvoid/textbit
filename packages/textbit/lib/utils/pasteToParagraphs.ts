@@ -26,7 +26,7 @@ export function pasteToParagraphs(
   // Find node and which component this is related to
   const parent = TextbitEditor.parent(editor, selection)
   const node = parent[0] as Element
-  const { componentEntry: tbComponent = undefined } = components.get(node.type) || {}
+  const { spec: tbComponent = undefined } = components.get(node.type) || {}
   if (!tbComponent) {
     return false
   }

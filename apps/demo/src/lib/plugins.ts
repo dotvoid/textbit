@@ -1,4 +1,4 @@
-import { SpecialCharacters, type TBPluginDefinition } from '@dotvoid/textbit'
+import { SpecialCharacters, type TBPlugin } from '@dotvoid/textbit'
 import {
   Text, Bold, Italic, Underline, Strikethrough, Code,
   UnorderedList, OrderedList, CodeBlock, Table, Link, LocalizedQuotationMarks,
@@ -13,7 +13,7 @@ async function upload(file: File) {
 }
 
 /** Every plugin, as a host would set them up */
-export function demoPlugins(): TBPluginDefinition[] {
+export function demoPlugins(): TBPlugin[] {
   return [
     Text({ headings: [1, 2] }),
     Bold(),

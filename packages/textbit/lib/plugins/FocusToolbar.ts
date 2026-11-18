@@ -1,5 +1,5 @@
 import type { Editor } from 'slate'
-import type { PluginInitFunction } from '../../types'
+import type { PluginDefinition } from '../types/definition'
 
 type Target = 'toolbar' | 'gutter'
 
@@ -40,7 +40,7 @@ export type FocusToolbarOptions = {
  * Keyboard access to the toolbar. Registered by default; register it again with
  * other options to change or remove the key - plugins are replaced by name.
  */
-export const FocusToolbar: PluginInitFunction<FocusToolbarOptions> = (options) => {
+export const FocusToolbar = (options?: FocusToolbarOptions): PluginDefinition => {
   return {
     class: 'generic',
     name: 'core/toolbar',

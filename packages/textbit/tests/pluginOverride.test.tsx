@@ -5,7 +5,7 @@ import { useSlateStatic } from 'slate-react'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
 import { usePluginRegistry } from '../lib/hooks/usePluginRegistry'
-import type { PluginDefinition } from '../lib/types'
+import type { Plugin } from '../lib/types'
 
 /**
  * The override contract: the last plugin registered under a name
@@ -14,13 +14,15 @@ import type { PluginDefinition } from '../lib/types'
  * plugin by name without rebuilding the rest of the set.
  */
 
-function boxPlugin(name: string, marker: string): PluginDefinition {
+function boxPlugin(name: string, marker: string): Plugin {
   return {
     class: 'block',
     name,
-    componentEntry: {
-      class: 'block',
-      component: ({ children }) => <div data-marker={marker}>{children}</div>
+    element: { class: 'block' },
+    view: {
+      components: {
+        [name]: { component: ({ children }) => <div data-marker={marker}>{children}</div> }
+      }
     }
   }
 }
@@ -41,7 +43,7 @@ function PluginNames() {
   return <output data-testid='names'>{names.join(',')}</output>
 }
 
-function renderWith(plugins: PluginDefinition[], value: Descendant[] = content) {
+function renderWith(plugins: Plugin[], value: Descendant[] = content) {
   return render(
     <TextbitRoot value={value} onChange={() => {}} plugins={plugins}>
       <TextbitEditable />

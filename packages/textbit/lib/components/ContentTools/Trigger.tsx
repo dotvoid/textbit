@@ -3,7 +3,7 @@ import { ReactEditor, useSlateStatic } from 'slate-react'
 import { useClickGlobal } from '../../hooks/useClickGlobal'
 import { MenuContext } from './MenuContext'
 import { GutterContext } from '../GutterProvider/GutterContext'
-import { registerToolbarFocus } from '../core/FocusToolbar'
+import { registerToolbarFocus } from '../../plugins/FocusToolbar'
 
 export function Trigger({ children, className }: PropsWithChildren & {
   className?: string

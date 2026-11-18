@@ -1,6 +1,9 @@
 import type { PropsWithChildren, ReactNode } from 'react'
 import type { RenderElementProps } from 'slate-react'
-import { type NodeEntry, Node, Editor, Element } from 'slate'
+import type { NodeEntry, Node, Editor, Element } from 'slate'
+import type { Options, PluginDefinition } from './definition'
+
+export * from './definition'
 
 /**
  * @type
@@ -87,140 +90,7 @@ export type ToolComponent<Props = ToolComponentProps> = React.ComponentType<Prop
 
 
 /**
- * @type
- * Defines a generic api function.
- * @todo There must be a better way to expose functionality like this.
- */
-export type ActionHandlerAPI = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: (...args: any[]) => any
-}
-
-
-export interface ActionHandlerArgs {
-  editor: Editor
-  type: string
-  options?: Options
-  api?: ActionHandlerAPI
-  args?: Record<string, unknown>
-  event?: React.KeyboardEvent<HTMLElement> | React.MouseEvent<HTMLElement>
-}
-
-/**
- * Action handler function that can handle keyboard events, mouse events, or generic actions.
- *
- * @param options - The action handler options
- * @returns `true` to indicate the textbit default action is accepted
- */
-export type ActionHandler = (args: ActionHandlerArgs) => boolean | void
-
-/**
- * @interface
- * Action props interface
- */
-export interface Action {
-  name: string
-  title?: string
-  description?: string
-  hotkey?: string
-  tool?: ToolComponent | [ToolComponent, ToolComponent]
-  handler: ActionHandler
-  visibility?: (element: Element, rootElement?: Element) => [boolean, boolean, boolean] // visible, enabled, active
-  /**
-   * When given, the action only takes its hotkey while this returns true.
-   * Otherwise the key goes on to the next action with the same hotkey, so
-   * several plugins can share a key like Tab or Enter, each in its own context.
-   */
-  when?: (editor: Editor) => boolean
-}
-
-
-/**
- * Constraints shared by any component entry, regardless of whether it is a
- * top-level entry or a child entry in a parent's `children` array.
- */
-interface BaseConstraints {
-  /** If true, prevents <enter> from having any effect, default is true */
-  allowBreak?: boolean
-
-  /** If true, prevents soft breaks (i.e breaks within one text element, default is true */
-  allowSoftBreak?: boolean
-
-  /** If false, prevents <enter> from exiting the top-level block when at the last position, default is true */
-  allowExitBreak?: boolean
-
-  /** If false, prevents whitespace at the start and end of a paragraph, default is true */
-  allowEdgeWhitespace?: boolean
-
-  /** Normalizer function, optional */
-  normalizeNode?: (editor: Editor, nodeEntry: NodeEntry) => boolean | void
-}
-
-/**
- * Constraints valid on TOP-LEVEL component entries (e.g. the entry directly
- * on a PluginDefinition). Cardinality constraints (`min`/`max`) are typed
- * `never` so TypeScript rejects them at the plugin definition site — they
- * are only meaningful when the entry appears in a parent's `children` array.
- */
-export interface TopLevelConstraints extends BaseConstraints {
-  min?: never
-  max?: never
-}
-
-/**
- * Constraints valid on CHILD component entries (items in a parent's
- * `children` array). Adds the cardinality constraints `min` and `max`.
- */
-export interface ChildConstraints extends BaseConstraints {
-  /**
-   * Minimum number of instances of this child type allowed within the parent.
-   * If the count ever falls below `min`, the normalizer inserts a minimal
-   * placeholder to restore the invariant. Use `min: 1, max: 1` to model a
-   * permanent form-field-like child that always exists and cannot be removed.
-   */
-  min?: number
-
-  /**
-   * Maximum number of instances of this child type allowed within the parent.
-   * Excess siblings are removed by the normalizer; Enter is blocked when the
-   * count is already at `max`.
-   */
-  max?: number
-}
-
-/**
- * Fields common to every component entry, independent of whether it is used
- * as a top-level or child entry. The element-type parameter lives on
- * `ComponentEntry` / `ChildComponentEntry` instead, where it is consumed by
- * the variants' `component` field.
- */
-interface BaseComponentEntry {
-  /** Class of the component, inherited from plugin if not specified. ('leaf' | 'inline' | 'text' | 'textblock' | 'block' | 'void' | 'generic') */
-  class: string
-
-  /**
-   * Used to match a custom element to rendering function. Default component
-   * should not specify this as it inherits the type from the plugin name.
-   * Mandatory for child components.
-   */
-  type?: string
-
-  /** Whether this component accepts drops or not, only applicable to top parent */
-  droppable?: boolean
-
-  /** Placeholder text for an empty text node, optional */
-  placeholder?: string | ((type: Element) => React.ReactNode)
-
-  // Children must be able to use any element, not only HTMLElement.
-  // Type safety is enforced at the component level through Component<T>.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  children?: ChildComponentEntry<any>[]
-}
-
-/**
- * @type
- * A top-level component entry (e.g. the one attached to a PluginDefinition).
- * Discriminated on `asOwnElement`:
+ * How an element renders. Discriminated on `asOwnElement`:
  *
  * - When `asOwnElement` is omitted or `false`, the framework wraps the
  *   component in a `<div>` and the component receives `ComponentProps<T>`
@@ -228,176 +98,40 @@ interface BaseComponentEntry {
  * - When `asOwnElement` is `true`, the component renders as the element
  *   itself and is required to spread `attributes` (now non-nullable) onto
  *   its root DOM node.
- *
- * Accepts every behavior-level constraint but rejects cardinality
- * constraints (`min`/`max` are only meaningful on child entries).
  */
-export type ComponentEntry<T extends HTMLElement = HTMLElement> =
-  | (BaseComponentEntry & {
-      /**
-       * When `false` or omitted, the framework wraps the component in a
-       * `<div>`. Default behavior.
-       */
+export type ComponentView<T extends HTMLElement = HTMLElement> =
+  | {
       asOwnElement?: false
-      /** Render function for the element, mandatory */
       component: Component<T>
-      /** Hard constraints for the component */
-      constraints?: TopLevelConstraints
-    })
-  | (BaseComponentEntry & {
-      /**
-       * When `true`, the plugin component renders as the element itself,
-       * owning its root DOM node. The component MUST spread `attributes`
-       * onto that root.
-       */
+    }
+  | {
       asOwnElement: true
-      /** Render function for the element, mandatory */
       component: OwnElementComponent<T>
-      /** Hard constraints for the component */
-      constraints?: TopLevelConstraints
-    })
+    }
+
+/**
+ * @interface
+ * What a plugin looks like: the components rendering its elements, by full
+ * type, and the tools shown for its actions, by action name.
+ */
+export interface PluginView {
+  // Each component is typed for its own root element
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  components?: Record<string, ComponentView<any>>
+  tools?: Record<string, ToolComponent | [ToolComponent, ToolComponent]>
+}
 
 /**
  * @type
- * A child component entry — an item in a parent's `children` array.
- * Same `asOwnElement` discrimination as `ComponentEntry`, but with
- * cardinality constraints (`min`/`max`) available.
+ * A plugin as an editor with a user interface uses it: its definition and
+ * its view. Without a view, its elements render as plain blocks.
  */
-export type ChildComponentEntry<T extends HTMLElement = HTMLElement> =
-  | (BaseComponentEntry & {
-      asOwnElement?: false
-      component: Component<T>
-      /** Hard constraints for the component, including cardinality in the parent */
-      constraints?: ChildConstraints
-    })
-  | (BaseComponentEntry & {
-      asOwnElement: true
-      component: OwnElementComponent<T>
-      /** Hard constraints for the component, including cardinality in the parent */
-      constraints?: ChildConstraints
-    })
-
-
-/**
- * @interface
- * Base input to both consume and consumes functions
- */
-export interface Resource {
-  /** Source/name of data as text */
-  source: string
-
-  /** Mime type of indata, e.g text/uri-list, text/plain  */
-  type: string
-
-  /** Indata to consumer, e.g a File, text, url, etc */
-  data: unknown
+export type Plugin = PluginDefinition & {
+  view?: PluginView
 }
-
-/**
- * @type GetLeafStyle
- * Return either React.CSSProperties object or a class name string
- *
- * @return React.CSSProperties | string
- */
-export type GetLeafStyle = () => React.CSSProperties | string
-
-/**
- * @type ConsumesFunction
- * Definition of a function that should answer whether the plugin wants to handle input data.
- * Returns an array with one, two or three values.
- * 1: Boolean: whether it consumes data or not
- * 2: string | null: Definition of what consumer function will produce (e.g base/image),
- *  undefined if first value is false, can be null if nothing is produced.
- * 3. Boolean: whether it wants to consume data in bulk (true) or individually (default).
- *
- * @returns Array [boolean, string | null, ?boolean]
- */
-export type ConsumesFunction = ({ input }: { input: Resource }) => [boolean, (string | null)?, boolean?]
-
-/**
- * @type ConsumeFunction
- * Consume function definition. An async function which receives and consumes the data,
- * either individually or in bulk depending on what the the consumes function responded.
- *
- * Should return data as specified by the second value of the consumes function response.
- */
-export type ConsumeFunction = ({ editor, input }: { editor: Editor, input: Resource | Resource[] }) => Promise<Resource | undefined>
-
-/**
- * @type Options
- * Plugin options
- *
- * Generic options object for the plugin, can be extended by specific plugins.
- */
-export type Options<T extends Record<string, unknown> = Record<string, unknown>> = T
-
-interface BaseDefinition {
-  /**
-   * Class of the plugin, inherited to default component. Must be one of
-   * 'leaf' | 'inline' | 'text' | 'block' | 'void' | 'generic'
-   */
-  class: 'leaf' | 'inline' | 'text' | 'block' | 'void' | 'generic'
-
-  /** Name of plugin, should be in the form of <prefix>/<plugin> */
-  name: string
-
-  /**
-   * Action definitions array, specifies tool, hotkey, title, description, handler and visibility.
-   */
-  actions?: Action[]
-
-  /**
-   * Options object
-   */
-  options?: Options
-
-  /**
-   * Default component entries for elements
-   */
-  componentEntry?: ComponentEntry
-}
-
-/**
- * @interface
- * Textbit element plugin interface
- */
-export interface ElementDefinition extends BaseDefinition {
-  /**
-   * Optional consumer definition. One for each consumes() and consume() functions.
-   */
-  consumer?: {
-    consumes: ConsumesFunction // Can you consume [data], [true/false, provides `type` as response]
-    consume: ConsumeFunction // Consume [data] please
-  }
-
-  /**
-   * Event handlers
-   */
-  events?: {
-    onInsertText?: (editor: Editor, text: string) => true | void
-    onNormalizeNode?: (editor: Editor, entry: NodeEntry) => true | void
-  }
-}
-
-/**
- * @interface
- * Textbit leaf plugin interface
-*/
-export interface LeafDefinition extends BaseDefinition {
-  /** Styling object or class name string for leaf components */
-  getStyle: GetLeafStyle
-}
-
-/**
- * @interface
- * Textbit plugin definition interface
- */
-export type PluginDefinition =
-  | ElementDefinition
-  | LeafDefinition
 
 /**
  * @type PluginInitFunction
  * Plugin initialization function
  */
-export type PluginInitFunction<O extends Options = Options> = (options?: O) => PluginDefinition
+export type PluginInitFunction<O extends Options = Options> = (options?: O) => Plugin

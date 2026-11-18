@@ -25,7 +25,7 @@ import { Link } from './plugins/Link'
 import { Bold, Italic, Underline } from './plugins/Leafs'
 import { MockUpload } from './plugins/MockUpload'
 import { TestBlock } from './TestBlock'
-import type { TBPluginDefinition } from '../dist/main'
+import type { TBPlugin } from '../dist/main'
 
 export function App() {
 
@@ -36,13 +36,13 @@ export function App() {
         // demonstrates Shift+Enter producing a `\n` (rendered by the
         // newline visualization).
         const def = p()
-        if (def.name === 'base/text' && def.componentEntry) {
+        if (def.name === 'base/text' && def.element) {
           return {
             ...def,
-            componentEntry: {
-              ...def.componentEntry,
+            element: {
+              ...def.element,
               constraints: {
-                ...def.componentEntry.constraints,
+                ...def.element.constraints,
                 allowSoftBreak: true
               }
             }
@@ -127,7 +127,7 @@ function TextbitFormatEditor({ style, headerStyle, readOnly, plugins }: {
   style: React.CSSProperties
   headerStyle: React.CSSProperties
   readOnly?: boolean
-  plugins: TBPluginDefinition[]
+  plugins: TBPlugin[]
 }) {
   const [value, setValue] = useState(document)
 
@@ -192,7 +192,7 @@ function TextEditor({ style, headerStyle, autoFocus, plugins }: {
   style: React.CSSProperties
   headerStyle: React.CSSProperties
   autoFocus?: boolean
-  plugins: TBPluginDefinition[]
+  plugins: TBPlugin[]
 }) {
   const [value, setValue] = useState('')
 
@@ -241,7 +241,7 @@ function TextEditor({ style, headerStyle, autoFocus, plugins }: {
 function YjsDemo({ style, headerStyle, plugins }: {
   style: React.CSSProperties
   headerStyle: React.CSSProperties
-  plugins: TBPluginDefinition[]
+  plugins: TBPlugin[]
 }) {
   // Two independent Y.Docs (one per "peer") bridged via update events, so
   // each editor has its own clientID and its own Awareness. This is what
@@ -332,7 +332,7 @@ function YjsEditor({ sharedState, style, headerStyle, plugins, userName, userCol
   }
   style: React.CSSProperties
   headerStyle: React.CSSProperties
-  plugins: TBPluginDefinition[]
+  plugins: TBPlugin[]
   userName: string
   userColor: string
 }) {

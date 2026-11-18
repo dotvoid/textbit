@@ -62,14 +62,14 @@ describe('Text', () => {
     expect(action('set-heading-2')?.hotkey).toBe('mod+alt+h')
     expect(action('set-heading-3')?.hotkey).toBe('mod+alt+3')
 
-    const placeholder = (plugin.componentEntry as { placeholder: (e: Element) => string }).placeholder
-    expect(placeholder({ type: 'base/text', properties: { role: 'heading-1' } } as Element)).toBe('Skriv en rubrik')
+    const placeholder = plugin.element?.placeholder
+    expect(typeof placeholder === 'function' && placeholder({ type: 'base/text', properties: { role: 'heading-1' } } as Element)).toBe('Skriv en rubrik')
   })
 
   test('a single line text allows no breaks', () => {
-    const constraints = (Text({ singleLine: true }).componentEntry as unknown as { constraints: Record<string, boolean> }).constraints
-    expect(constraints.allowBreak).toBe(false)
-    expect(constraints.allowSoftBreak).toBe(false)
+    const constraints = Text({ singleLine: true }).element?.constraints
+    expect(constraints?.allowBreak).toBe(false)
+    expect(constraints?.allowSoftBreak).toBe(false)
   })
 })
 

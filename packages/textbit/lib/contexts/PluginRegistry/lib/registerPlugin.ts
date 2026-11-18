@@ -1,4 +1,4 @@
-import type { PluginDefinition } from '../../../types'
+import type { Plugin } from '../../../types'
 
 /**
  * Register a plugin, always replaces plugins with same name.
@@ -10,11 +10,11 @@ import type { PluginDefinition } from '../../../types'
  * reported only in verbose mode. Plugins with their own document format
  * use their own namespace instead.
  *
- * @param registryPlugins PluginDefinition[]
- * @param plugin PluginDefinition[]
- * @returns PluginDefinition[]
+ * @param registryPlugins Plugin[]
+ * @param plugin Plugin[]
+ * @returns Plugin[]
  */
-export function registerPlugin(registryPlugins: PluginDefinition[], plugin: PluginDefinition, options?: { verbose: boolean }) {
+export function registerPlugin(registryPlugins: Plugin[], plugin: Plugin, options?: { verbose: boolean }) {
   if (options?.verbose) {
     console.info(`Registering plugin ${plugin.name}`)
   }

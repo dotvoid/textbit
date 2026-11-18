@@ -1,4 +1,4 @@
-import type { TBPluginDefinition } from '@dotvoid/textbit'
+import type { TBPluginDefinition } from '@dotvoid/textbit/headless'
 import { consumes } from './consumes'
 import { consume } from './consume'
 

@@ -61,7 +61,7 @@ function allowSoftBreak(
       const component = components.get(node.type)
       if (!component) continue
 
-      const setting = component.componentEntry?.constraints?.allowSoftBreak
+      const setting = component.spec?.constraints?.allowSoftBreak
       if (setting === false) return false
       if (setting === true) hasOptIn = true
     }

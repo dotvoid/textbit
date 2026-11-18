@@ -6,7 +6,7 @@ import type { Descendant, Editor, Element } from 'slate'
 import { Transforms, Editor as SlateEditor } from 'slate'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
-import type { PluginDefinition, ComponentEntry, ChildComponentEntry } from '../lib/types'
+import type { Plugin, ElementSpec, ChildElementSpec } from '../lib/types'
 
 // ---------------------------------------------------------------------------
 // A test-only "image" plugin with declarative child constraints matching the
@@ -15,96 +15,70 @@ import type { PluginDefinition, ComponentEntry, ChildComponentEntry } from '../l
 // should come from the declarative constraints alone.
 // ---------------------------------------------------------------------------
 
-const testImagePlugin: PluginDefinition = {
+const testImagePlugin: Plugin = {
   class: 'block',
   name: 'test/image',
-  componentEntry: {
+  element: {
     class: 'block',
-    component: ({ children, attributes }) => <figure {...attributes}>{children}</figure>,
     children: [
-      {
-        type: 'content',
-        class: 'void',
+      { type: 'content', class: 'void', constraints: { min: 1, max: 1 } },
+      { type: 'caption', class: 'text', constraints: { allowBreak: false, min: 1, max: 1 } }
+    ]
+  },
+  view: {
+    components: {
+      'test/image': {
+        component: ({ children, attributes }) => <figure {...attributes}>{children}</figure>
+      },
+      'test/image/content': {
         component: ({ attributes, children }) => (
           <div contentEditable={false} {...attributes}>content{children}</div>
-        ),
-        constraints: { min: 1, max: 1 }
+        )
       },
-      {
-        type: 'caption',
-        class: 'text',
-        component: ({ attributes, children }) => <figcaption {...attributes}>{children}</figcaption>,
-        constraints: { allowBreak: false, min: 1, max: 1 }
+      'test/image/caption': {
+        component: ({ attributes, children }) => <figcaption {...attributes}>{children}</figcaption>
       }
-    ]
+    }
+  }
+}
+
+// A block with one kind of text child, `child`, rendered as <p> in a <div>
+function blockWithChild(name: string, child: string, constraints: { min?: number, max?: number }): Plugin {
+  return {
+    class: 'block',
+    name,
+    element: {
+      class: 'block',
+      children: [{ type: child, class: 'text', constraints }]
+    },
+    view: {
+      components: {
+        [name]: { component: ({ children, attributes }) => <div {...attributes}>{children}</div> },
+        [`${name}/${child}`]: { component: ({ attributes, children }) => <p {...attributes}>{children}</p> }
+      }
+    }
   }
 }
 
 // A plugin with max:3 body children — to exercise the "not always max:1" path
-const testMultiBodyPlugin: PluginDefinition = {
-  class: 'block',
-  name: 'test/multi',
-  componentEntry: {
-    class: 'block',
-    component: ({ children, attributes }) => <div {...attributes}>{children}</div>,
-    children: [
-      {
-        type: 'body',
-        class: 'text',
-        component: ({ attributes, children }) => <p {...attributes}>{children}</p>,
-        constraints: { min: 1, max: 3 }
-      }
-    ]
-  }
-}
+const testMultiBodyPlugin = blockWithChild('test/multi', 'body', { min: 1, max: 3 })
 
 // A plugin with min:2, max:5 to exercise insertion beyond a single placeholder
-const testMinTwoPlugin: PluginDefinition = {
-  class: 'block',
-  name: 'test/mintwo',
-  componentEntry: {
-    class: 'block',
-    component: ({ children, attributes }) => <div {...attributes}>{children}</div>,
-    children: [
-      {
-        type: 'body',
-        class: 'text',
-        component: ({ attributes, children }) => <p {...attributes}>{children}</p>,
-        constraints: { min: 2, max: 5 }
-      }
-    ]
-  }
-}
+const testMinTwoPlugin = blockWithChild('test/mintwo', 'body', { min: 2, max: 5 })
 
 // A plugin whose child has ONLY max:1 — isolates the max enforcement from
 // allowBreak:false. Lets us prove that max alone blocks Enter.
-const testMaxOnlyPlugin: PluginDefinition = {
-  class: 'block',
-  name: 'test/maxonly',
-  componentEntry: {
-    class: 'block',
-    component: ({ children, attributes }) => <div {...attributes}>{children}</div>,
-    children: [
-      {
-        type: 'slot',
-        class: 'text',
-        component: ({ attributes, children }) => <p {...attributes}>{children}</p>,
-        constraints: { max: 1 } // NO allowBreak — max must do the work alone
-      }
-    ]
-  }
-}
+const testMaxOnlyPlugin = blockWithChild('test/maxonly', 'slot', { max: 1 })
 
 // A factory that builds a plugin with both declarative constraints AND a
 // custom normalizeNode. The spy lets a test observe that the custom
 // normalizer is called AFTER declarative enforcement converges.
-function makeImageWithSpyPlugin(spy: () => void): PluginDefinition {
+function makeImageWithSpyPlugin(spy: () => void): Plugin {
   return {
     class: 'block',
     name: 'test/spyimage',
-    componentEntry: {
+    element: {
       class: 'block',
-      component: ({ children, attributes }) => <figure {...attributes}>{children}</figure>,
       constraints: {
         normalizeNode: () => {
           spy()
@@ -112,13 +86,18 @@ function makeImageWithSpyPlugin(spy: () => void): PluginDefinition {
         }
       },
       children: [
-        {
-          type: 'slot',
-          class: 'text',
-          component: ({ attributes, children }) => <p {...attributes}>{children}</p>,
-          constraints: { min: 1, max: 1 }
-        }
+        { type: 'slot', class: 'text', constraints: { min: 1, max: 1 } }
       ]
+    },
+    view: {
+      components: {
+        'test/spyimage': {
+          component: ({ children, attributes }) => <figure {...attributes}>{children}</figure>
+        },
+        'test/spyimage/slot': {
+          component: ({ attributes, children }) => <p {...attributes}>{children}</p>
+        }
+      }
     }
   }
 }
@@ -165,7 +144,7 @@ function multiBodyBlock(id: string, bodies: string[]): Descendant {
   } as Descendant
 }
 
-function makeEditor(content: Descendant[], plugins: PluginDefinition[] = [testImagePlugin]): Editor {
+function makeEditor(content: Descendant[], plugins: Plugin[] = [testImagePlugin]): Editor {
   function Wrapper({ children }: PropsWithChildren) {
     return (
       <TextbitRoot value={content} onChange={() => { }} plugins={plugins}>
@@ -587,7 +566,7 @@ describe('child constraints — intent coverage', () => {
 //
 // These declarations are never executed; they exist only so that TypeScript's
 // `noEmit` check (`npm run tsc`) fails if someone weakens the type system so
-// that `min` / `max` become accepted on a top-level `ComponentEntry`. The
+// that `min` / `max` become accepted on a plugin's own `ElementSpec`. The
 // tuple wrappers `[A] extends [B]` prevent distributive conditional types
 // from masking a regression (e.g. union `'FAIL' | 'OK'` being assignable
 // from `'OK'`).
@@ -595,8 +574,8 @@ describe('child constraints — intent coverage', () => {
 
 // The declared field type of `min` / `max` on a top-level `constraints`,
 // stripped of its automatic `undefined` from the optional marker.
-type _TopLevelMinField = Exclude<NonNullable<ComponentEntry['constraints']>['min'], undefined>
-type _TopLevelMaxField = Exclude<NonNullable<ComponentEntry['constraints']>['max'], undefined>
+type _TopLevelMinField = Exclude<NonNullable<ElementSpec['constraints']>['min'], undefined>
+type _TopLevelMaxField = Exclude<NonNullable<ElementSpec['constraints']>['max'], undefined>
 
 // If the top-level field type ever becomes `number`, these assertions flip
 // to 'FAIL' and the `const` assignments below stop typechecking.
@@ -608,7 +587,7 @@ void _probeTopMin
 void _probeTopMax
 
 // Corresponding positive check: child entries still accept a number.
-type _ChildMinField = Exclude<NonNullable<ChildComponentEntry['constraints']>['min'], undefined>
+type _ChildMinField = Exclude<NonNullable<ChildElementSpec['constraints']>['min'], undefined>
 type _AssertChildAcceptsNumber = [number] extends [_ChildMinField] ? 'OK' : 'FAIL'
 const _probeChild: _AssertChildAcceptsNumber = 'OK'
 void _probeChild
