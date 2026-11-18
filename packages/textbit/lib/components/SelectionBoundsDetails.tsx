@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useSelectionBounds } from '../main'
+import { useSelectionBounds } from '../hooks/useSelectionBounds'
 
 /**
  * Display selection DOM bounds directly in the editor.

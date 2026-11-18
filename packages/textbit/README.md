@@ -78,6 +78,7 @@ function MyEditor() {
 - [Hooks](#hooks)
 - [Styling](#styling)
 - [Collaborative Editing](#collaborative-editing)
+- [Editing Without a User Interface](#editing-without-a-user-interface)
 - [Plugin Development](#plugin-development)
 - [Utilities](#utilities)
 - [TypeScript](#typescript)
@@ -1548,6 +1549,33 @@ function CollaborativeEditor() {
 ```
 
 ---
+
+## Editing Without a User Interface
+
+`createTextbitEditor` builds the editor `Textbit.Root` uses, with the same plugins and rules,
+but without React or a browser. Use it to read, change or check documents on a server or in
+a script.
+
+```ts
+import { createTextbitEditor } from '@dotvoid/textbit'
+import { Editor, Transforms } from 'slate'
+
+const editor = createTextbitEditor({ plugins, value, lang: 'en' })
+Transforms.insertText(editor, '!', { at: Editor.end(editor, [0]) })
+Editor.normalize(editor, { force: true })
+```
+
+| Option | Description |
+|--------|-------------|
+| `plugins` | The plugins, as for `Textbit.Root`. Without any, a plain text block. |
+| `value` | The content, when it is not shared |
+| `lang` | The document's language, else the page's, else `en` |
+| `shared` | A `Y.XmlText` to collaborate through. Call `YjsEditor.connect(editor)` to start and `YjsEditor.disconnect(editor)` when done. |
+| `localOrigin` | The origin of this editor's own changes to the shared document |
+| `awareness`, `cursor` | Share a cursor, as for `Textbit.Root` |
+
+An editor connected to a shared document follows [Who Repairs What](#who-repairs-what): what
+it writes, it repairs.
 
 ## Plugin Development
 

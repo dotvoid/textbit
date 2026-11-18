@@ -5,30 +5,13 @@ import type { Awareness } from 'y-protocols/awareness'
 import { createEditor, Descendant, type Editor, Node } from 'slate'
 import * as Y from 'yjs'
 import { Slate, withReact } from 'slate-react'
-import { usePluginRegistry, useTextbit } from '../main'
+import { usePluginRegistry } from '../hooks/usePluginRegistry'
+import { useTextbit } from '../hooks/useTextbit'
+import { withTextbit } from '../editor/createTextbitEditor'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { calculateStats } from '../utils/calculateStats'
 import { debounce as debounceCall } from '../utils/debounce'
-import { withCursors, withYHistory, withYjs, YjsEditor } from '@slate-yjs/core'
-import { withHistory } from 'slate-history'
-import { withLang } from '../with/withLang'
-import { withSpeling } from '../with/withSpeling'
-import { withTextbitElements } from '../with/withTextbitElements'
-import { withInsertText } from '../with/withInsertText'
-import { withNormalizeNode } from '../with/withNormalizeNode'
-import { withEditableVoids } from '../with/withEditableVoids'
-import { withInsertBreak } from '../with/withInsertBreak'
-import { withInsertSoftBreak } from '../with/withInsertSoftBreak'
-import { withInsertHtml } from '../with/withInsertHtml'
-import { withClipboard } from '../with/withClipboard'
-import { withUniqueIds } from '../with/withUniqueIds'
-import { withDeletionManagement } from '../with/withDeletionManagement'
-import { withBlockBoundaryGuard } from '../with/withBlockBoundaryGuard'
-import { withInsertFragment } from '../with/withInsertFragment'
-import { withTrimWhitespace } from '../with/withTrimWhitespace'
-import { withSelectionGuard } from '../with/withSelectionGuard'
-import { withRemoteDeltaGuard } from '../with/withRemoteDeltaGuard'
-import { withRemoteNormalization } from '../with/withRemoteNormalization'
+import { YjsEditor } from '@slate-yjs/core'
 import { TEXT_TYPE } from '../utils/textType'
 
 interface SlateContainerBaseProps {
@@ -83,57 +66,18 @@ export function SlateContainer(props: SlateContainerProps) {
   const localOrigin = useRef<symbol>(Symbol('textbit-editor'))
 
   if (!editorRef.current) {
-    let editor = withReact(createEditor())
-
-    if (!isSlateContainerYjsProps(props)) {
-      editor = withHistory(editor)
-    } else {
-      // Create Yjs editor with unique localOrigin to prevent cross-view sync issues
-      editor = withYHistory(withYjs(editor, props.value, {
-        localOrigin: localOrigin.current
-      }))
-
-      // Add cursors if awareness is provided
-      if (YjsEditor.isYjsEditor(editor) && isSlateContainerCollaborationProps(props)) {
-        editor = withCursors(editor, props.awareness, {
-          autoSend: props.cursor?.autoSend ?? true,
-          data: props.cursor?.data ?? undefined,
-          cursorStateField: props.cursor?.stateField,
-          cursorDataField: props.cursor?.dataField
-        })
-      }
-
-      // Outermost of the yjs plugins, so it hands every inner one a private
-      // copy of each remote delta. Required whenever more than one editor is
-      // bound to the same shared root in this client.
-      if (YjsEditor.isYjsEditor(editor)) {
-        withRemoteDeltaGuard(editor)
-        withRemoteNormalization(editor)
-      }
-    }
-
-    withLang(editor, lang)
-    if (props.onSpellcheck && !readOnly) {
-      withSpeling(editor, props.onSpellcheck, spellcheckDebounce)
-    }
-    withTextbitElements(editor)
-    withInsertText(editor, plugins)
-    withInsertFragment(editor, components)
-    withNormalizeNode(editor, plugins, components)
-    withEditableVoids(editor, components)
-    withTrimWhitespace(editor)
-    withInsertBreak(editor, components)
-    withInsertSoftBreak(editor, components)
-    withInsertHtml(editor, components, plugins)
-    withClipboard(editor, components)
-    withUniqueIds(editor)
-    withDeletionManagement(editor)
-    // After the command plugins, so it wraps their final versions and its
-    // guard runs first; constrains edits to a selection that crosses a block
-    // boundary.
-    withBlockBoundaryGuard(editor)
-    // Last, so its after-apply check sees the final state of every inner plugin.
-    withSelectionGuard(editor)
+    const collaboration = isSlateContainerCollaborationProps(props) ? props : undefined
+    const editor = withTextbit(withReact(createEditor()), {
+      plugins,
+      components,
+      lang,
+      shared: isSlateContainerYjsProps(props) ? props.value : undefined,
+      localOrigin: localOrigin.current,
+      awareness: collaboration?.awareness,
+      cursor: collaboration?.cursor,
+      onSpellcheck: readOnly ? undefined : props.onSpellcheck,
+      spellcheckDebounce
+    })
 
     editorRef.current = editor
   }
