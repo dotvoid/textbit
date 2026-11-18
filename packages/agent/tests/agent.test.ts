@@ -278,3 +278,9 @@ describe('elements sharing an id', () => {
   })
 })
 
+
+test('describeSchema can be called with a schema alone', async () => {
+  const { getSchema } = await import('@dotvoid/textbit/headless')
+  const { describeSchema } = await import('../lib')
+  expect(describeSchema(getSchema(PLUGINS))).toContain('image: An image with alternative text and a caption')
+})

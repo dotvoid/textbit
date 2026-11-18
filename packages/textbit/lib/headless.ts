@@ -7,20 +7,34 @@
  * walks the imports to keep it so.
  */
 
-export { createTextbitEditor, type TextbitEditorOptions } from './editor/createTextbitEditor'
+export { createTextbitEditor, type TextbitEditorOptions as TBEditorOptions } from './editor/createTextbitEditor'
 export { TEXT_TYPE } from './utils/textType'
 export { TextbitEditor } from './utils/textbit-editor'
 export { TextbitElement } from './utils/textbit-element'
 export { TextbitPlugin } from './utils/textbit-plugin'
 export { Text } from './plugins/Text'
-export { diffWords, type TextChange } from './utils/diffWords'
-export { AGENT_PRESENCE_FIELD, type AgentPresenceState, type AgentStatus, type AgentChange } from './types/agentPresence'
-export { getSchema, type DocumentSchema, type ElementTypeSchema } from './schema/getSchema'
-export { validate, type ValidationIssue, type ValidationCode } from './schema/validate'
-export { toJsonSchema, type JsonSchema } from './schema/toJsonSchema'
+export { diffWords, type TextChange as TBTextChange } from './utils/diffWords'
+export { AGENT_PRESENCE_FIELD, type AgentPresenceState as TBAgentPresence, type AgentStatus as TBAgentStatus, type AgentChange as TBAgentChange } from './types/agentPresence'
+export { getSchema, type DocumentSchema as TBDocumentSchema, type ElementTypeSchema as TBElementTypeSchema } from './schema/getSchema'
+export { validate, type ValidationIssue as TBValidationIssue, type ValidationCode as TBValidationCode } from './schema/validate'
+export { toJsonSchema, type JsonSchema as TBJsonSchema } from './schema/toJsonSchema'
 
 // Suggestions: changes proposed for a person to accept or reject
-export * from './suggestions'
+export {
+  suggestionStore,
+  SUGGESTIONS_MAP,
+  suggestionFor,
+  suggestedBlockState,
+  suggestedTextChanges,
+  acceptSuggestedBlock,
+  rejectSuggestedBlock,
+  acceptSuggestion,
+  rejectSuggestion,
+  type Suggestion as TBSuggestion,
+  type SuggestedBlock as TBSuggestedBlock,
+  type SuggestionStore as TBSuggestionStore,
+  type ReviewResult as TBReviewResult
+} from './suggestions'
 export { hashNode } from './utils/hashNode'
 
 export type {

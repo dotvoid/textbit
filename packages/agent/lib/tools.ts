@@ -1,4 +1,4 @@
-import type { JsonSchema } from '@dotvoid/textbit/headless'
+import type { TBJsonSchema as JsonSchema } from '@dotvoid/textbit/headless'
 import type { DocumentAgent, ReadResult, SearchResult } from './agent'
 import type { EditResult } from './edit'
 import { FORMAT_GUIDE } from './describe'

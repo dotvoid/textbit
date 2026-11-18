@@ -5,6 +5,7 @@ import { useSlateStatic } from 'slate-react'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
 import { Suggestions } from '../lib/components/Suggestions'
+import { useSuggestions } from '../lib/hooks/useSuggestions'
 import { suggestionFor, suggestionStore } from '../lib/suggestions'
 import axe from 'axe-core'
 
@@ -13,13 +14,14 @@ const p = (id: string, text: string) => ({ id, type: 'base/text', class: 'text',
 const before = [p('a', 'Spelling: teh mistake.'), p('b', 'Remove me.')]
 const after = [p('a', 'Spelling: the mistake.'), p('n', 'A new paragraph.')]
 
-function Grab({ into }: { into: { editor?: Editor } }) {
+function Grab({ into }: { into: { editor?: Editor, shown?: string[] } }) {
   into.editor = useSlateStatic()
+  into.shown = useSuggestions().shown.map((shown) => `${shown.block.kind} ${shown.block.id}`)
   return null
 }
 
 async function setup(readOnly = false) {
-  const into: { editor?: Editor } = {}
+  const into: { editor?: Editor, shown?: string[] } = {}
   const utils = render(
     <TextbitRoot value={structuredClone(before)} readOnly={readOnly}>
       <Grab into={into} />
@@ -32,7 +34,7 @@ async function setup(readOnly = false) {
   await act(async () => {
     suggestionStore(editor).put(suggestion)
   })
-  return { ...utils, editor, suggestion }
+  return { ...utils, editor, suggestion, into }
 }
 
 describe('suggestions in the editor', () => {
@@ -100,4 +102,9 @@ test('the editor with suggestions and their list has no accessibility violations
     rules: { 'color-contrast': { enabled: false }, 'target-size': { enabled: false } }
   })
   expect(results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)).toEqual([])
+})
+
+test('hosts get each suggested block in document order', async () => {
+  const { into } = await setup()
+  expect(into.shown).toEqual(['change a', 'insert n', 'delete b'])
 })

@@ -114,7 +114,7 @@ describe('Image', () => {
     })
     const action = Image({ upload: async () => undefined }).actions![0]
 
-    action.handler({ editor: {} as Editor, type: 'base/image', api: { consumeFileInputChangeEvent: consume } })
+    action.handler({ editor: {} as Editor, type: 'base/image', consumeFiles: consume })
 
     expect(consume).toHaveBeenCalled()
     click.mockRestore()

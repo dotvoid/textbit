@@ -1,4 +1,4 @@
-import type { DocumentSchema } from '@dotvoid/textbit/headless'
+import type { TBDocumentSchema as DocumentSchema } from '@dotvoid/textbit/headless'
 
 /**
  * Short names for the types and marks of a schema, as an agent reads and

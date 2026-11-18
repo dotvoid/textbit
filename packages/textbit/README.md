@@ -472,7 +472,7 @@ The marker is ephemeral, it lives in local React state (via `PendingDropsProvide
 | `className` | `string` | - | CSS class applied to each marker element. |
 | `style` | `CSSProperties` | - | Inline style merged onto each marker. |
 | `height` | `number` | `60` | Reserved flow height in pixels. The target block gets an inline `margin-top` of this value so the marker sits in real space rather than overlaying content. |
-| `children` | `(drop: PendingDrop) => ReactNode` | - | Per-drop render override. Receives the pending drop and returns any React node. When omitted, a minimal default is rendered. |
+| `children` | `(drop: TBPendingDrop) => ReactNode` | - | Per-drop render override. Receives the pending drop and returns any React node. When omitted, a minimal default is rendered. |
 
 #### Data Attributes
 
@@ -481,10 +481,10 @@ The marker is ephemeral, it lives in local React state (via `PendingDropsProvide
 | `data-source` | `"own" \| "peer"` | Whether this marker was initiated by this session (`"own"`) or received from another peer via awareness (`"peer"`). |
 | `data-kind` | `string` | The `produces` type declared by the plugin consumer (e.g. `"base/image"`) — free-form. |
 
-#### PendingDrop
+#### TBPendingDrop
 
 ```typescript
-interface PendingDrop {
+interface TBPendingDrop {
   id: string
   source: 'own' | 'peer'
   path: Path
@@ -536,7 +536,7 @@ Use the render prop when you want richer per-drop UI (spinner, peer name badge, 
 
 #### Programmatic access
 
-`usePendingDrops()` returns the same array of `PendingDrop` objects the marker reads from. Useful for status bars or counters:
+`usePendingDrops()` returns the same array of `TBPendingDrop` objects the marker reads from. Useful for status bars or counters:
 
 ```tsx
 import { usePendingDrops } from '@dotvoid/textbit'
@@ -2348,11 +2348,11 @@ import type {
   TBPropertySchema,   // One stored property
 
   // Schema and validation, also in @dotvoid/textbit/headless
-  DocumentSchema,     // What getSchema returns
-  ElementTypeSchema,  // One element type in it
-  ValidationIssue,    // One issue validate found
-  ValidationCode,     // Its code
-  JsonSchema,         // What toJsonSchema returns
+  TBDocumentSchema,   // What getSchema returns
+  TBElementTypeSchema, // One element type in it
+  TBValidationIssue,  // One issue validate found
+  TBValidationCode,   // Its code
+  TBJsonSchema,       // What toJsonSchema returns
 
   // Plugins with views
   TBPlugin,           // A definition and its view

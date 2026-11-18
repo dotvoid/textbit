@@ -49,16 +49,18 @@ The styles have no dependencies and can be released at any time.
 
 ### Textbit 3
 
-The plugins and the agent package of 3.0 use the editor's 3.0 API (the headless
-entry, plugins as definition and view), so they cannot be released before it:
+3.0 comes with 1.0.0 of the plugins, the styles and the agent package: their APIs are
+settled with it, and from then on change only by addition, as core's do. The plugins and the
+agent package use the editor's 3.0 API (the headless entry, plugins as definition and view),
+so they cannot be released before it:
 
 1. Widen the plugins' range to `^2.0.0 || ^3.0.0` (the agent's already reads
    `^2.1.0 || ^3.0.0`) and commit it.
 2. Release the editor: `npm version major`, giving 3.0.0.
-3. Narrow both ranges to `^3.0.0`. Release the plugins (`npm version minor`,
-   0.2.0) and the styles if they changed.
-4. Release the agent package for the first time, as below: `npm version minor`,
-   giving 0.1.0.
+3. Narrow both ranges to `^3.0.0` and commit it.
+4. Release the plugins and the styles: `npm version major` in each, giving 1.0.0.
+5. Release the agent package for the first time, as below: `npm version major`, giving
+   1.0.0.
 
 ## The first release of a new package
 

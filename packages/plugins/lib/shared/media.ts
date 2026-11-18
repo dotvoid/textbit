@@ -47,8 +47,8 @@ export function uploadConsumer<T>(options: {
  * Works from menu items, which hand actions the file input API.
  */
 export function pickFiles(args: TBActionHandlerArgs, accept: string): void {
-  const consume = args.api?.consumeFileInputChangeEvent
-  if (typeof consume !== 'function') {
+  const { consumeFiles } = args
+  if (!consumeFiles) {
     return
   }
 
@@ -56,8 +56,8 @@ export function pickFiles(args: TBActionHandlerArgs, accept: string): void {
   input.type = 'file'
   input.accept = accept
   input.multiple = true
-  input.addEventListener('change', (event) => {
-    consume(args.editor, event)
+  input.addEventListener('change', () => {
+    consumeFiles(Array.from(input.files ?? []))
   })
   input.click()
 }

@@ -1,5 +1,5 @@
 import { Element, Node, Text, type Descendant, type Path } from 'slate'
-import type { DocumentSchema } from '@dotvoid/textbit/headless'
+import type { TBDocumentSchema as DocumentSchema } from '@dotvoid/textbit/headless'
 import type { Names } from './names'
 import type { Handles } from './handles'
 

@@ -3,7 +3,7 @@ import { Editor, Element, Node, type NodeEntry, Path, Range, Text, Transforms } 
 import { Editable, ReactEditor, useFocused, useSlateSelector, type RenderElementProps, type RenderLeafProps } from 'slate-react'
 import { getDecorationRanges } from '../../utils/getDecorationRanges'
 import { useAgentChanges } from '../../hooks/useAgentChanges'
-import { useSuggestions } from '../../hooks/useSuggestions'
+import { useSuggestionPlacement } from '../../hooks/useSuggestions'
 import { AgentAnnouncer } from './AgentAnnouncer'
 import { YjsEditor } from '@slate-yjs/core'
 import { ElementComponent } from '../Element/Element'
@@ -174,7 +174,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
   // What agents changed, shown in the text
   const { changes: agentChanges } = useAgentChanges()
   // What is suggested, shown in the text
-  const { onBlock: suggestionsOnBlock } = useSuggestions()
+  const { onBlock: suggestionsOnBlock } = useSuggestionPlacement()
 
   // Render decorate callback
   const decorate = useCallback((entry: NodeEntry) => {

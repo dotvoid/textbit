@@ -1,3 +1,4 @@
+import { consumeFilesFor } from '../../../utils/consumeFiles'
 import { Editor, Element, Range, Transforms } from 'slate'
 import type { PluginRegistryAction } from '../../../contexts/PluginRegistry/lib/types'
 import { toggleLeaf } from '../../../utils/toggleLeaf'
@@ -164,6 +165,7 @@ export function handleOnKeyDown(
       const allowDefault = action.handler({
         editor,
         event,
+        consumeFiles: consumeFilesFor(editor),
         type: action.plugin.name,
         options: {
           ...action.plugin.options
