@@ -4,9 +4,9 @@ import { Transforms, type Descendant, type Editor } from 'slate'
 import { useSlateStatic } from 'slate-react'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
-import { Text } from '../lib/components/core/Text'
+import { Text } from '../lib/plugins/Text'
 import { handleBlockSelectionKeyDown } from '../lib/components/TextbitEditable/handleOnKeyDown/blockSelectionHandler'
-import type { PluginDefinition } from '../lib/types'
+import type { Plugin } from '../lib/types'
 
 // slate-react only handles events whose target is editable, which it checks
 // with isContentEditable. jsdom does not implement it.
@@ -24,17 +24,22 @@ beforeAll(() => {
 })
 
 // A void block with an input in it, like an image's settings
-const Picture: PluginDefinition = {
+const Picture: Plugin = {
   class: 'block',
   name: 'test/picture',
-  componentEntry: {
+  element: {
     class: 'block',
-    component: ({ children }) => <figure>{children}</figure>,
-    children: [{
-      type: 'content',
-      class: 'void',
-      component: ({ children }) => <><div contentEditable={false}><input aria-label='Setting' defaultValue='abc' /></div>{children}</>
-    }]
+    children: [{ type: 'content', class: 'void' }]
+  },
+  view: {
+    components: {
+      'test/picture': { component: ({ children }) => <figure>{children}</figure> },
+      'test/picture/content': {
+        component: ({ children }) => (
+          <><div contentEditable={false}><input aria-label='Setting' defaultValue='abc' /></div>{children}</>
+        )
+      }
+    }
   }
 }
 

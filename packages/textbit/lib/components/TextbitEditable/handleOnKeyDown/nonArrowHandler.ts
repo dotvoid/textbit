@@ -8,7 +8,7 @@ import {
   insertParagraphBeside
 } from './blockUtils'
 import type { PluginRegistryAction } from '../../../contexts/PluginRegistry/lib/types'
-import { INSERT_NBSP_ACTION } from '../../core/NonBreakingSpace'
+import { INSERT_NBSP_ACTION } from '../../../plugins/NonBreakingSpace'
 import { typesCharacter } from '../../../utils/menuKeyboard'
 
 /**

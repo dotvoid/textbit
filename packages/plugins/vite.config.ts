@@ -28,7 +28,11 @@ export default defineConfig({
   publicDir: false,
   build: {
     lib: {
-      entry: resolve(__dirname, 'lib/index.ts'),
+      // The plugins, and the same without their views
+      entry: {
+        index: resolve(__dirname, 'lib/index.ts'),
+        definitions: resolve(__dirname, 'lib/definitions.ts')
+      },
       formats: ['es', 'cjs'],
       fileName: (format, name) => `${name}.${format === 'es' ? 'js' : 'cjs'}`
     },

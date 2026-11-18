@@ -3,7 +3,7 @@ import { useReducer } from 'react'
 import { addToRegistry, createRegistry } from './lib/createRegistry'
 
 import type { PluginRegistryProviderState, PluginRegistryReducerAction } from './lib/types'
-import type { PluginDefinition } from '../../types'
+import type { Plugin } from '../../types'
 import { initialState, PluginRegistryContext } from './PluginRegistryContext'
 
 /**
@@ -30,7 +30,7 @@ const reducer = (state: PluginRegistryProviderState, message: PluginRegistryRedu
 // Create the context provider component
 export function PluginRegistryProvider({ children, verbose, plugins }: {
   verbose: boolean
-  plugins: PluginDefinition[]
+  plugins: Plugin[]
   children: React.ReactNode
 }) {
   // Plugins are read once, on mount. Lazy init so the registry is not

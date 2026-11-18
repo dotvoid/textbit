@@ -1,9 +1,9 @@
 import { createContext } from 'react'
-import type { Action } from '../../types'
+import type { PluginRegistryAction } from '../../contexts/PluginRegistry/lib/types'
 
 export const ItemContext = createContext<{
   isActive: boolean
-  action?: Action
+  action?: PluginRegistryAction
 }>({
   isActive: false
 })

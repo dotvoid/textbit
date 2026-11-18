@@ -4,8 +4,8 @@ import { useSlateStatic } from 'slate-react'
 import { Editor, Transforms } from 'slate'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
-import { StandardPlugins } from '../lib/components/core'
-import { FocusToolbar, focusToolbar, registerToolbarFocus } from '../lib/components/core/FocusToolbar'
+import { StandardPlugins } from '../lib/plugins'
+import { FocusToolbar, focusToolbar, registerToolbarFocus } from '../lib/plugins/FocusToolbar'
 import type { PluginDefinition } from '../lib/types'
 
 // What a browser reports for Alt+F10; is-hotkey matches on `which`

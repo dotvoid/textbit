@@ -1,6 +1,6 @@
-import { type ComponentEntry, type ChildComponentEntry, type ChildConstraints } from '../types/textbit'
+import { type ElementSpec, type ChildElementSpec, type ChildConstraints } from '../types/textbit'
 
-export function componentConstraints(entry: ComponentEntry | ChildComponentEntry) {
+export function componentConstraints(entry: ElementSpec | ChildElementSpec) {
   // Read through the widest constraints type — top-level entries simply have
   // `min` / `max` as `never` (i.e. undefined at runtime).
   const constraints = (entry?.constraints ?? {}) as ChildConstraints

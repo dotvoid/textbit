@@ -7,7 +7,6 @@ const Bold: PluginInitFunction = () => {
     actions: [{
       name: 'toggle-bold',
       title: 'Bold',
-      tool: () => <div style={{ fontWeight: 'bold' }}>B</div>,
       hotkey: 'mod+b',
       handler: () => true
     }],
@@ -15,6 +14,9 @@ const Bold: PluginInitFunction = () => {
       return {
         fontWeight: 'bold'
       }
+    },
+    view: {
+      tools: { 'toggle-bold': () => <div style={{ fontWeight: 'bold' }}>B</div> }
     }
   }
 }
@@ -26,7 +28,6 @@ const Italic: PluginInitFunction = () => {
     actions: [{
       name: 'toggle-italic',
       title: 'Italic',
-      tool: () => <div style={{ fontStyle: 'italic' }}>I</div>,
       hotkey: 'mod+i',
       handler: () => true
     }],
@@ -34,6 +35,9 @@ const Italic: PluginInitFunction = () => {
       return {
         fontStyle: 'italic'
       }
+    },
+    view: {
+      tools: { 'toggle-italic': () => <div style={{ fontStyle: 'italic' }}>I</div> }
     }
   }
 }
@@ -46,13 +50,15 @@ const Underline: PluginInitFunction = () => {
       name: 'toggle-underline',
       title: 'Underline',
       hotkey: 'mod+u',
-      tool: () => <div style={{ textDecoration: 'underline' }}>U</div>,
       handler: () => true
     }],
     getStyle: () => {
       return {
         textDecoration: 'underline'
       }
+    },
+    view: {
+      tools: { 'toggle-underline': () => <div style={{ textDecoration: 'underline' }}>U</div> }
     }
   }
 }

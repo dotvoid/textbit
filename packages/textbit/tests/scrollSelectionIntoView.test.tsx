@@ -5,8 +5,8 @@ import { useSlateStatic } from 'slate-react'
 import { scrollSelectionIntoView } from '../lib/components/TextbitEditable/scrollSelectionIntoView'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
-import { Text } from '../lib/components/core/Text'
-import type { PluginDefinition } from '../lib/types'
+import { Text } from '../lib/plugins/Text'
+import type { Plugin } from '../lib/types'
 
 const defaultScroll = vi.hoisted(() => vi.fn())
 vi.mock('slate-react', async (importOriginal) => ({
@@ -15,17 +15,20 @@ vi.mock('slate-react', async (importOriginal) => ({
 }))
 
 // A block with a void child, like an image
-const Picture: PluginDefinition = {
+const Picture: Plugin = {
   class: 'block',
   name: 'test/picture',
-  componentEntry: {
+  element: {
     class: 'block',
-    component: ({ children }) => <figure>{children}</figure>,
-    children: [{
-      type: 'content',
-      class: 'void',
-      component: ({ children }) => <><div contentEditable={false}>picture</div>{children}</>
-    }]
+    children: [{ type: 'content', class: 'void' }]
+  },
+  view: {
+    components: {
+      'test/picture': { component: ({ children }) => <figure>{children}</figure> },
+      'test/picture/content': {
+        component: ({ children }) => <><div contentEditable={false}>picture</div>{children}</>
+      }
+    }
   }
 }
 

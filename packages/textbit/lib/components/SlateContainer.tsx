@@ -1,5 +1,5 @@
 import type { PlaceholdersVisibility } from '../contexts/TextbitContext'
-import type { PluginDefinition, SpellingError } from '../types'
+import type { Plugin, SpellingError } from '../types'
 import type { Awareness } from 'y-protocols/awareness'
 
 import { createEditor, Descendant, type Editor, Node } from 'slate'
@@ -21,7 +21,7 @@ interface SlateContainerBaseProps {
   debounce?: number
   spellcheckDebounce?: number
   placeholders?: PlaceholdersVisibility
-  plugins?: PluginDefinition[]
+  plugins?: Plugin[]
   className?: string
   style?: React.CSSProperties
   onSpellcheck?: (texts: { lang: string, text: string }[]) => Promise<Omit<SpellingError, 'id'>[][]>

@@ -10,7 +10,9 @@
     "noEmit": true,
     "paths": {
       "@dotvoid/textbit": ["../../packages/textbit/lib/main.ts"],
-      "@dotvoid/textbit-plugins": ["../../packages/plugins/lib/index.ts"]
+      "@dotvoid/textbit/headless": ["../../packages/textbit/lib/headless.ts"],
+      "@dotvoid/textbit-plugins": ["../../packages/plugins/lib/index.ts"],
+      "@dotvoid/textbit-plugins/definitions": ["../../packages/plugins/lib/definitions.ts"]
     }
   },
   "include": ["src"]

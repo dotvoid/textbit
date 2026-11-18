@@ -93,7 +93,7 @@ export function dropTargetAt(editor: Editor, plugins: PluginDefinition[], y: num
     blocks.push({
       at,
       box,
-      droppable: TextbitPlugin.isElementPlugin(plugin) && !!plugin.componentEntry?.droppable
+      droppable: TextbitPlugin.isElementPlugin(plugin) && !!plugin.element?.droppable
     })
   }
 

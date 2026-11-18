@@ -17,19 +17,25 @@ const Link: TBPluginInitFunction = () => {
   return {
     class: 'inline',
     name: 'base/link',
-    componentEntry: {
-      class: 'inline',
-      component: LinkComponent
+    element: {
+      class: 'inline'
     },
     actions: [{
       name: 'link',
-      tool: [
-        () => <span>L</span>,
-        EditLinkComponent
-      ],
       hotkey: 'mod+k',
       handler
-    }]
+    }],
+    view: {
+      components: {
+        'base/link': { component: LinkComponent }
+      },
+      tools: {
+        link: [
+          () => <span>L</span>,
+          EditLinkComponent
+        ]
+      }
+    }
   }
 }
 

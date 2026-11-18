@@ -1,39 +1,13 @@
 import { useState } from 'react'
-import type { TBComponentProps, TBPluginDefinition, TBActionHandlerArgs, TBToolComponentProps } from '@dotvoid/textbit'
+import type { TBComponentProps, TBPlugin, TBToolComponentProps } from '@dotvoid/textbit'
 import { TextbitElement } from '@dotvoid/textbit'
-import { Editor, Element, Range, Transforms } from 'slate'
+import { Transforms } from 'slate'
 import { ReactEditor, useSlateStatic } from 'slate-react'
 import { LinkIcon, LinkOffIcon } from '../shared/icons'
-import { hotkeyOption } from '../shared/hotkey'
 import { isValidLink, sanitizeLink } from './isValidLink'
+import { Link as LinkDefinition, TYPE, inputId, linkLabels, removeLink, type LinkLabels, type LinkOptions } from './definition'
 
-const TYPE = 'base/link'
-
-export type LinkLabels = {
-  /** The action's name in menus and for screen readers */
-  title: string
-  /** Name of the address field */
-  address: string
-  /** Placeholder of the address field */
-  placeholder: string
-  remove: string
-  open: string
-}
-
-export type LinkOptions = {
-  /** Replace the default shortcut, Ctrl+K / ⌘K, or remove it with `false` */
-  hotkey?: string | false
-  /** Labels and names, e.g. translations */
-  labels?: Partial<LinkLabels>
-}
-
-const LABELS: LinkLabels = {
-  title: 'Link',
-  address: 'Link address',
-  placeholder: 'https://',
-  remove: 'Remove link',
-  open: 'Open link in a new tab'
-}
+export type { LinkOptions, LinkLabels } from './definition'
 
 /**
  * Links. Ctrl/⌘+K links the selection and opens the address field; Ctrl/⌘-click
@@ -41,27 +15,20 @@ const LABELS: LinkLabels = {
  * typed: a `javascript:` address arriving through paste, a collaborator or stored
  * data never becomes a live link.
  */
-export const Link = (options: LinkOptions = {}): TBPluginDefinition => {
-  const labels = { ...LABELS, ...options.labels }
+export const Link = (options: LinkOptions = {}): TBPlugin => {
+  const labels = linkLabels(options)
 
   return {
-    class: 'inline',
-    name: TYPE,
-    componentEntry: {
-      class: 'inline',
-      component: LinkComponent
-    },
-    actions: [{
-      name: 'edit',
-      title: labels.title,
-      tool: [
-        () => <LinkIcon />,
-        (props: TBToolComponentProps) => <EditLink {...props} labels={labels} />
-      ],
-      hotkey: hotkeyOption(options.hotkey, 'mod+k'),
-      handler: editLink,
-      visibility: (element) => [true, true, element.type === TYPE]
-    }]
+    ...LinkDefinition(options),
+    view: {
+      components: { [TYPE]: { component: LinkComponent } },
+      tools: {
+        edit: [
+          () => <LinkIcon />,
+          (props: TBToolComponentProps) => <EditLink {...props} labels={labels} />
+        ]
+      }
+    }
   }
 }
 
@@ -162,54 +129,4 @@ function EditLink({ entry, labels }: TBToolComponentProps & { labels: LinkLabels
       )}
     </div>
   )
-}
-
-/** On a link: move to its address field. On a selection: make it a link and move there. */
-function editLink({ editor, type, event }: TBActionHandlerArgs): void {
-  const { selection } = editor
-  if (!selection) {
-    return
-  }
-
-  const [existing] = Editor.nodes(editor, {
-    at: Editor.unhangRange(editor, selection),
-    match: (n) => !Editor.isEditor(n) && TextbitElement.isInline(n) && n.type === type
-  })
-  if (existing) {
-    const [link] = existing
-    if (Element.isElement(link) && typeof link.id === 'string') {
-      event?.preventDefault()
-      document.getElementById(inputId(link.id))?.focus()
-    }
-    return
-  }
-
-  if (Range.isCollapsed(selection)) {
-    return
-  }
-
-  event?.preventDefault()
-  const id = crypto.randomUUID()
-  Editor.withoutNormalizing(editor, () => {
-    Transforms.wrapNodes(editor, {
-      class: 'inline',
-      type,
-      id,
-      properties: { href: '' },
-      children: [{ text: '' }]
-    }, { split: true })
-  })
-
-  // The address field renders with the toolbar after this change
-  setTimeout(() => document.getElementById(inputId(id))?.focus(), 0)
-}
-
-function removeLink(editor: Editor): void {
-  Transforms.unwrapNodes(editor, {
-    match: (n) => !Editor.isEditor(n) && Element.isElement(n) && n.type === TYPE
-  })
-}
-
-function inputId(linkId: string): string {
-  return `tb-link-${linkId}`
 }

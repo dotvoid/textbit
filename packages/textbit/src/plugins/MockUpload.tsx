@@ -1,5 +1,5 @@
 import type {
-  TBPluginDefinition,
+  TBPlugin,
   TBConsumesFunction,
   TBConsumeFunction,
   TBComponentProps
@@ -53,34 +53,40 @@ function describe(res: { data: unknown, type: string }): string {
   return res.type
 }
 
-export const MockUpload = (): TBPluginDefinition => ({
+export const MockUpload = (): TBPlugin => ({
   class: 'block',
   name: 'example/mock-upload',
-  componentEntry: {
-    class: 'block',
-    component: ({ element, children }: TBComponentProps) => {
-      const label = element.properties?.label
-      return (
-        <div
-          contentEditable={false}
-          style={{
-            border: '1px solid #ccc',
-            borderRadius: 6,
-            padding: '10px 14px',
-            background: '#f7f7f7',
-            fontFamily: 'sans-serif',
-            fontSize: 14
-          }}
-        >
-          <div style={{ fontWeight: 600, marginBottom: 4 }}>📎 Mock upload</div>
-          <div style={{ color: '#555' }}>{typeof label === 'string' ? label : 'uploaded'}</div>
-          {children}
-        </div>
-      )
-    }
+  element: {
+    class: 'block'
   },
   consumer: {
     consumes,
     consume
+  },
+  view: {
+    components: {
+      'example/mock-upload': { component: MockUploadComponent }
+    }
   }
 })
+
+function MockUploadComponent({ element, children }: TBComponentProps) {
+  const label = element.properties?.label
+  return (
+    <div
+      contentEditable={false}
+      style={{
+        border: '1px solid #ccc',
+        borderRadius: 6,
+        padding: '10px 14px',
+        background: '#f7f7f7',
+        fontFamily: 'sans-serif',
+        fontSize: 14
+      }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>📎 Mock upload</div>
+      <div style={{ color: '#555' }}>{typeof label === 'string' ? label : 'uploaded'}</div>
+      {children}
+    </div>
+  )
+}

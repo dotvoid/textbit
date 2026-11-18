@@ -8,7 +8,7 @@ import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
 import { DropMarker } from '../lib/components/DropMarker'
 import type { PluginDefinition } from '../lib/types'
-import { Text } from '../lib/components/core/Text'
+import { Text } from '../lib/plugins/Text'
 
 // Three blocks, 40px tall, with 20px margins between them
 const box = (top: number) => ({ top, bottom: top + 40, left: 0, right: 600 })
@@ -177,7 +177,7 @@ describe('dropping in the editor', () => {
     const plugins: PluginDefinition[] = [{
       class: 'block',
       name: 'test/thing',
-      componentEntry: { class: 'block', component: ({ children }) => <div>{children}</div> },
+      element: { class: 'block' },
       consumer: { consumes: () => [true, 'test/thing', false], consume }
     }]
     const { editor, editable } = setup(plugins)

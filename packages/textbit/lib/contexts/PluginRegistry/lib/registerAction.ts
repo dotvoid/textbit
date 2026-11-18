@@ -1,14 +1,14 @@
-import type { PluginDefinition } from '../../../types'
+import type { Plugin } from '../../../types'
 import type { PluginRegistryAction } from './types'
 import { isHotkey } from 'is-hotkey'
 
 /**
  * Register all actions and hotkeys with references to each hotkeys plugin
  *
- * @param plugins Plugin.Definition[]
+ * @param plugins Plugin[]
  * @returns PluginRegistryAction[]
  */
-export const registerActions = (plugins: PluginDefinition[]) => {
+export const registerActions = (plugins: Plugin[]) => {
   const actions: PluginRegistryAction[] = []
 
   plugins
@@ -19,10 +19,12 @@ export const registerActions = (plugins: PluginDefinition[]) => {
           ? isHotkey(action.hotkey)
           : () => false
 
+        const tool = plugin.view?.tools?.[action.name]
         actions.push({
           plugin,
           isHotkey: isHotkeyForAction,
           ...action,
+          ...(tool ? { tool } : {}),
           name: `${plugin.name}/${action.name}`
         })
       })

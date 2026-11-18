@@ -11,8 +11,9 @@ export default defineConfig({
   },
   resolve: {
     // Test against the editor's source, so nothing has to be built first
-    alias: {
-      '@dotvoid/textbit': resolve(__dirname, '../textbit/lib/main.ts')
-    }
+    alias: [
+      { find: /^@dotvoid\/textbit$/, replacement: resolve(__dirname, '../textbit/lib/main.ts') },
+      { find: /^@dotvoid\/textbit\/headless$/, replacement: resolve(__dirname, '../textbit/lib/headless.ts') }
+    ]
   }
 })

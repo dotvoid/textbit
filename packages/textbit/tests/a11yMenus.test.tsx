@@ -12,7 +12,7 @@ import { ContentTools } from '../lib/components/ContentTools'
 import { MenuContext, type MenuState } from '../lib/components/ContentTools/MenuContext'
 import { usePluginRegistry } from '../lib/hooks/usePluginRegistry'
 import { ariaKeyShortcuts, handleRovingKeys, MENU_ITEM } from '../lib/utils/menuKeyboard'
-import { Text } from '../lib/components/core/Text'
+import { Text } from '../lib/plugins/Text'
 import { Bold, Italic } from './_leafs'
 
 const content: Descendant[] = [

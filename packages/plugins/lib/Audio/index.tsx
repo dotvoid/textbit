@@ -1,86 +1,38 @@
-import type { TBComponentProps, TBOwnElementComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
+import type { TBComponentProps, TBOwnElementComponentProps, TBPlugin } from '@dotvoid/textbit'
 import { Element, Node } from 'slate'
 import { ReactEditor, useSlateStatic } from 'slate-react'
 import { AudioQuoteIcon } from '../shared/icons'
 import { FieldContent } from '../shared/Field'
-import { pickFiles, safeMediaSrc, uploadConsumer } from '../shared/media'
-import { audioNode, type AudioUpload } from './audioNode'
+import { safeMediaSrc } from '../shared/media'
+import { Audio as AudioDefinition, TYPE, labelsOf, type AudioLabels, type AudioOptions } from './definition'
 
-const TYPE = 'base/audio'
-
-export type AudioLabels = {
-  /** The insert action's name in menus and for screen readers */
-  title: string
-  /** Label before the caption field */
-  caption: string
-  /** Hint in the empty caption field */
-  captionHint: string
-  missing: string
-}
-
-export type AudioOptions = {
-  /** Store a dropped or picked file and return where it now lives; see Image */
-  upload?: (file: File) => Promise<AudioUpload | undefined>
-  /** MIME types to accept. Default: MP3, MP4/AAC, Ogg, WAV and WebM audio. */
-  accept?: string[]
-  maxSize?: number
-  labels?: Partial<AudioLabels>
-}
-
-const ACCEPT = ['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav', 'audio/webm']
-const LABELS: AudioLabels = {
-  title: 'Audio',
-  caption: 'Caption',
-  captionHint: 'Add a caption',
-  missing: 'Audio not available'
-}
+export type { AudioOptions, AudioLabels } from './definition'
 
 /** An audio player with a caption. A reference for your own, like Image, under your own namespace. */
-export const Audio = (options: AudioOptions = {}): TBPluginDefinition => {
-  const labels = { ...LABELS, ...options.labels }
-  const accept = options.accept ?? ACCEPT
-  const consumer = uploadConsumer<AudioUpload>({
-    type: TYPE,
-    accept: (mime) => accept.includes(mime),
-    maxSize: options.maxSize,
-    upload: options.upload,
-    build: (uploaded, file) => audioNode({ ...uploaded, title: uploaded.title ?? file.name })
-  })
+export const Audio = (options: AudioOptions = {}): TBPlugin => {
+  const labels = labelsOf(options)
 
   return {
-    class: 'block',
-    name: TYPE,
-    ...(consumer ? { consumer } : {}),
-    actions: [{
-      name: 'insert',
-      title: labels.title,
-      tool: () => <AudioQuoteIcon />,
-      visibility: () => [!!consumer, !!consumer, false],
-      handler: (args) => pickFiles(args, accept.join(','))
-    }],
-    componentEntry: {
-      class: 'block',
-      component: ({ children }: TBComponentProps) => <figure className='tb-audio'>{children}</figure>,
-      children: [
-        {
-          type: 'content',
-          class: 'void',
-          component: (props: TBComponentProps) => <AudioContent {...props} labels={labels} />,
-          constraints: { min: 1, max: 1 }
+    ...AudioDefinition(options),
+    view: {
+      components: {
+        [TYPE]: {
+          component: ({ children }: TBComponentProps) => <figure className='tb-audio'>{children}</figure>
         },
-        {
-          type: 'caption',
-          class: 'text',
+        [`${TYPE}/content`]: {
+          component: (props: TBComponentProps) => <AudioContent {...props} labels={labels} />
+        },
+        [`${TYPE}/caption`]: {
           // A figcaption must sit directly in its figure, without a wrapping <div>
           asOwnElement: true,
           component: ({ children, element, attributes }: TBOwnElementComponentProps<HTMLElement>) => (
             <figcaption {...attributes} className='tb-field tb-audio-caption'>
               <FieldContent element={element} label={labels.caption} hint={labels.captionHint}>{children}</FieldContent>
             </figcaption>
-          ),
-          constraints: { allowBreak: false, min: 1, max: 1 }
+          )
         }
-      ]
+      },
+      tools: { insert: () => <AudioQuoteIcon /> }
     }
   }
 }

@@ -3,26 +3,29 @@ import { render } from '@testing-library/react'
 import type { Descendant } from 'slate'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
-import { StandardPlugins } from '../lib/components/core'
-import type { PluginDefinition, ComponentProps } from '../lib/types'
+import { StandardPlugins } from '../lib/plugins'
+import type { Plugin, ComponentProps } from '../lib/types'
 
-function voidPlugin(type: string, rendersChildren: boolean): PluginDefinition {
+function voidPlugin(type: string, rendersChildren: boolean): Plugin {
   return {
     class: 'block',
     name: type,
-    componentEntry: {
+    element: {
       class: 'block',
-      component: ({ children }: ComponentProps) => <div>{children}</div>,
-      children: [{
-        type: 'content',
-        class: 'void',
-        component: ({ children }: ComponentProps) => (
-          <>
-            <div contentEditable={false}>picture</div>
-            {rendersChildren && children}
-          </>
-        )
-      }]
+      children: [{ type: 'content', class: 'void' }]
+    },
+    view: {
+      components: {
+        [type]: { component: ({ children }: ComponentProps) => <div>{children}</div> },
+        [`${type}/content`]: {
+          component: ({ children }: ComponentProps) => (
+            <>
+              <div contentEditable={false}>picture</div>
+              {rendersChildren && children}
+            </>
+          )
+        }
+      }
     }
   }
 }

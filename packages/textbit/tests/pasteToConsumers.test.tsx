@@ -5,7 +5,7 @@ import { type PropsWithChildren } from 'react'
 import { Editor, Node, Transforms, type Descendant } from 'slate'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
-import { StandardPlugins } from '../lib/components/core'
+import { StandardPlugins } from '../lib/plugins'
 import type { PluginDefinition, ConsumeFunction } from '../lib/types'
 
 /**

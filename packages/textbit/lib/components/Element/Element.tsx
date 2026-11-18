@@ -5,7 +5,7 @@ import { ParentElement } from './ParentElement'
 import { InlineElement } from './InlineElement'
 import { UnknownElement } from './UnknownElement'
 import { UnknownContent } from './UnknownContent'
-import type { ChildComponentEntry } from '../../types'
+import { renderEntry, type RenderEntry } from './renderEntry'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 
 
@@ -36,7 +36,7 @@ export function ElementComponent(props: RenderElementProps & {
     return (
       <ParentElement
         {...props}
-        entry={component.componentEntry}
+        entry={renderEntry(component)}
         options={component.pluginOptions}
       />
     )
@@ -47,7 +47,7 @@ export function ElementComponent(props: RenderElementProps & {
     return (
       <InlineElement
         {...props}
-        entry={component.componentEntry}
+        entry={renderEntry(component)}
         options={component.pluginOptions}
       />
     )
@@ -58,7 +58,7 @@ export function ElementComponent(props: RenderElementProps & {
   return (
     <ChildElement
       {...props}
-      entry={component.componentEntry}
+      entry={renderEntry(component)}
       rootNode={rootNode}
       options={component.pluginOptions}
     />
@@ -66,7 +66,8 @@ export function ElementComponent(props: RenderElementProps & {
 }
 
 /** How ParentElement renders a top-level element whose plugin is missing */
-const UNKNOWN_ENTRY: ChildComponentEntry = {
+const UNKNOWN_ENTRY: RenderEntry = {
   class: 'block',
+  type: 'unknown',
   component: UnknownContent
 }

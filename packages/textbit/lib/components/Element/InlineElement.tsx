@@ -1,8 +1,8 @@
 import { useSlateStatic, type RenderElementProps } from 'slate-react'
-import type { ChildComponentEntry } from '../../types'
+import type { RenderEntry } from './renderEntry'
 
 interface InlineElementProps extends RenderElementProps {
-  entry: ChildComponentEntry
+  entry: RenderEntry
   options?: Record<string, unknown>
 }
 

@@ -1,5 +1,5 @@
 import { Editor, Element, Transforms, type NodeEntry, type Descendant } from 'slate'
-import type { PluginDefinition, ChildComponentEntry } from '../types/textbit'
+import type { PluginDefinition, ChildElementSpec } from '../types/textbit'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { TextbitElement } from '../utils/textbit-element'
 import { TEXT_TYPE } from '../utils/textType'
@@ -51,8 +51,8 @@ export function withNormalizeNode(editor: Editor, _: PluginDefinition[], compone
     }
 
     // Custom plugin normalizer runs after declarative enforcement
-    if (typeof item.componentEntry.constraints?.normalizeNode === 'function') {
-      if (true === item.componentEntry.constraints.normalizeNode(editor, nodeEntry)) {
+    if (typeof item.spec.constraints?.normalizeNode === 'function') {
+      if (true === item.spec.constraints.normalizeNode(editor, nodeEntry)) {
         return
       }
     }
@@ -75,7 +75,7 @@ function enforceChildConstraints(
   const [node, path] = nodeEntry
   if (!Element.isElement(node)) return false
 
-  const childDefs = parent.componentEntry.children
+  const childDefs = parent.spec.children
   if (!childDefs || childDefs.length === 0) return false
 
   // Only constrained child types participate in enforcement
@@ -164,8 +164,8 @@ function childIndicesOfType(parent: Element, fullType: string): number[] {
  */
 function idealIndexForChildType(
   parent: Element,
-  childDefs: ChildComponentEntry[],
-  def: ChildComponentEntry
+  childDefs: ChildElementSpec[],
+  def: ChildElementSpec
 ): number {
   const parentTypeToRank = new Map<string | undefined, number>()
   childDefs.forEach((d, i) => parentTypeToRank.set(d.type, i))
@@ -183,7 +183,7 @@ function idealIndexForChildType(
   return idx
 }
 
-function rankForChildNode(fullChildType: string, childDefs: ChildComponentEntry[]): number {
+function rankForChildNode(fullChildType: string, childDefs: ChildElementSpec[]): number {
   for (let i = 0; i < childDefs.length; i++) {
     const def = childDefs[i]
     if (def.type && fullChildType.endsWith(`/${def.type}`)) return i
@@ -203,7 +203,7 @@ function hasNoBlockChildren(node: Element): boolean {
   )
 }
 
-function placeholderForChild(def: ChildComponentEntry, fullType: string): Descendant {
+function placeholderForChild(def: ChildElementSpec, fullType: string): Descendant {
   const base = {
     id: crypto.randomUUID(),
     type: fullType,

@@ -64,7 +64,34 @@ for (const [name, own] of Object.entries(markers)) {
   }
 }
 
+// The definitions entry runs without React: each plugin from it, bundled with
+// its imports listed, must import no React package
+const REACT = /^(react|react-dom|slate-react|@slate-yjs\/react)(\/|$)/
+for (const name of Object.keys(markers)) {
+  const result = await build({
+    stdin: {
+      contents: `import { ${name} } from '@dotvoid/textbit-plugins/definitions'; console.log(${name}())`,
+      resolveDir: root,
+      loader: 'js'
+    },
+    bundle: true,
+    write: false,
+    metafile: true,
+    format: 'esm',
+    platform: 'node',
+    external,
+    alias: { '@dotvoid/textbit-plugins/definitions': resolve(root, 'dist/definitions.js') },
+    logLevel: 'silent'
+  })
+  const imports = Object.values(result.metafile.inputs).flatMap((input) => input.imports.map((i) => i.path))
+  const react = [...new Set(imports.filter((path) => REACT.test(path)))]
+  if (react.length) {
+    console.error(`check-treeshake: the definition of ${name} imports ${react.join(', ')}`)
+    failed = true
+  }
+}
+
 if (failed) {
   process.exit(1)
 }
-console.log(`check-treeshake: each of ${Object.keys(markers).length} plugins bundles alone`)
+console.log(`check-treeshake: each of ${Object.keys(markers).length} plugins bundles alone, and its definition without React`)

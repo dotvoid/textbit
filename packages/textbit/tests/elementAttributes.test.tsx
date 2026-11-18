@@ -3,11 +3,11 @@ import { render } from '@testing-library/react'
 import type { Descendant } from 'slate'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
-import type { PluginDefinition } from '../lib/types'
+import type { Plugin } from '../lib/types'
 
 function renderEditor(
   value: Descendant[],
-  options?: { lang?: string, plugins?: PluginDefinition[] }
+  options?: { lang?: string, plugins?: Plugin[] }
 ) {
   return render(
     <TextbitRoot value={value} onChange={() => {}} lang={options?.lang} plugins={options?.plugins}>
@@ -17,41 +17,39 @@ function renderEditor(
 }
 
 // Test plugin with a text-class child rendered through the default <div> wrapper
-const captionBlockPlugin: PluginDefinition = {
+const captionBlockPlugin: Plugin = {
   class: 'block',
   name: 'test/caption-block',
-  componentEntry: {
+  element: {
     class: 'block',
-    component: ({ children }) => <div>{children}</div>,
-    children: [
-      {
-        type: 'caption',
-        class: 'text',
-        component: ({ children }) => <>{children}</>,
-        constraints: { min: 1, max: 1 }
-      }
-    ]
+    children: [{ type: 'caption', class: 'text', constraints: { min: 1, max: 1 } }]
+  },
+  view: {
+    components: {
+      'test/caption-block': { component: ({ children }) => <div>{children}</div> },
+      'test/caption-block/caption': { component: ({ children }) => <>{children}</> }
+    }
   }
 }
 
 // Test plugin whose text-class child opts into asOwnElement; the component is
 // responsible for spreading `attributes`, so we can assert on the resulting
 // DOM attributes directly.
-const ownCaptionBlockPlugin: PluginDefinition = {
+const ownCaptionBlockPlugin: Plugin = {
   class: 'block',
   name: 'test/own-caption-block',
-  componentEntry: {
+  element: {
     class: 'block',
-    component: ({ children }) => <div>{children}</div>,
-    children: [
-      {
-        type: 'caption',
-        class: 'text',
+    children: [{ type: 'caption', class: 'text', constraints: { min: 1, max: 1 } }]
+  },
+  view: {
+    components: {
+      'test/own-caption-block': { component: ({ children }) => <div>{children}</div> },
+      'test/own-caption-block/caption': {
         asOwnElement: true,
-        component: ({ children, attributes }) => <p {...attributes}>{children}</p>,
-        constraints: { min: 1, max: 1 }
+        component: ({ children, attributes }) => <p {...attributes}>{children}</p>
       }
-    ]
+    }
   }
 }
 

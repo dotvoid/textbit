@@ -86,14 +86,14 @@ function allowBreak(
       const component = components.get(node.type)
       if (!component) continue
 
-      if (component.componentEntry?.constraints?.allowBreak === false) {
+      if (component.spec?.constraints?.allowBreak === false) {
         return false
       }
 
       // Block the break when this child type is already at its max count in the parent.
       // Walking levels includes top-level nodes whose path is length 1 — those have no
       // constraining parent in Textbit's sense, so skip them.
-      const max = component.componentEntry?.constraints?.max
+      const max = component.spec?.constraints?.max
       if (max !== undefined && nodePath.length > 1) {
         const parentPath = nodePath.slice(0, -1)
         const [parentNode] = Editor.node(editor, parentPath)
@@ -129,7 +129,7 @@ function allowExitBreak(
     for (const [node] of Editor.levels(editor, { at: point })) {
       if (SlateElement.isElement(node)) {
         const component = components.get(node.type)
-        if (component?.componentEntry?.constraints?.allowExitBreak === false) {
+        if (component?.spec?.constraints?.allowExitBreak === false) {
           return false
         }
       }

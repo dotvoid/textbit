@@ -1,31 +1,25 @@
-import type { Options, ChildComponentEntry } from '../../../types/textbit'
+import type { Options, ChildElementSpec, PluginView } from '../../../types/textbit'
 import type { PluginRegistryComponent } from './types'
 
 /**
- * Register a plugin component and it's component child components recursively.
+ * Register a plugin's element and its children recursively, each with the
+ * view that renders it, when the plugin has one.
  *
- * `ChildComponentEntry` is used as the parameter type because it is the wider
- * of the two entry types — every top-level `ComponentEntry` is structurally
- * assignable to it, and nested child entries are always `ChildComponentEntry`.
- *
- * @param components
- * @param componentType
- * @param entry
- * @returns Map<string, PluginRegistryComponent>
+ * `ChildElementSpec` is the parameter type because it is the wider of the two
+ * spec types: a plugin's own `ElementSpec` fits it, and children are always
+ * `ChildElementSpec`.
  */
 export const registerComponents = (
   currentComponents: Map<string, PluginRegistryComponent>,
   componentType: string,
-  entry: ChildComponentEntry,
+  spec: ChildElementSpec,
   options?: { verbose: boolean },
-  pluginOptions?: Options
+  pluginOptions?: Options,
+  view?: PluginView
 ) => {
-  const components: Map<string, PluginRegistryComponent> = new Map()
-  currentComponents.forEach((entry, key) => {
-    components.set(key, entry)
-  })
+  const components: Map<string, PluginRegistryComponent> = new Map(currentComponents)
 
-  registerComponent(components, componentType, entry, options || {}, pluginOptions || {})
+  registerComponent(components, componentType, spec, options || {}, pluginOptions || {}, view)
   return components
 }
 
@@ -33,12 +27,13 @@ export const registerComponents = (
 const registerComponent = (
   components: Map<string, PluginRegistryComponent>,
   componentType: string,
-  entry: ChildComponentEntry,
+  spec: ChildElementSpec,
   options: {
     verbose?: boolean
-    parent?: ChildComponentEntry
+    parent?: ChildElementSpec
   },
-  pluginOptions: Record<string, unknown>
+  pluginOptions: Record<string, unknown>,
+  view?: PluginView
 ) => {
   if (components.has(componentType)) {
     if (options.verbose) {
@@ -46,34 +41,36 @@ const registerComponent = (
     }
   }
 
-  if (!entry.class) {
-    // Every component must have a class defined
+  if (!spec.class) {
+    // Every element must have a class
     console.warn(`Component ${componentType} is missing a class, using "text" as fallback type`)
   }
 
   components.set(componentType, {
     type: componentType,
-    class: entry.class || 'text',
-    componentEntry: entry,
+    class: spec.class || 'text',
+    spec,
+    view: view?.components?.[componentType],
     parent: options?.parent || null,
-    pluginOptions: pluginOptions || new Map()
+    pluginOptions: pluginOptions || {}
   })
 
-  const { children = [] } = entry
-  children.forEach((childComponent) => {
-    if (!childComponent.type) {
+  const { children = [] } = spec
+  children.forEach((child) => {
+    if (!child.type) {
       throw (new Error(`Child component of ${componentType} is missing mandatory type`))
     }
 
     registerComponent(
       components,
-      `${componentType}/${childComponent.type}`, // Aggregated type identifier (e.g. base/image/caption)
-      childComponent,
+      `${componentType}/${child.type}`, // Aggregated type identifier (e.g. base/image/caption)
+      child,
       {
         verbose: options.verbose,
-        parent: entry
+        parent: spec
       },
-      pluginOptions
+      pluginOptions,
+      view
     )
   })
 }

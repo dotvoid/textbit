@@ -1,4 +1,4 @@
-import { TextbitEditor } from '@dotvoid/textbit'
+import { TextbitEditor } from '@dotvoid/textbit/headless'
 import { Editor, Transforms, type Element } from 'slate'
 
 /** Insert a block after the top-level block holding the caret, and move into it */

@@ -7,7 +7,7 @@ import { getDecorationRanges } from '../lib/utils/getDecorationRanges'
 import { getLeafMarkIds } from '../lib/utils/decorationMarks'
 import type { Decoration, SpellcheckLookupTable, SpellingError } from '../lib/types'
 import type { PluginRegistryComponent } from '../lib/contexts/PluginRegistry/lib/types'
-import { Text as TextPlugin } from '../lib/components/core/Text'
+import { Text as TextPlugin } from '../lib/plugins/Text'
 import { Bold } from './_leafs'
 
 const emptySpellcheck: SpellcheckLookupTable = new Map()

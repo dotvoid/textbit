@@ -12,12 +12,13 @@ function componentsMap(
       type,
       class: 'text',
       parent: null,
-      componentEntry: {
+      pluginOptions: {},
+      spec: {
+        type,
         class: 'text',
-        component: () => null,
         constraints: allowSoftBreak === undefined ? undefined : { allowSoftBreak }
       }
-    } as unknown as PluginRegistryComponent)
+    })
   }
   return map
 }

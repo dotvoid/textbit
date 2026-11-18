@@ -39,7 +39,7 @@ export function withInsertHtml(
       const node = nodes.length && nodes[nodes.length - 1]
       if (Element.isElement(node)) {
         const component = components.get(node.type || '')
-        allowBreaks = component?.componentEntry.constraints?.allowBreak ?? true
+        allowBreaks = component?.spec.constraints?.allowBreak ?? true
       }
     }
 
@@ -116,7 +116,7 @@ function pasteIntoUnsplittable(
     return false
   }
 
-  const { max, allowBreak, allowSoftBreak } = componentConstraints(component.componentEntry)
+  const { max, allowBreak, allowSoftBreak } = componentConstraints(component.spec)
   const text = data.getData('text/plain').replace(/\r\n?/g, '\n')
   if (max !== 1 || !text) {
     return false

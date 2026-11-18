@@ -1,51 +1,12 @@
-import type { TBComponentProps, TBOwnElementComponentProps, TBPluginDefinition } from '@dotvoid/textbit'
+import type { TBComponentProps, TBOwnElementComponentProps, TBPlugin } from '@dotvoid/textbit'
 import { Element, Node, type Editor } from 'slate'
 import { ReactEditor, useSlateSelector, useSlateStatic } from 'slate-react'
 import { ImageIcon } from '../shared/icons'
 import { FieldContent } from '../shared/Field'
-import { pickFiles, safeMediaSrc, uploadConsumer } from '../shared/media'
-import { imageNode, type ImageUpload } from './imageNode'
+import { safeMediaSrc } from '../shared/media'
+import { Image as ImageDefinition, TYPE, labelsOf, type ImageLabels, type ImageOptions } from './definition'
 
-const TYPE = 'base/image'
-
-export type ImageLabels = {
-  /** The insert action's name in menus and for screen readers */
-  title: string
-  /** Label before the caption field */
-  caption: string
-  /** Hint in the empty caption field */
-  captionHint: string
-  /** Label before the alternative text field */
-  alt: string
-  /** Hint in the empty alternative text field */
-  altHint: string
-  missing: string
-}
-
-export type ImageOptions = {
-  /**
-   * Store a dropped or picked file and return where it now lives. Return
-   * undefined to drop the file, e.g. when the user cancels. Without it the
-   * plugin only renders images; it cannot add them.
-   */
-  upload?: (file: File) => Promise<ImageUpload | undefined>
-  /** MIME types to accept. Default: JPEG, PNG, GIF, WebP and AVIF. */
-  accept?: string[]
-  /** Largest file to accept, in bytes */
-  maxSize?: number
-  /** Labels and hints, e.g. translations */
-  labels?: Partial<ImageLabels>
-}
-
-const ACCEPT = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/avif']
-const LABELS: ImageLabels = {
-  title: 'Image',
-  caption: 'Caption',
-  captionHint: 'Add a caption',
-  alt: 'Alt text',
-  altHint: 'Describe the image for those who cannot see it',
-  missing: 'Image not available'
-}
+export type { ImageOptions, ImageLabels } from './definition'
 
 /**
  * An image with a caption and alternative text. Files reach it by drop or from
@@ -53,65 +14,37 @@ const LABELS: ImageLabels = {
  * for building your own, which gets a namespace of your own (`acme/image`, not
  * `base/image`).
  */
-export const Image = (options: ImageOptions = {}): TBPluginDefinition => {
-  const labels = { ...LABELS, ...options.labels }
-  const accept = options.accept ?? ACCEPT
-  const consumer = uploadConsumer<ImageUpload>({
-    type: TYPE,
-    accept: (mime) => accept.includes(mime),
-    maxSize: options.maxSize,
-    upload: options.upload,
-    build: (uploaded) => imageNode(uploaded)
-  })
+export const Image = (options: ImageOptions = {}): TBPlugin => {
+  const labels = labelsOf(options)
 
   return {
-    class: 'block',
-    name: TYPE,
-    ...(consumer ? { consumer } : {}),
-    actions: [{
-      name: 'insert',
-      title: labels.title,
-      tool: () => <ImageIcon />,
-      // Only offered when there is somewhere to store the file
-      visibility: () => [!!consumer, !!consumer, false],
-      handler: (args) => pickFiles(args, accept.join(','))
-    }],
-    componentEntry: {
-      class: 'block',
-      component: ({ children }: TBComponentProps) => <figure className='tb-image'>{children}</figure>,
-      children: [
-        {
-          type: 'content',
-          class: 'void',
-          component: (props: TBComponentProps) => <ImageContent {...props} labels={labels} />,
-          constraints: { min: 1, max: 1 }
+    ...ImageDefinition(options),
+    view: {
+      components: {
+        [TYPE]: {
+          component: ({ children }: TBComponentProps) => <figure className='tb-image'>{children}</figure>
         },
-        {
-          // A text field, not an <input>: the caret moves in and out of it like
-          // any other text. It sits before the caption, which must be the
-          // figure's first or last child.
-          type: 'alt',
-          class: 'text',
+        [`${TYPE}/content`]: {
+          component: (props: TBComponentProps) => <ImageContent {...props} labels={labels} />
+        },
+        [`${TYPE}/alt`]: {
           component: ({ children, element }: TBComponentProps) => (
             <div className='tb-field tb-image-alt'>
               <FieldContent element={element} label={labels.alt} hint={labels.altHint}>{children}</FieldContent>
             </div>
-          ),
-          constraints: { allowBreak: false, min: 1, max: 1 }
+          )
         },
-        {
-          type: 'caption',
-          class: 'text',
+        [`${TYPE}/caption`]: {
           // A figcaption must sit directly in its figure, without a wrapping <div>
           asOwnElement: true,
           component: ({ children, element, attributes }: TBOwnElementComponentProps<HTMLElement>) => (
             <figcaption {...attributes} className='tb-field tb-image-caption'>
               <FieldContent element={element} label={labels.caption} hint={labels.captionHint}>{children}</FieldContent>
             </figcaption>
-          ),
-          constraints: { allowBreak: false, min: 1, max: 1 }
+          )
         }
-      ]
+      },
+      tools: { insert: () => <ImageIcon /> }
     }
   }
 }
