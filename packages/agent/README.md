@@ -150,6 +150,43 @@ applied to the document as it is.
 An edit with an `opId` that was already applied returns the same result and changes nothing,
 for the last 100 batches.
 
+## Presence
+
+People in the document should see what an agent does. Give the agent a presence, on the
+awareness of its own connection to the document:
+
+```ts
+import { createAgentPresence } from '@dotvoid/textbit-agent'
+
+const presence = createAgentPresence(provider.awareness, { name: 'Writing assistant', color: '#7c3aed' })
+const agent = createDocumentAgent(editor, { plugins, presence })
+```
+
+The agent keeps it up to date: `reading` while it reads or searches, `writing` with the
+blocks it changed after an edit, `thinking` during a run between those, `idle` when the run
+ends. Editors outline the blocks it names, with its name. Nothing is locked. `presence.set()`
+says something else, `presence.clear()` leaves.
+
+## Runs
+
+A task an agent carries out, from the request to the last edit, is a run:
+
+```ts
+const run = agent.startRun()
+// ... the model calls the tools ...
+run.finish()
+
+// The person does not like it
+run.undo()
+```
+
+`run.undo()` undoes every edit of the run as one. In a shared document it does so the way
+Y.js undoes: what others wrote in the meantime stays, even in the same paragraph. Without
+sharing, it works while nobody else changed the document, and says so otherwise.
+
+In a shared document, agent edits reach Y.js under an origin of their own. The undo of the
+person at the same editor, Ctrl+Z, therefore never undoes them: only the run does.
+
 ## Unknown Elements
 
 Elements whose plugin the editor lacks are kept as they are, here as in the editor. An agent
@@ -164,6 +201,7 @@ for people. `unknownElements: 'all'` lifts this, for hosts that trust their agen
 | `readOnly` | `false` | Offer reading only |
 | `unknownElements` | `'move'` | `'all'` lets agents change and remove unknown elements |
 | `pageSize` | `24000` | Characters a read returns at most before it pages |
+| `presence` | none | From `createAgentPresence`, to show people what the agent does |
 
 ## Licence
 

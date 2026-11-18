@@ -19,6 +19,10 @@ function sources(dir: string): string {
 function selectors(file: string): string[] {
   const out: string[] = []
   postcss.parse(css(file)).walkRules((rule: Rule) => {
+    // Keyframe steps (50%, to) are not selectors
+    if (rule.parent?.type === 'atrule' && /keyframes$/.test((rule.parent as { name: string }).name)) {
+      return
+    }
     out.push(...rule.selectors)
   })
   return out

@@ -105,7 +105,7 @@ The root component that provides context for the editor. All other Textbit compo
 | `placeholder` | `string` | `''` | Placeholder text when editor is empty. |
 | `placeholders` | `'none' \| 'single' \| 'multiple'` | `'none'` | Controls placeholder display mode. When using `multiple` text plugins displays their own placeholders per text object. |
 | `readOnly` | `boolean` | `false` | Makes editor read-only. |
-| `labels` | `Partial<TBLabels>` | English | Text textbit itself shows, for translation: `unknownToText` and `unknownRemove`, the actions on an [object whose plugin is missing](#objects-whose-plugin-is-missing). |
+| `labels` | `Partial<TBLabels>` | English | Text textbit itself shows, for translation: `unknownToText` and `unknownRemove`, the actions on an [object whose plugin is missing](#objects-whose-plugin-is-missing), and `agentReading`, `agentWriting` and `agentThinking`, the labels on a block [an agent works on](#agents-in-the-document), where `{name}` is the agent's name. |
 | `debounce` | `number` | `1250` | Debounce time for onChange in milliseconds. |
 | `spellcheckDebounce` | `number` | `1250` | Debounce time for spellcheck in milliseconds. |
 | `onSpellcheck` | `SpellcheckFunction` | - | Async function to handle spellchecking. |
@@ -1226,6 +1226,10 @@ function SelectionHighlight() {
 
 ---
 
+### useAgents()
+
+The agents in the shared document and what they do. See [Agents in the Document](#agents-in-the-document).
+
 ### useSelectionStats()
 
 Word and character counts for the current selection. Returns zeros when the selection is null or collapsed.
@@ -1492,6 +1496,30 @@ interface CursorConfig {
     [key: string]: unknown         // Additional custom data
   }
 }
+```
+
+### Agents in the Document
+
+An agent editing the shared document, such as one using `@dotvoid/textbit-agent`, says what it
+does in its awareness state, under `AGENT_PRESENCE_FIELD` (`textbitAgent`):
+
+```ts
+{ name: 'Writing assistant', color: '#7c3aed', status: 'writing', blocks: ['<id of a top-level element>'] }
+```
+
+`status` is `thinking`, `reading`, `writing` or `idle`. Every editor in the document, read-only
+ones too, outlines each block in `blocks` in the agent's colour (else `--tb-agent-color`),
+with a label such as "Writing assistant is writing". The marker is `[data-tb="agent-marker"]`
+with `data-status`, its label `[data-tb="agent-label"]`. It locks nothing: people can keep
+typing there.
+
+The marker is hidden from screen readers, which would read it as part of the text. To show or
+announce what agents do elsewhere, `useAgents()` gives the agents present, each with its
+awareness `clientId`:
+
+```tsx
+const agents = useAgents()
+return <div role='status'>{agents.filter((a) => a.status !== 'idle').map((a) => `${a.name} is ${a.status}`).join(', ')}</div>
 ```
 
 ### Full Collaborative Example

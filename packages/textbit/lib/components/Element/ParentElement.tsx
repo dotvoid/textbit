@@ -3,6 +3,7 @@ import { Droppable } from './Droppable'
 import type { RenderEntry } from './renderEntry'
 import { useAdjacentBlock } from '../../hooks/useAdjacentBlock'
 import { useBlockSelection } from '../../hooks/useBlockSelection'
+import { AgentMarker } from './AgentMarker'
 import { CSSProperties } from 'react'
 
 interface ParentElementProps extends RenderElementProps {
@@ -108,6 +109,7 @@ export function ParentElement(renderProps: ParentElementProps) {
             }}
           />
         )}
+        <AgentMarker blockId={element.id} />
         {adjacentState === 'before' && (
           <div
             aria-hidden

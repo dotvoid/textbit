@@ -4,6 +4,8 @@ import { formatElements } from './format'
 import { describeSchema } from './describe'
 import { planEdit, runEdit, isStepError, pathOf, type EditOperation, type EditResult } from './edit'
 import { changedSince, recordRevision, revisionOf } from './revisions'
+import { asAgent, startRun, type AgentRun, type RunRecorder } from './runs'
+import type { AgentPresence } from './presence'
 
 export interface ReadInput {
   /** Start at this top-level element, by handle. Default: the first. */
@@ -49,6 +51,11 @@ export interface DocumentAgent {
   /** The document's element types, marks and inline elements, for a model */
   describe(): string
   edit(input: EditInput): EditResult
+  /**
+   * Start a run: the edits of one task, undone together if need be. Presence,
+   * when given, shows the agent thinking until the run finishes.
+   */
+  startRun(): AgentRun
   readonly context: AgentContext
 }
 
@@ -59,9 +66,14 @@ const DONE = new WeakMap<Editor, Map<string, EditResult>>()
  * or a headless one from `createTextbitEditor`, shared through Y.js or not.
  * Give it the same plugins as the editor.
  */
-export function createDocumentAgent(editor: Editor, options: AgentOptions = {}): DocumentAgent {
+export function createDocumentAgent(
+  editor: Editor,
+  options: AgentOptions & { presence?: AgentPresence } = {}
+): DocumentAgent {
   const context = createContext(options)
   const pageSize = options.pageSize ?? 24000
+  const { presence } = options
+  let recorder: RunRecorder | undefined
 
   const view = (entries: [Element, Path][]) => formatElements(
     { schema: context.schema, names: context.names, handles: context.handles(editor.children) },
@@ -91,6 +103,7 @@ export function createDocumentAgent(editor: Editor, options: AgentOptions = {}):
     context,
 
     read: (input = {}) => {
+      presence?.set('reading')
       const revision = recordRevision(editor)
       const blocks = topLevel()
       let start = 0
@@ -122,6 +135,7 @@ export function createDocumentAgent(editor: Editor, options: AgentOptions = {}):
     },
 
     search: ({ query, limit = 20 }) => {
+      presence?.set('reading')
       const revision = recordRevision(editor)
       const needle = query.toLowerCase()
       const handles = context.handles(editor.children)
@@ -193,15 +207,19 @@ export function createDocumentAgent(editor: Editor, options: AgentOptions = {}):
         }
       }
 
-      const error = runEdit(editor, options.plugins, plan)
+      const error = runEdit(editor, options.plugins, plan, (change) => asAgent(editor, change, recorder?.record))
       if (error) {
         return fail({ ok: false, revision: current, error })
       }
+      recorder?.edited()
+
+      const changed = blocksOf([...plan.steps.flatMap((step) => step.targets), ...plan.inserted])
+      presence?.set('writing', changed.flatMap(([element]) => typeof element.id === 'string' ? [element.id] : []))
 
       const result: EditResult = {
         ok: true,
         revision: recordRevision(editor),
-        view: view(blocksOf([...plan.steps.flatMap((step) => step.targets), ...plan.inserted]))
+        view: view(changed)
       }
       if (input.opId) {
         done.set(input.opId, result)
@@ -210,6 +228,18 @@ export function createDocumentAgent(editor: Editor, options: AgentOptions = {}):
         }
       }
       return result
+    },
+
+    startRun: () => {
+      presence?.set('thinking')
+      const started = startRun(editor, () => {
+        if (recorder === started.recorder) {
+          recorder = undefined
+        }
+        presence?.set('idle')
+      })
+      recorder = started.recorder
+      return started.run
     }
   }
 }
