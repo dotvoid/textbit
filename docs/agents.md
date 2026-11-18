@@ -112,14 +112,14 @@ attribution and diff model is built for this.
 
 ## Phases
 
-| Phase | Content | Size |
-|---|---|---|
-| 0 | Fix remote ids, inject `lang`, break the `main` imports, extract `createTextbitEditor` | S |
-| 1 | Headless core entry, plugin split, schema, `validate` | M |
-| 2 | Agent package: view and parser, operations, errors, revisions, tool descriptors, an eval harness | M |
-| 3 | Presence convention, block markers, undo per agent run | M |
-| 4 | Review in the editor, accept and reject per block | L |
-| 5 | Own Y.js 14 binding, then stored suggestions and attribution | L |
+| Phase | Content | Size | Status |
+|---|---|---|---|
+| 0 | Fix remote ids, inject `lang`, break the `main` imports, extract `createTextbitEditor` | S | done |
+| 1 | Headless core entry, plugin split, schema, `validate` | M | done |
+| 2 | Agent package: view and parser, operations, errors, revisions, tool descriptors, an eval harness | M | done, evals with models still to come |
+| 3 | Presence convention, block markers, undo per agent run | M |  |
+| 4 | Review in the editor, accept and reject per block | L |  |
+| 5 | Own Y.js 14 binding, then stored suggestions and attribution | L |  |
 
 ## Evals
 

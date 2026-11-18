@@ -1,5 +1,5 @@
 import { Editor, Element, type Point, Transforms } from 'slate'
-import type { AdjacentBlockState } from '../../../contexts/AdjacentBlockContext'
+import type { AdjacentBlockState } from '../../../types/adjacentBlock'
 import { TEXT_TYPE } from '../../../utils/textType'
 
 // ---------------------------------------------------------------------------

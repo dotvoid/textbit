@@ -1,5 +1,5 @@
 import { Editor, Range, Transforms } from 'slate'
-import type { AdjacentBlockState } from '../contexts/AdjacentBlockContext'
+import type { AdjacentBlockState } from '../types/adjacentBlock'
 import { insertParagraphBeside } from '../components/TextbitEditable/handleOnKeyDown/blockUtils'
 
 /**
