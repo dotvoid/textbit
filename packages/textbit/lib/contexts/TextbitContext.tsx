@@ -46,6 +46,8 @@ export interface TextbitState {
   placeholders: PlaceholdersVisibility
   stats: TextbitStats
   labels: TextbitLabels
+  /** Milliseconds what an agent changed stays marked in the text; 0 until dismissed */
+  agentChangeDuration: number
   dispatch: React.Dispatch<Partial<TextbitState>>
 }
 
@@ -58,6 +60,7 @@ const initialState: TextbitState = {
   debounce: 250,
   spellcheckDebounce: 1250,
   placeholder: '',
+  agentChangeDuration: 8000,
   placeholders: 'none',
   stats: {
     full: { words: 0, characters: 0 },

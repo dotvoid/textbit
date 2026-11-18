@@ -106,6 +106,7 @@ The root component that provides context for the editor. All other Textbit compo
 | `placeholders` | `'none' \| 'single' \| 'multiple'` | `'none'` | Controls placeholder display mode. When using `multiple` text plugins displays their own placeholders per text object. |
 | `readOnly` | `boolean` | `false` | Makes editor read-only. |
 | `labels` | `Partial<TBLabels>` | English | Text textbit itself shows, for translation: `unknownToText` and `unknownRemove`, the actions on an [object whose plugin is missing](#objects-whose-plugin-is-missing), `agentReading`, `agentWriting` and `agentThinking`, the labels on a block [an agent works on](#agents-in-the-document), and `agentReplaced`, `agentAdded` and `agentDeleted`, what is said when it changes text; `{name}`, `{added}` and `{removed}` are filled in. |
+| `agentChangeDuration` | `number` | `8000` | Milliseconds what an agent changed stays marked in the text before it fades; `0` until dismissed. See [Agents in the Document](#agents-in-the-document). |
 | `debounce` | `number` | `1250` | Debounce time for onChange in milliseconds. |
 | `spellcheckDebounce` | `number` | `1250` | Debounce time for spellcheck in milliseconds. |
 | `onSpellcheck` | `SpellcheckFunction` | - | Async function to handle spellchecking. |
@@ -1520,10 +1521,14 @@ typing there.
 An agent can also publish what it changed, in `changes`: each with the text it added and
 removed, placed with Y.js relative positions so the place follows the text as people type.
 Editors show them in the text: added text tinted in the agent's colour (`.tb-agent-change`),
-removed text struck through where it was (`[data-tb="agent-removed"]`). A change stays until
-someone edits the text it marks, the agent starts its next run or undoes the run, or the
-host dismisses it: `useAgentChanges()` gives the changes still shown, where they now are,
-and `dismiss(ids?)`, for a "Mark as seen" button.
+removed text struck through where it was (`[data-tb="agent-removed"]`). A change is marked for
+`agentChangeDuration` milliseconds, 8000 by default, from when the editor first shows it,
+counting only while the page is visible: someone who looked away still sees it when they come
+back. Then it fades (`.tb-agent-fading`, and `data-fading` on removed text) and goes. With
+`agentChangeDuration={0}` it stays. It goes sooner when someone edits the text it marks, the
+agent starts its next run or undoes the run, or the host dismisses it: `useAgentChanges()`
+gives the changes still shown, where they now are, and `dismiss(ids?)`, for a "Mark as seen"
+button.
 
 Screen readers hear each change once, as a sentence from a polite live region
 (`[data-tb="agent-announcer"]`): "Writing assistant changed “teh” to “the”". The labels

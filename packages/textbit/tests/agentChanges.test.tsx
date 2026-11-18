@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest'
+import { describe, test, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
 import * as Y from 'yjs'
 import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from 'y-protocols/awareness'
@@ -99,5 +99,70 @@ describe('copies', () => {
       text: 'The the end\nNext'
     })
     expect(withoutEditorUi('<p>plain</p>')).toBeNull()
+  })
+})
+
+describe('how long a change is marked', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+  })
+
+  async function marked(duration?: number) {
+    const { doc, content } = shared()
+    const awareness = new Awareness(doc)
+    const { container } = render(
+      <TextbitRoot value={content} awareness={awareness} agentChangeDuration={duration}><TextbitEditable /></TextbitRoot>
+    )
+    await settle()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    const fix = change(doc, { path: [0, 0], offset: 10 }, { path: [0, 0], offset: 13 }, 'the', 'teh')
+    await act(async () => {
+      const agent = new Awareness(new Y.Doc())
+      agent.setLocalStateField(AGENT_PRESENCE_FIELD, { name: 'Assistant', status: 'idle', blocks: [], changes: [fix] })
+      applyAwarenessUpdate(awareness, encodeAwarenessUpdate(agent, [agent.clientID]), 'test')
+    })
+    const state = () => container.querySelector('.tb-agent-fading') ? 'fading' : container.querySelector('.tb-agent-change') ? 'marked' : 'gone'
+    const wait = (ms: number) => act(async () => {
+      vi.advanceTimersByTime(ms)
+    })
+    return { state, wait }
+  }
+
+  test('fades after a while, then goes', async () => {
+    const { state, wait } = await marked(1000)
+    expect(state()).toBe('marked')
+    await wait(999)
+    expect(state()).toBe('marked')
+    await wait(1)
+    expect(state()).toBe('fading')
+    await wait(1200)
+    expect(state()).toBe('gone')
+  })
+
+  test('time the page is hidden does not count', async () => {
+    const { state, wait } = await marked(1000)
+    await wait(600)
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true })
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await wait(60000)
+    expect(state()).toBe('marked')
+
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => false })
+    await act(async () => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+    await wait(399)
+    expect(state()).toBe('marked')
+    await wait(1)
+    expect(state()).toBe('fading')
+  })
+
+  test('0 keeps it until dismissed', async () => {
+    const { state, wait } = await marked(0)
+    await wait(600000)
+    expect(state()).toBe('marked')
   })
 })

@@ -104,6 +104,8 @@ export type TextbitRange = BaseRange & {
   /** Text an agent removed, shown struck through before (or after) this text */
   agentRemoved?: string
   agentRemovedAt?: 'before' | 'after'
+  /** The change is fading out */
+  agentFading?: boolean
 }
 
 // Declare module augmentation

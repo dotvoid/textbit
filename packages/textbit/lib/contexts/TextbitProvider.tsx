@@ -13,6 +13,7 @@ interface TextbitProps {
   placeholder?: string
   placeholders?: PlaceholdersVisibility
   labels?: Partial<TextbitLabels>
+  agentChangeDuration?: number
 }
 
 // Prop-driven fields are read from props each render via useMemo.
@@ -34,7 +35,8 @@ export function TextbitProvider({
   spellcheckDebounce,
   placeholder,
   placeholders,
-  labels
+  labels,
+  agentChangeDuration
 }: TextbitProps) {
   const [stats, setStats] = useState<TextbitStats>({
     full: { words: 0, characters: 0 },
@@ -61,6 +63,7 @@ export function TextbitProvider({
     placeholders: placeholders ?? 'none',
     stats,
     labels: { ...DEFAULT_LABELS, ...labels },
+    agentChangeDuration: agentChangeDuration ?? 8000,
     dispatch
   }), [
     verbose,
@@ -73,6 +76,7 @@ export function TextbitProvider({
     placeholder,
     placeholders,
     labels,
+    agentChangeDuration,
     stats,
     dispatch
   ])

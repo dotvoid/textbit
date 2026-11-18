@@ -13,6 +13,8 @@ export interface ResolvedAgentChange {
   range: Range
   added?: string
   removed?: string
+  /** On its way out: shown fading */
+  fading?: boolean
 }
 
 /**
@@ -76,6 +78,7 @@ export function agentChangeRanges(changes: readonly ResolvedAgentChange[], path:
           focus: to,
           agentChange: change.id,
           agentColor: color,
+          ...(change.fading ? { agentFading: true } : {}),
           ...(first && change.removed ? { agentRemoved: change.removed, agentRemovedAt: 'before' as const } : {})
         })
       }
@@ -94,7 +97,8 @@ export function agentChangeRanges(changes: readonly ResolvedAgentChange[], path:
       focus: { path, offset: at + 1 },
       agentColor: color,
       agentRemoved: change.removed,
-      agentRemovedAt: atEnd ? 'after' : 'before'
+      agentRemovedAt: atEnd ? 'after' : 'before',
+      ...(change.fading ? { agentFading: true } : {})
     })
   }
   return ranges
