@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as Y from 'yjs'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import { Textbit, useAgents } from '@dotvoid/textbit'
@@ -14,20 +14,36 @@ const URL = 'ws://localhost:1234'
  * alongside you. Start it with `npm run lab`; see apps/agent-lab.
  */
 export const AgentLab = () => {
-  const [joined, setJoined] = useState(false)
+  const [joined, setJoined] = useState<string | null>(null)
+  const [problem, setProblem] = useState('')
+  const leave = useCallback(() => {
+    setJoined(null)
+    setProblem('The lab document was reset. Join again.')
+  }, [])
+
+  // The server names the current document: a copy kept from before a reset
+  // must not be merged back into it
+  const join = () => {
+    setProblem('')
+    fetch(`${URL.replace(/^ws/, 'http')}/lab`)
+      .then((response) => response.json() as Promise<{ document: string }>)
+      .then((body) => setJoined(body.document))
+      .catch(() => setProblem(`No lab at ${URL}. Start it with npm run lab.`))
+  }
 
   if (!joined) {
     return (
       <p className='demo-lab-join'>
-        <button type='button' onClick={() => setJoined(true)}>Join the lab document</button>
-        {' '}Needs <code>npm run lab</code> running.
+        <button type='button' onClick={join}>Join the lab document</button>
+        {' '}{problem || <>Needs <code>npm run lab</code> running.</>}
       </p>
     )
   }
-  return <LabEditor />
+  // A new document gets a new editor and Y.Doc
+  return <LabEditor key={joined} name={joined} onGone={leave} />
 }
 
-const LabEditor = () => {
+const LabEditor = ({ name, onGone }: { name: string, onGone: () => void }) => {
   const plugins = useMemo(() => demoPlugins(), [])
   const [doc] = useState(() => new Y.Doc())
   const [provider, setProvider] = useState<HocuspocusProvider | null>(null)
@@ -36,7 +52,14 @@ const LabEditor = () => {
   // Made and destroyed in the effect, so React's development double run of
   // effects does not leave a destroyed provider behind
   useEffect(() => {
-    const created = new HocuspocusProvider({ url: URL, name: 'lab', document: doc })
+    const created = new HocuspocusProvider({
+      url: URL,
+      name,
+      document: doc,
+      token: 'lab',
+      // The server turns away a document it no longer serves: after a reset
+      onAuthenticationFailed: onGone
+    })
     const onStatus = ({ status }: { status: string }) => setStatus(status)
     created.on('status', onStatus)
     setProvider(created)
@@ -44,7 +67,7 @@ const LabEditor = () => {
       created.off('status', onStatus)
       created.destroy()
     }
-  }, [doc])
+  }, [doc, name, onGone])
 
   if (!provider) {
     return null

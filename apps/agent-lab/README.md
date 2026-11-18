@@ -51,6 +51,14 @@ Both run the built packages, as a host would.
    - "Make the table's second column say what each boat catches in winter."
    - "Fix the spelling mistakes." Type in a paragraph at the same time.
 
+## Starting over
+
+`npm run lab:reset` (with the server stopped) throws the document away; the next `npm run lab`
+starts again from the article. Each start-over is a document of its own, with a name the
+server hands out: a browser tab or MCP server still holding the old one is turned away
+rather than merging its copy back in, which would give every element twice. The demo then
+asks you to join again; reconnect the MCP server with `/mcp` in Claude Code.
+
 ## What to watch
 
 - The marker on the blocks the agent changes, with its name, while it writes.
