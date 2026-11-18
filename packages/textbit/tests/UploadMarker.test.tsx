@@ -69,6 +69,16 @@ describe('UploadMarker', () => {
     expect(markers).toHaveLength(0)
   })
 
+  test('keeps its live region in the accessibility tree while idle, so its next message is said', () => {
+    const editor = makeEditor(content())
+    const { container } = render(<Wrapper editor={editor}><UploadMarker /></Wrapper>)
+    const region = container.querySelector('[aria-live="polite"]')
+    expect(region).not.toBeNull()
+    for (let element = region as HTMLElement | null; element; element = element.parentElement) {
+      expect(element.style.display).not.toBe('none')
+    }
+  })
+
   test('renders one positioned child per drop with data attributes', () => {
     const editor = makeEditor(content())
     const { container } = render(

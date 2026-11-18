@@ -5,9 +5,11 @@ import { MenuContext } from './MenuContext'
 import { GutterContext } from '../GutterProvider/GutterContext'
 import { registerToolbarFocus } from '../../plugins/FocusToolbar'
 
-export function Trigger({ children, className }: PropsWithChildren & {
+export function Trigger({ children, className, 'aria-label': label }: PropsWithChildren & {
   className?: string
   children?: React.ReactNode
+  /** The button's name for screen readers, needed when its content is only an icon */
+  'aria-label'?: string
 }) {
   const editor = useSlateStatic()
   const { isOpen, setIsOpen, triggerId, contentId, triggerRef: menuTriggerRef } = useContext(MenuContext)
@@ -49,6 +51,7 @@ export function Trigger({ children, className }: PropsWithChildren & {
       id={triggerId}
       role='button'
       tabIndex={0}
+      aria-label={label}
       aria-haspopup='menu'
       aria-expanded={isOpen}
       aria-controls={isOpen ? contentId : undefined}

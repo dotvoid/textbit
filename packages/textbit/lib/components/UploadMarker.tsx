@@ -3,8 +3,11 @@ import { ReactEditor, useSlateStatic } from 'slate-react'
 import { usePendingDrops } from '../hooks/usePendingDrops'
 import type { PendingDrop } from '../contexts/PendingDropsContext'
 
-interface UploadMarkerProps {
+/** What `Textbit.UploadMarker` takes */
+export interface UploadMarkerProps {
+  /** A class on each marker */
   className?: string
+  /** A style on each marker */
   style?: CSSProperties
   /**
    * Reserved flow height per marker. The block at the drop position gets a
@@ -120,12 +123,12 @@ export function UploadMarker({ className, style, height = DEFAULT_HEIGHT, childr
   }, [ownCount])
 
   if (drops.length === 0 || !editableRect) {
-    // Keep a hidden anchor so the useLayoutEffect can find the editable
-    // sibling on the next drop without waiting for a remount. Also carries
-    // the aria-live region so screen readers pick up announcements even
-    // when the visual chip is gone (e.g. transient errors).
+    // Keep an anchor so the useLayoutEffect can find the editable sibling on
+    // the next drop without waiting for a remount. It also carries the live
+    // region, which must stay in the accessibility tree (no display: none)
+    // for screen readers to announce what it says next. Both are invisible.
     return (
-      <div ref={ref} style={{ display: 'none' }}>
+      <div ref={ref} style={{ display: 'contents' }}>
         <AnnouncementRegion text={announcement} />
       </div>
     )
