@@ -2,6 +2,9 @@ import { Editor, Element, Transforms } from 'slate'
 import type { AdjacentBlockState } from '../../../contexts/AdjacentBlockContext'
 import type { BlockSelectionState } from '../../../contexts/BlockSelectionContext'
 import { resolveTargetIndex, enterBlockFromStart, enterBlockFromEnd } from './blockUtils'
+import { isMac } from '../../../utils/modifier'
+
+const IS_MAC = isMac()
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -117,6 +120,9 @@ export function enterBlockSelectionFromAdjacentCaret(
  * - Delete/Backspace: remove selected blocks
  * - Cmd/Ctrl+C: pass through for native copy
  * - Cmd/Ctrl+X: copy then delete blocks
+ * - Cmd/Ctrl+A: select every block
+ * - Undo and redo: leave the block selection, and pass through
+ * - Other shortcuts and function keys: pass through, such as find and zoom
  * - All other keys: consumed (no-op)
  */
 export function handleBlockSelectionKeyDown(
@@ -236,6 +242,27 @@ export function handleBlockSelectionKeyDown(
   // state, removes the selected blocks and inserts the clipboard content
   // in their place. Do NOT preventDefault here.
   if (hasMod && letter === 'v') {
+    return
+  }
+
+  // ── Cmd/Ctrl+A — select every block ──────────────────────────────────
+  if (hasMod && !event.shiftKey && !event.altKey && letter === 'a') {
+    event.preventDefault()
+    const state = { anchorIndex: 0, focusIndex: editor.children.length - 1 }
+    setBlockSelection(state)
+    syncSlateSelection(editor, state)
+    return
+  }
+
+  // ── Other shortcuts — the page's and the browser's ───────────────────
+  // Cmd on a Mac, Ctrl elsewhere: Ctrl on a Mac moves the caret and deletes,
+  // as in Emacs. Undo and redo change the document under the selection, so
+  // they leave it first. Do NOT preventDefault here.
+  const primary = IS_MAC ? event.metaKey : event.ctrlKey
+  if (primary || /^F\d{1,2}$/.test(key)) {
+    if (primary && (letter === 'z' || letter === 'y')) {
+      setBlockSelection(null)
+    }
     return
   }
 
