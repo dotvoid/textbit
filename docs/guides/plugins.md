@@ -53,7 +53,9 @@ Every plugin is a named export, and bundlers keep only the ones you import.
   and numbers. Enter on an empty last item leaves the list.
 - **`CodeBlock({ indentSize, title, placeholder, hotkey })`**: Tab indents inside it.
 - **`Table({ rows, columns, titles })`**: Tab and Shift+Tab move between cells, Tab in the last
-  cell adds a row. Its row and column actions show in menus while the caret is in a cell.
+  cell adds a row. Its actions insert and delete rows and columns. They show in menus while
+  the caret is in a cell, and in the context menu on a right-click in a cell. Deleting the last
+  row or column is shown but disabled.
 - **`Link({ hotkey, labels })`**: Ctrl/⌘+K links the selection and moves to the address field;
   Ctrl/⌘-click opens a link. Addresses are checked whenever a link is rendered, so a
   `javascript:` address arriving through a paste, a collaborator or stored data never becomes a
@@ -236,6 +238,7 @@ An action is something the plugin does, from a shortcut, a menu or the toolbar:
 | `hotkey` | A shortcut such as `mod+shift+f`, where `mod` is ⌘ on macOS and Ctrl elsewhere |
 | `handler` | Does it. Return `true` to let the default happen as well (such as the key's own effect, or a mark's toggle), nothing or `false` when the handler did everything. |
 | `visibility` | `(element, rootElement) => [visible, enabled, active]`: whether menus show it, can use it, and show it as on |
+| `contextMenu` | `true` offers it in the context menu wherever `visibility` shows it, in the host's menu or the editor's own |
 | `when` | `(editor) => boolean`: take the hotkey only when this is true, so plugins can share a key |
 
 The handler gets `editor`, the plugin's `type` and `options`, `args` from `useAction`, the

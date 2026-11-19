@@ -5,13 +5,15 @@ import { ReactEditor, useSlateStatic } from 'slate-react'
 import { TextbitEditor } from '../utils/textbit-editor'
 import { type SpellingError } from '../types/slate'
 import { ContextMenuHintsContext } from '../components/ContextMenu/ContextMenuHintsContext'
+import { contextMenuActions } from '../utils/actionVisibility'
+import { usePluginRegistry } from './usePluginRegistry'
 
 /**
  * When the context menu opens. `spelling` only opens it on a misspelled word;
  * `always` opens it on any text, with `spelling` in the hints left undefined
- * when the word is not misspelled.
+ * when the word is not misspelled. Either way it opens where a plugin offers
+ * actions, such as in a table.
  */
-/** When the context menu opens: on misspelled words only, or on any text */
 export type ContextMenuMode = 'spelling' | 'always'
 
 export function useContextMenu(
@@ -20,6 +22,7 @@ export function useContextMenu(
 ) {
   const editor = useSlateStatic()
   const contextMenuHintsContext = useContext(ContextMenuHintsContext)
+  const { actions } = usePluginRegistry()
 
   return useMemo(() => {
 
@@ -70,7 +73,10 @@ export function useContextMenu(
         event.preventDefault()
       }
 
-      if (!spelling && mode === 'spelling') {
+      // Where a plugin offers actions, such as in a table, the menu has
+      // something to show whatever the mode
+      const offersActions = contextMenuActions(editor, editor.selection, actions).length > 0
+      if (!spelling && mode === 'spelling' && !offersActions) {
         return
       }
 
@@ -88,7 +94,7 @@ export function useContextMenu(
     }
 
     return contextMenuHandler as unknown as MouseEventHandler<HTMLDivElement>
-  }, [contextMenuHintsContext, preventDefault, mode, editor])
+  }, [contextMenuHintsContext, preventDefault, mode, editor, actions])
 }
 
 function isEditorRoot(editor: Editor, target: EventTarget | null): boolean {

@@ -14,7 +14,8 @@ export type { TableOptions, TableAction } from './definition'
 
 /**
  * A simple table of text cells. Tab and Shift+Tab move between cells; Tab in
- * the last cell adds a row.
+ * the last cell adds a row. Rows and columns are added and removed from the
+ * context menu or the block menu.
  */
 export const Table = (options: TableOptions = {}): TBPlugin => ({
   ...TableDefinition(options),

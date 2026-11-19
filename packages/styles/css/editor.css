@@ -130,6 +130,13 @@
   outline: none;
 }
 
+[data-tb="menu-item"][aria-disabled="true"],
+[data-tb="context-menu-item"][aria-disabled="true"] {
+  color: var(--tb-muted);
+  background: none;
+  cursor: default;
+}
+
 [data-tb="menu-item"][data-state="active"] {
   color: var(--tb-accent);
 }

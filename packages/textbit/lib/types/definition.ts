@@ -84,6 +84,12 @@ export interface Action {
    */
   visibility?: (element: Element, rootElement?: Element) => [boolean, boolean, boolean]
   /**
+   * Offer the action in the context menu wherever `visibility` shows it. The
+   * menu then opens there whatever the editable's `contextMenu` mode, and
+   * lists it after the host's own items. Default: `false`.
+   */
+  contextMenu?: boolean
+  /**
    * When given, the action only takes its hotkey while this returns true.
    * Otherwise the key goes on to the next action with the same hotkey, so
    * several plugins can share a key like Tab or Enter, each in its own context.

@@ -32,15 +32,19 @@ const TITLES: Record<TableAction, string> = {
 
 /**
  * A simple table of text cells. Tab and Shift+Tab move between cells; Tab in
- * the last cell adds a row.
+ * the last cell adds a row. Rows and columns are added and removed from the
+ * context menu or the block menu.
  */
 export const Table = (options: TableOptions = {}): TBPluginDefinition => {
   const title = (action: TableAction) => options.titles?.[action] ?? TITLES[action]
-  const inTable = (element: Element, innerElement?: Element): [boolean, boolean, boolean] => {
-    const target = innerElement ?? element
-    const visible = [TYPE, ROW, CELL].includes(target.type)
-    return [visible, visible, false]
-  }
+  // The last row or column cannot go: shown, but disabled
+  const inTable = (removes?: 'row' | 'column') =>
+    (element: Element, innerElement?: Element): [boolean, boolean, boolean] => {
+      const target = innerElement ?? element
+      const visible = [TYPE, ROW, CELL].includes(target.type)
+      const enabled = visible && (removes === undefined || canRemove(element, removes))
+      return [visible, enabled, false]
+    }
 
   return {
     class: 'block',
@@ -60,24 +64,24 @@ export const Table = (options: TableOptions = {}): TBPluginDefinition => {
           })
         }
       },
-      tableAction('row-above', title('row-above'), inTable, (editor, cell) => {
+      tableAction('row-above', title('row-above'), inTable(), (editor, cell) => {
         Transforms.insertNodes(editor, emptyRow(cell.columns), { at: [...cell.tablePath, cell.row] })
       }),
-      tableAction('row-below', title('row-below'), inTable, (editor, cell) => {
+      tableAction('row-below', title('row-below'), inTable(), (editor, cell) => {
         Transforms.insertNodes(editor, emptyRow(cell.columns), { at: [...cell.tablePath, cell.row + 1] })
       }),
-      tableAction('delete-row', title('delete-row'), inTable, (editor, cell) => {
+      tableAction('delete-row', title('delete-row'), inTable('row'), (editor, cell) => {
         if (cell.rows > 1) {
           Transforms.removeNodes(editor, { at: [...cell.tablePath, cell.row] })
         }
       }),
-      tableAction('column-left', title('column-left'), inTable, (editor, cell) => {
+      tableAction('column-left', title('column-left'), inTable(), (editor, cell) => {
         insertColumn(editor, cell, cell.column)
       }),
-      tableAction('column-right', title('column-right'), inTable, (editor, cell) => {
+      tableAction('column-right', title('column-right'), inTable(), (editor, cell) => {
         insertColumn(editor, cell, cell.column + 1)
       }),
-      tableAction('delete-column', title('delete-column'), inTable, (editor, cell) => {
+      tableAction('delete-column', title('delete-column'), inTable('column'), (editor, cell) => {
         if (cell.columns <= 1) {
           return
         }
@@ -147,6 +151,7 @@ function tableAction(
     name,
     title,
     visibility,
+    contextMenu: true,
     handler: ({ editor }: { editor: Editor }) => {
       const cell = caretCell(editor)
       if (cell) {
@@ -154,6 +159,18 @@ function tableAction(
       }
     }
   }
+}
+
+/** Whether the table has a row, or a column, to spare */
+function canRemove(table: Element, what: 'row' | 'column'): boolean {
+  if (table.type !== TYPE) {
+    return true
+  }
+  if (what === 'row') {
+    return table.children.length > 1
+  }
+  const [row] = table.children
+  return Element.isElement(row) && row.children.length > 1
 }
 
 /** Where the caret is, when it is in a table cell */

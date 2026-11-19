@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest'
-import { act, fireEvent } from '@testing-library/react'
+import { act, fireEvent, screen, within } from '@testing-library/react'
 import { Editor, Node, Transforms, type Descendant, type Element } from 'slate'
 import { CodeBlock, Link, LocalizedQuotationMarks, OrderedList, Table, Text, UnorderedList } from '../lib'
 import { pressKey, renderEditor, settle } from './_editor'
@@ -132,6 +132,52 @@ describe('table', () => {
     const cell = { type: 'base/table/row/cell' } as Element
     expect(rowAbove.visibility!(table, cell)).toEqual([true, true, false])
     expect(rowAbove.visibility!({ type: 'base/text' } as Element)).toEqual([false, false, false])
+  })
+
+  test('every row and column action is offered in the context menu', () => {
+    const offered = Table().actions!.filter((a) => a.contextMenu).map((a) => a.name)
+    expect(offered).toEqual(['row-above', 'row-below', 'delete-row', 'column-left', 'column-right', 'delete-column'])
+  })
+
+  test('deleting the last row or column is shown, but disabled', () => {
+    const action = (name: string) => Table().actions!.find((a) => a.name === name)!
+    const cell = { type: 'base/table/row/cell' } as Element
+    const row = (width: number) => ({ type: 'base/table/row', children: Array.from({ length: width }, () => cell) })
+    const table = (rows: number, width: number) =>
+      ({ type: 'base/table', children: Array.from({ length: rows }, () => row(width)) }) as unknown as Element
+
+    expect(action('delete-row').visibility!(table(1, 3), cell)).toEqual([true, false, false])
+    expect(action('delete-row').visibility!(table(2, 1), cell)).toEqual([true, true, false])
+    expect(action('delete-column').visibility!(table(3, 1), cell)).toEqual([true, false, false])
+    expect(action('delete-column').visibility!(table(1, 2), cell)).toEqual([true, true, false])
+  })
+
+  test('a right-click in a cell offers its rows and columns, and deletes one', async () => {
+    const table: Descendant = {
+      id: 't', class: 'block', type: 'base/table', children: ['r1', 'r2'].map((row) => ({
+        id: row, class: 'block', type: 'base/table/row', children: ['a', 'b'].map((col) => ({
+          id: `${row}${col}`, class: 'text', type: 'base/table/row/cell', children: [{ text: `${row}${col}` }]
+        }))
+      }))
+    } as Descendant
+    // No context menu from the host, the default mode: the table is usable anyway
+    const { editor, container } = renderEditor([Text(), Table()], [...paragraphs('Hello'), table])
+    act(() => Transforms.select(editor, Editor.start(editor, [1, 1, 0])))
+
+    // The Menu key opens the context menu at the caret
+    act(() => {
+      fireEvent.contextMenu(editableOf(container), { clientX: 0, clientY: 0 })
+    })
+    const menu = await screen.findByRole('menu')
+    expect(within(menu).getAllByRole('menuitem').map((item) => item.textContent)).toEqual([
+      'Insert row above', 'Insert row below', 'Delete row',
+      'Insert column left', 'Insert column right', 'Delete column'
+    ])
+
+    act(() => {
+      fireEvent.mouseDown(within(menu).getByText('Delete row'))
+    })
+    expect(Node.string(editor.children[1])).toBe('r1ar1b')
   })
 
   test('rows and columns can be added and removed, never the last one', async () => {
