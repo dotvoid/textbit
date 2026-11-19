@@ -1,9 +1,7 @@
 import { type PropsWithChildren, useContext } from 'react'
 import { ReactEditor, useSlateSelection, useSlateStatic } from 'slate-react'
-import { type BaseSelection, Editor, Element } from 'slate'
 import { consumeFilesFor } from '../../utils/consumeFiles'
-import { TextbitElement } from '../../utils/textbit-element'
-import type { PluginRegistryAction } from '../../contexts/PluginRegistry/lib/types'
+import { actionVisibility } from '../../utils/actionVisibility'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 import { ItemContext } from './ItemContext'
 import { MenuContext } from './MenuContext'
@@ -23,7 +21,7 @@ export function Item({ children, className, action: actionName }: PropsWithChild
     return <></>
   }
 
-  const [isVisible, , isActive] = visibilityBySelection(editor, selection, action) || [false, false, false]
+  const [isVisible, isEnabled, isActive] = actionVisibility(editor, selection, action)
 
   if (!isVisible) {
     return <></>
@@ -35,6 +33,7 @@ export function Item({ children, className, action: actionName }: PropsWithChild
         role='menuitem'
         tabIndex={-1}
         aria-keyshortcuts={ariaKeyShortcuts(action.hotkey)}
+        aria-disabled={isEnabled ? undefined : true}
         className={className}
         data-tb='menu-item'
         data-state={isActive ? 'active' : 'inactive'}
@@ -55,7 +54,7 @@ export function Item({ children, className, action: actionName }: PropsWithChild
   )
 
   function activate(item: HTMLElement) {
-    if (!action) {
+    if (!action || !isEnabled) {
       return
     }
 
@@ -76,39 +75,3 @@ export function Item({ children, className, action: actionName }: PropsWithChild
   }
 }
 
-
-function visibilityBySelection(editor: Editor, selection: BaseSelection, action: PluginRegistryAction): [boolean, boolean, boolean] {
-  if (!selection) {
-    return [false, false, false]
-  }
-
-  const matches = Array.from(
-    Editor.nodes(editor, {
-      at: Editor.unhangRange(editor, selection),
-      match: (el) => {
-        return !Editor.isEditor(el) && Element.isElement(el)
-      }
-    })
-  )
-
-  if (!matches.length) {
-    return [false, false, false]
-  }
-
-  if (!action?.visibility) {
-    return [false, false, false]
-  }
-
-  const outerElement = matches[0][0]
-  const innerElement = matches[matches.length - 1][0]
-
-  if (!TextbitElement.isElement(outerElement)) {
-    return [false, false, false]
-  }
-
-  // Pass the innermost element (cursor position) as second arg so visibility
-  // functions can make context-aware decisions when inside nested blocks.
-  const cursorElement = TextbitElement.isElement(innerElement) ? innerElement : undefined
-  const status = action?.visibility(outerElement, cursorElement)
-  return status || [[false, false, false]]
-}

@@ -1,19 +1,54 @@
-import { useCallback, useContext, useEffect, useRef } from 'react'
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { ReactEditor, useSlateStatic } from 'slate-react'
+import { ReactEditor, useSlateSelection, useSlateStatic } from 'slate-react'
 import { useContextMenuHints } from './useContextMenuHints'
 import { ContextMenuHintsContext } from './ContextMenuHintsContext'
+import { Actions } from './Actions'
+import { contextMenuActions } from '../../utils/actionVisibility'
 import { useTextbit } from '../../hooks/useTextbit'
+import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 import { focusItem, handleRovingKeys, MENU_ITEM } from '../../utils/menuKeyboard'
 
+/** The host's context menu: its own items, then the plugins' actions for where it opened */
 export function Menu({ children, className, 'aria-label': ariaLabel }: {
   className?: string
   children?: React.ReactNode
   'aria-label'?: string
 }) {
+  const { registerHostMenu } = useContext(ContextMenuHintsContext)
+  // Before paint, so a menu the host mounts as it opens never shows beside the built-in one
+  useLayoutEffect(() => registerHostMenu(), [registerHostMenu])
+
   return createPortal(
     <Popover className={className} ariaLabel={ariaLabel}>
       {children}
+      <Actions />
+    </Popover>,
+    document.body
+  )
+}
+
+/**
+ * The editor's own context menu, for a host that renders none: the plugins'
+ * actions, such as a table's rows and columns, where there are any
+ */
+export function BuiltInMenu() {
+  const { menu } = useContextMenuHints()
+  return menu ? <BuiltInActions /> : null
+}
+
+function BuiltInActions() {
+  const editor = useSlateStatic()
+  const selection = useSlateSelection()
+  const { actions } = usePluginRegistry()
+
+  if (!contextMenuActions(editor, selection, actions).length) {
+    return null
+  }
+
+  return createPortal(
+    <Popover>
+      <Actions />
     </Popover>,
     document.body
   )

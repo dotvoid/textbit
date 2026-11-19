@@ -32,13 +32,19 @@ export interface ContextMenuSpellingHints extends SpellingError {
 export interface ContextMenuHintsProviderState {
   menu?: ContextMenuHints
   spelling?: ContextMenuSpellingHints
-  dispatch: React.Dispatch<Partial<ContextMenuHintsProviderState>>
+  dispatch: React.Dispatch<Partial<Pick<ContextMenuHintsProviderState, 'menu' | 'spelling'>>>
+  /** How many context menus the host renders; without one the editor shows its own */
+  hostMenus: number
+  /** A host's context menu says it is there; returns its goodbye */
+  registerHostMenu: () => () => void
 }
 
 export const initialState: ContextMenuHintsProviderState = {
   menu: undefined,
   spelling: undefined,
-  dispatch: () => { }
+  dispatch: () => { },
+  hostMenus: 0,
+  registerHostMenu: () => () => { }
 }
 
 

@@ -6,11 +6,14 @@ import { Editor } from 'slate'
 export function Item({
   children,
   className,
-  func = undefined
+  func = undefined,
+  disabled = false
 }: {
   children: React.ReactNode
   className?: string
   func?: (editor: Editor) => void
+  /** Shown but not chosen; the keyboard skips it */
+  disabled?: boolean
 }) {
   const editor = useSlateStatic()
   const menuCtx = useContext(ContextMenuHintsContext)
@@ -20,6 +23,10 @@ export function Item({
   }
 
   const activate = (item: HTMLElement) => {
+    if (disabled) {
+      return
+    }
+
     const menu = item.closest('[role="menu"]')
     if (func) {
       func(editor)
@@ -41,6 +48,7 @@ export function Item({
     <a
       role='menuitem'
       tabIndex={-1}
+      aria-disabled={disabled || undefined}
       className={className}
       data-tb='context-menu-item'
       onMouseDown={(e) => {

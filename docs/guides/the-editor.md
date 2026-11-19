@@ -192,7 +192,13 @@ function SpellingMenu() {
 event and the node), and `spelling`, the misspelled word under it, with `apply(replacement)`
 and whether it is `accepted`. By default the menu opens only on misspelled words; with
 `contextMenu='always'` on the editable it opens anywhere, and `spelling` is then set only on
-a misspelled word. `func` on an item gets the editor.
+a misspelled word. `func` on an item gets the editor; `disabled` shows the item but keeps it
+from being chosen, and the arrow keys skip it.
+
+Plugins add their own actions for where the menu opened, such as a table's rows and columns.
+They come after your items, a group per plugin, and an action that is visible but not enabled
+is shown disabled. Where a plugin offers actions the menu opens whatever the `contextMenu`
+mode, and without a `ContextMenu.Root` of yours the editor shows its own menu with just those.
 
 A right-click on a misspelled word selects it, so a suggestion replaces it. Anywhere else it
 puts the caret where you clicked, or keeps the selection when you click inside it.

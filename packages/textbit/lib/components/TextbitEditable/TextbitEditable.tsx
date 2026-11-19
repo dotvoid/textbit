@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { Editor, Element, Node, type NodeEntry, Path, Range, Text, Transforms } from 'slate'
 import { Editable, ReactEditor, useFocused, useSlateSelector, type RenderElementProps, type RenderLeafProps } from 'slate-react'
 import { getDecorationRanges } from '../../utils/getDecorationRanges'
@@ -11,6 +11,8 @@ import { LeafElement } from '../Element/LeafElement'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 import { useTextbit } from '../../hooks/useTextbit'
 import { useContextMenu, type ContextMenuMode } from '../../hooks/useContextMenu'
+import { ContextMenuHintsContext } from '../ContextMenu/ContextMenuHintsContext'
+import { BuiltInMenu as BuiltInContextMenu } from '../ContextMenu/Menu'
 import { useSlateStatic } from 'slate-react'
 import { DragStateProvider } from '../../contexts/DragStateProvider'
 import { PendingDropsProvider } from '../../contexts/PendingDropsProvider'
@@ -89,6 +91,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
   const registeredTypes = useMemo(() => new Set(components.keys()), [components])
   const isFocused = useFocused()
   const handleContextMenu = useContextMenu(true, props.contextMenu)
+  const { hostMenus } = useContext(ContextMenuHintsContext)
   const [spellingLookupTable, setSpellingLookupTable] = useState<SpellcheckLookupTable>(new Map())
   const [adjacentBlock, setAdjacentBlock] = useState<AdjacentBlockState | null>(null)
   const [blockSelection, setBlockSelection] = useState<BlockSelectionState | null>(null)
@@ -638,6 +641,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
                   aria-label={props['aria-label']}
                 />
                 {props.children}
+                {!hostMenus && <BuiltInContextMenu />}
                 {(sharedOf(editor) !== undefined || suggestionsOnBlock.size > 0) && <AgentAnnouncer />}
               </PresenceOverlay>
             </PendingDropsProvider>

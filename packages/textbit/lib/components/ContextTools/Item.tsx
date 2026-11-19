@@ -7,6 +7,7 @@ import { TextbitElement } from '../../utils/textbit-element'
 import { hasMark } from '../../utils/hasMark'
 import { toggleLeaf } from '../../utils/toggleLeaf'
 import { ariaKeyShortcuts } from '../../utils/menuKeyboard'
+import { actionTitle } from '../../utils/actionVisibility'
 
 //
 // FIXME: This does not update selection on click (i.e links)
@@ -84,7 +85,7 @@ export function Item({ action, className, children }: {
     <div
       role='button'
       tabIndex={-1}
-      aria-label={action.title ?? humanize(action.name)}
+      aria-label={actionTitle(action)}
       // Formatting is on or off; other tools, like a link, are not toggles
       aria-pressed={action.plugin.class === 'leaf' ? isActive : undefined}
       aria-disabled={inlineNodes.length > 1 ? true : undefined}
@@ -104,10 +105,4 @@ export function Item({ action, className, children }: {
       </Tool>
     </div>
   )
-}
-
-/** `base/bold/toggle-bold` -> `Toggle bold`, for actions without a title */
-function humanize(name: string): string {
-  const text = (name.split('/').pop() ?? name).replace(/[-_]+/g, ' ').trim()
-  return text.charAt(0).toUpperCase() + text.slice(1)
 }

@@ -119,7 +119,8 @@ Enter on an empty last item leaves the list.
 `CodeBlock({ indentSize, title, placeholder, hotkey })`: Tab indents inside the
 block. `Table({ rows, columns, titles })`: Tab and Shift+Tab move between cells,
 and Tab in the last cell adds a row. Its actions insert and delete rows and
-columns; they show in menus while the caret is in a cell.
+columns. They show in menus while the caret is in a cell, and in the context menu
+on a right-click in a cell.
 
 Both use Tab only in their own context, through textbit's `when()` on actions, so
 they work side by side.
