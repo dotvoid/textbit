@@ -325,6 +325,16 @@
   background-color: var(--tb-comment-active-tint);
 }
 
+/*
+ * Text shown through a renderer with attributions, such as who wrote what or
+ * the difference between versions: deleted text stays, struck. Who wrote a
+ * piece is in data-tb-by, for a host to colour.
+ */
+[data-tb="editable"] [data-tb-change="delete"] {
+  text-decoration: line-through;
+  color: var(--tb-muted);
+}
+
 /* An object whose plugin is missing: its type, its text, and what can be done */
 [data-tb="unknown"] {
   margin: 0 0 var(--tb-gap-wide);

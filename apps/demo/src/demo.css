@@ -38,3 +38,8 @@ body { margin: 0; font-family: system-ui, sans-serif; }
 .demo-comment-form div { display: flex; gap: 0.5rem; }
 .demo-link { all: unset; cursor: pointer; align-self: flex-start; color: var(--tb-accent); font-size: 0.8125rem; }
 .demo-link:focus-visible { outline: var(--tb-focus); outline-offset: 2px; }
+/* Who wrote what in the lab */
+.demo-lab-who { display: inline-flex; align-items: center; gap: 0.3rem; margin: 0 0 0.5rem; font-size: 0.875rem; color: var(--tb-muted); }
+.demo-lab-legend { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0 0 0.75rem; font-size: 0.8125rem; color: var(--tb-muted); }
+.demo-lab-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.demo-lab-legend i { width: 0.625rem; height: 0.625rem; border-radius: 2px; }

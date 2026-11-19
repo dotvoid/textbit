@@ -84,7 +84,9 @@ export const ToClient = {
   /** The answer to PING */
   PONG: 115,
   /** A save is done: the version holding everything the client had */
-  SAVED: 116
+  SAVED: 116,
+  /** Who wrote what in a change just stored; payload: a Y.js ContentMap */
+  ATTRIBUTIONS: 117
 } as const
 
 /** Why something was refused, in a fixed place: `header.code` */
@@ -107,6 +109,13 @@ export interface Principal {
   name: string
   /** e.g. a colour, for presence */
   [extra: string]: unknown
+}
+
+/** Someone in a document's attributions */
+export interface Person {
+  kind: 'person' | 'agent' | 'service'
+  id: string
+  name: string
 }
 
 /** What an agent working through a person's connection says about itself */
@@ -208,6 +217,10 @@ export interface Headers {
     records?: DocumentRecord[]
     /** The layers besides the content the type has: the server's state vector and what the client lacks, base64 */
     layers?: Partial<Record<Layer, { stateVector: string, missing: string }>>
+    /** For a type with history: who wrote what in each layer, Y.js ContentMaps, base64 */
+    attributions?: Partial<Record<Layer, string>>
+    /** The people the attributions name, by their key */
+    people?: Record<string, Person>
   }
   [ToClient.CLOSED]: { ref: number, code: ReasonCode, reason: string }
   [ToClient.UPDATE]: { ref: number, layer: Layer }
@@ -222,6 +235,7 @@ export interface Headers {
   [ToClient.RESULT]: { call: number, ok: boolean, value?: unknown, code?: ReasonCode, reason?: string }
   [ToClient.PONG]: Record<string, never>
   [ToClient.SAVED]: { ref: number, call: number, log: number }
+  [ToClient.ATTRIBUTIONS]: { ref: number, layer: Layer, people: Record<string, Person> }
 }
 
 export type FrameType = keyof Headers

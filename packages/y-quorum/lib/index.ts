@@ -5,6 +5,7 @@ export { host, type HostDocument, type HostStore } from './storage/host'
 export type {
   Actor,
   Authenticated,
+  Checkpoint,
   LogEntry,
   Policy,
   PolicyContext,

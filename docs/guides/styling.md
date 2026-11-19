@@ -135,6 +135,7 @@ themselves inline, so they read right without any stylesheet.
 | `[data-spelling-error]` | A misspelled word. `data-spelling-level` says `error` or `suggestion`; `data-spelling-accepted` is set once it is accepted. |
 | `.tb-mark`, `[data-tb-mark~="id"]` | Text covered by a decoration; see [The editor](./the-editor.md#decorations) |
 | `.tb-comment`, `.tb-comment-active`, `[data-tb-comment~="id"]` | Text that comments are on, and the thread being looked at; see [The editor](./the-editor.md#comments) |
+| `[data-tb-by="kind:id"]`, `[data-tb-change]` | Text shown through a renderer with attributions: who wrote or deleted it, and `insert` or `delete`. Deleted text is struck by default; colour by `data-tb-by` yourself. |
 | `.tb-nbsp` | A non-breaking space |
 | `.tb-newline` | A line break |
 | `.tb-agent-change`, `.tb-agent-fading` | Text an agent changed, and the same text as the change fades |

@@ -27,6 +27,14 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
   // A rebuilt content is another Y.Doc: the editor binds to the new one
   const [generation, setGeneration] = useState(0)
   const [composing, setComposing] = useState(false)
+  // Who wrote what: the text shown through the server's attributions
+  const [whoWrote, setWhoWrote] = useState(false)
+  const renderer = useMemo(
+    () => (whoWrote && handle ? handle.attributionsRenderer() : undefined),
+    // A rebuilt content is bound again, through a renderer of its own
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [whoWrote, handle, generation]
+  )
   // The latest callback, without making a new connection when it changes
   const gone = useRef(onGone)
   useEffect(() => {
@@ -83,9 +91,16 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
         <span style={{ background: person.color }} />
         {person.name}{compact ? '' : `, ${status === 'connected' ? 'in the lab document' : `${status} to ${LAB_URL}`}`}
       </p>
+      {!compact && (
+        <label className='demo-lab-who'>
+          <input type='checkbox' checked={whoWrote} onChange={(e) => setWhoWrote(e.target.checked)} /> Who wrote what
+        </label>
+      )}
+      {renderer && <WhoWrote handle={handle} />}
       <Textbit.Root
-        key={generation}
+        key={`${generation}-${whoWrote}`}
         value={body}
+        renderer={renderer}
         awareness={handle.awareness}
         cursor={{ data: { name: person.name, color: person.color } }}
         plugins={plugins}
@@ -108,11 +123,39 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
           <Textbit.Suggestions className='demo-lab-suggestions' aria-label='Suggestions from the agent' />
         </div>
         {!compact && (
-          // The lab names people's principals this way
-          <CommentsPanel composing={composing} onComposed={() => setComposing(false)} me={`person:${person.name.toLowerCase()}`} />
+          // The lab's principal ids are people's names, in lower case
+          <CommentsPanel composing={composing} onComposed={() => setComposing(false)} me={person.name.toLowerCase()} />
         )}
       </Textbit.Root>
     </div>
+  )
+}
+
+const PALETTE = ['#e8590c', '#1971c2', '#2f9e44', '#9c36b5', '#f08c00', '#0c8599', '#c2255c', '#5c940d']
+
+/** A colour for each person and agent in the attributions, and a legend */
+const WhoWrote = ({ handle }: { handle: DocumentHandle }) => {
+  const [people, setPeople] = useState(() => ({ ...handle.people }))
+  useEffect(() => {
+    const update = () => setPeople({ ...handle.people })
+    handle.on('attributions', update)
+    return () => handle.off('attributions', update)
+  }, [handle])
+  // In the order they first wrote: people are only ever added, so colours stay
+  const keys = Object.keys(people)
+  const colour = (key: string) => PALETTE[keys.indexOf(key) % PALETTE.length]
+
+  return (
+    <>
+      <style>
+        {keys.map((key) => `[data-tb-by="${CSS.escape(key)}"] { background: color-mix(in srgb, ${colour(key)} 22%, transparent); }`).join('\n')}
+      </style>
+      <p className='demo-lab-legend'>
+        {keys.map((key) => (
+          <span key={key}><i style={{ background: colour(key) }} />{people[key].name}{people[key].kind === 'agent' ? ' (agent)' : ''}</span>
+        ))}
+      </p>
+    </>
   )
 }
 

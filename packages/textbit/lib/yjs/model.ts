@@ -22,6 +22,15 @@ export const SHOWN_ONLY = '_'
 /** How a suggested piece of text is shown: `_suggested` is `'insert'` or `'delete'` */
 export const SUGGESTED_MARK = '_suggested'
 
+/**
+ * Who wrote, or deleted, a piece of text shown through a renderer with
+ * attributions, by the key the attributions name them with
+ */
+export const BY_MARK = '_by'
+
+/** When that was, in milliseconds */
+export const AT_MARK = '_at'
+
 const PROPERTY = 'p:'
 
 /** What reads a field through Y.js 14's renderers, such as the suggestions view */
@@ -124,6 +133,20 @@ export function toSlateElement(node: Y.Node, renderer?: TBRenderer): Element {
   return { ...element, children: toSlateChildren(node, renderer) } as unknown as Element
 }
 
+// Who wrote, or deleted, a piece and when, as marks shown only
+function whoAndWhen(attribution: Fields | null | undefined): Marks {
+  if (!attribution) {
+    return {}
+  }
+  const deleted = Array.isArray(attribution.delete)
+  const by = (deleted ? attribution.delete : attribution.insert) as unknown[] | undefined
+  const at = deleted ? attribution.deleteAt : attribution.insertAt
+  return {
+    ...(typeof by?.[0] === 'string' ? { [BY_MARK]: by[0] } : {}),
+    ...(typeof at === 'number' ? { [AT_MARK]: at } : {})
+  }
+}
+
 /** A Y.js node's children as Slate children, in the form Slate normalizes to */
 export function toSlateChildren(node: Y.Node, renderer?: TBRenderer): Descendant[] {
   const runs: Descendant[] = []
@@ -133,7 +156,7 @@ export function toSlateChildren(node: Y.Node, renderer?: TBRenderer): Descendant
       const format = (op as { format?: Marks | null }).format ?? {}
       const attribution = (op as { attribution?: Fields | null }).attribution
       const suggested = attribution?.delete ? 'delete' : attribution?.insert ? 'insert' : undefined
-      runs.push({ ...format, ...(suggested ? { [SUGGESTED_MARK]: suggested } : {}), text: insert } as Text)
+      runs.push({ ...format, ...(suggested ? { [SUGGESTED_MARK]: suggested } : {}), ...whoAndWhen(attribution), text: insert } as Text)
     } else if (Array.isArray(insert)) {
       for (const child of insert) {
         if (child instanceof Y.Node) {

@@ -26,7 +26,8 @@ export const labArticle = defineType('lab/article', {
     created: number({ optional: true })
   }),
   records: { 'agent.undo': { description: 'Someone asked to undo the agent’s last run' } },
-  comments: true
+  comments: true,
+  history: true
 })
 
 const server = createServer({
@@ -37,7 +38,8 @@ const server = createServer({
     const agent = name.startsWith('agent:')
     const shown = agent ? name.slice('agent:'.length) || 'Agent' : name
     return {
-      principal: { kind: agent ? 'agent' : 'person', id: `${agent ? 'agent' : 'person'}:${shown.toLowerCase()}`, name: shown },
+      // The kind is the principal's own: ids are plain names
+      principal: { kind: agent ? 'agent' : 'person', id: shown.toLowerCase(), name: shown },
       namespaces: ['lab']
     }
   }

@@ -18,7 +18,14 @@ import {
   type PresenceEntry,
   type ReasonCode
 } from '@dotvoid/y-quorum-client/protocol'
-import { COMMENTS, createContent, seedComments, type CommentThread } from '@dotvoid/y-quorum-client/model'
+import {
+  COMMENTS,
+  actorKey,
+  attributionsOf,
+  createContent,
+  seedComments,
+  type CommentThread
+} from '@dotvoid/y-quorum-client/model'
 import { DocumentOwner, type Opening, type Peer } from './document'
 import type { Actor, Authenticated, QuorumServer, ServerOptions, ServerType, StoredDocument } from './types'
 import type { HostStore } from './storage/host'
@@ -97,7 +104,8 @@ export function createServer(options: ServerOptions): QuorumServer {
     id: string,
     typeName: string,
     initial: Record<string, unknown> = {},
-    comments: CommentThread[] = []
+    comments: CommentThread[] = [],
+    actor?: Actor
   ): Promise<void> {
     const type = types.get(typeName)
     if (!type) {
@@ -110,9 +118,23 @@ export function createServer(options: ServerOptions): QuorumServer {
     if (type.comments && comments.length) {
       seedComments(commentsDoc.get(COMMENTS), comments)
     }
-    await options.storage.create(namespace, id, { type: typeName, incarnation: randomUUID(), createdAt: Date.now() }, {
-      content: Y.encodeStateAsUpdate(doc),
-      comments: Y.encodeStateAsUpdate(commentsDoc)
+    const createdAt = Date.now()
+    // With history, the first content is attributed to whoever made the
+    // document, or to the system
+    const by = actor?.principal ?? { kind: 'service' as const, id: 'system', name: 'System' }
+    const history = type.history
+      ? (() => {
+          const ids = Y.createContentIdsFromDoc(doc, false)
+          const person = { kind: by.kind, id: by.id, name: by.name }
+          return {
+            attributions: { content: Y.encodeContentMap(attributionsOf(ids.inserts, ids.deletes, { by: person, at: createdAt })) },
+            people: { [actorKey(person)]: person }
+          }
+        })()
+      : {}
+    await options.storage.create(namespace, id, { type: typeName, incarnation: randomUUID(), createdAt }, {
+      states: { content: Y.encodeStateAsUpdate(doc), comments: Y.encodeStateAsUpdate(commentsDoc) },
+      ...history
     })
   }
 
@@ -414,7 +436,7 @@ export function createServer(options: ServerOptions): QuorumServer {
       attach(http)
       http.listen(port, () => resolve(http!))
     }),
-    create: (namespace, id, type, initial) => create(namespace, id, type, initial),
+    create: (namespace, id, type, initial, actor) => create(namespace, id, type, initial, [], actor),
     transact: async (namespace, id, actor, change) => {
       const owner = await ownerOf(namespace, id)
       if (!owner) {
