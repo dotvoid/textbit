@@ -1,21 +1,25 @@
 import type { PlaceholdersVisibility } from '../contexts/TextbitContext'
 import type { Plugin, SpellingError } from '../types'
-import type { Awareness } from 'y-protocols/awareness'
+import type { Awareness } from '@y/protocols/awareness'
 
 import { createEditor, Descendant, type Editor, Node } from 'slate'
-import * as Y from 'yjs'
-import { Slate, withReact } from 'slate-react'
+import * as Y from '@y/y'
+import { ReactEditor, Slate, withReact } from 'slate-react'
 import { usePluginRegistry } from '../hooks/usePluginRegistry'
 import { useTextbit } from '../hooks/useTextbit'
 import { withTextbit } from '../editor/createTextbitEditor'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react'
 import { calculateStats } from '../utils/calculateStats'
 import { debounce as debounceCall } from '../utils/debounce'
-import { YjsEditor } from '@slate-yjs/core'
+import { bindField } from '../yjs/binding'
+import { withSharedCursor, type TBCursorOptions } from '../yjs/cursors'
+import { fieldToValue, type TBRenderer } from '../yjs/model'
+import { SUGGESTIONS_MAP } from '../suggestions/store'
 import { TEXT_TYPE } from '../utils/textType'
 import { AgentPresenceProvider } from '../contexts/AgentPresenceProvider'
 import { AgentChangesProvider } from '../contexts/AgentChangesProvider'
 import { SuggestionsProvider } from '../contexts/SuggestionsProvider'
+import { SharedAwarenessContext } from '../contexts/SharedAwarenessContext'
 
 interface SlateContainerBaseProps {
   children: React.ReactNode
@@ -39,17 +43,13 @@ interface SlateContainerDefaultProps extends SlateContainerBaseProps {
   onChange?: (value: Descendant[]) => void
 }
 interface SlateContainerYjsProps extends SlateContainerBaseProps {
-  value: Y.XmlText
+  value: Y.Node
+  renderer?: TBRenderer
   onChange?: (value: Descendant[]) => void
 }
 interface SlateContainerCollaborationProps extends SlateContainerYjsProps {
   awareness: Awareness
-  cursor?: {
-    stateField?: string
-    dataField?: string
-    autoSend?: boolean
-    data: Record<string, unknown>
-  }
+  cursor?: TBCursorOptions
 }
 type SlateContainerProps = SlateContainerStringProps | SlateContainerDefaultProps | SlateContainerYjsProps | SlateContainerCollaborationProps
 
@@ -65,48 +65,65 @@ export function SlateContainer(props: SlateContainerProps) {
   // Preserve editor across HMR
   const editorRef = useRef<Editor | null>(null)
 
-  // Create stable localOrigin symbol per component instance
-  const localOrigin = useRef<symbol>(Symbol('textbit-editor'))
+  // The origin of this editor's changes to a shared field, stable for its life
+  const origin = useRef<object>({ textbit: 'editor' })
+
+  const shared = isSlateContainerYjsProps(props) ? props : undefined
+  const collaboration = isSlateContainerCollaborationProps(props) ? props : undefined
 
   if (!editorRef.current) {
-    const collaboration = isSlateContainerCollaborationProps(props) ? props : undefined
-    const editor = withTextbit(withReact(createEditor()), {
+    editorRef.current = withTextbit(withReact(createEditor()), {
       plugins,
       components,
       lang,
-      shared: isSlateContainerYjsProps(props) ? props.value : undefined,
-      localOrigin: localOrigin.current,
-      awareness: collaboration?.awareness,
-      cursor: collaboration?.cursor,
+      shared: shared?.value,
+      bind: false,
       onSpellcheck: readOnly ? undefined : props.onSpellcheck,
       spellcheckDebounce
     })
-
-    editorRef.current = editor
   }
 
   const editor = editorRef.current
 
-  useEffect(() => {
-    if (YjsEditor.isYjsEditor(editor)) {
-      YjsEditor.connect(editor)
-
-      return () => {
-        YjsEditor.disconnect(editor)
-      }
+  // Bound while mounted: under StrictMode an effect runs, cleans up and runs
+  // again, and each run binds afresh. A layout effect, so the editor is bound
+  // before any child's effect looks at it.
+  const field = shared?.value
+  const renderer = shared?.renderer
+  const awareness = collaboration?.awareness
+  const cursor = collaboration?.cursor
+  useLayoutEffect(() => {
+    if (!field) {
+      return
     }
-  }, [editor])
+    const doc = field.doc
+    const binding = bindField(editor, field, {
+      origin: origin.current,
+      renderer,
+      undoScope: doc ? [doc.get(SUGGESTIONS_MAP)] : []
+    })
+    const stopCursor = awareness
+      ? withSharedCursor(editor, awareness, cursor, () => ReactEditor.isFocused(editor))
+      : undefined
+    editor.onChange()
+    return () => {
+      stopCursor?.()
+      binding.release()
+    }
+  }, [editor, field, renderer, awareness, cursor])
+
+  const sharedAwareness = useMemo(() => ({ awareness: awareness ?? null, cursor }), [awareness, cursor])
 
   // Initialize the editor with the provided value.
   const initialValue = useMemo(() => {
-    if (value instanceof Y.XmlText) {
-      return [] // Empty initial value for yjs editor
+    if (value instanceof Y.Node) {
+      return fieldToValue(value, renderer)
     } else if (typeof value === 'string') {
       return stringToDescentant(value)
     } else {
       return value
     }
-  }, [value])
+  }, [value, renderer])
 
   // Debounced onChange callback
   const handleChange = useCallback((newValue: Descendant[]) => {
@@ -149,13 +166,15 @@ export function SlateContainer(props: SlateContainerProps) {
 
   return (
     <Slate editor={editor} initialValue={initialValue} onChange={onChangeCallback ?? noop}>
-      <AgentPresenceProvider editor={editor}>
-        <AgentChangesProvider>
-          <SuggestionsProvider>
-            {children}
-          </SuggestionsProvider>
-        </AgentChangesProvider>
-      </AgentPresenceProvider>
+      <SharedAwarenessContext.Provider value={sharedAwareness}>
+        <AgentPresenceProvider>
+          <AgentChangesProvider>
+            <SuggestionsProvider>
+              {children}
+            </SuggestionsProvider>
+          </AgentChangesProvider>
+        </AgentPresenceProvider>
+      </SharedAwarenessContext.Provider>
     </Slate>
   )
 }
@@ -174,13 +193,13 @@ function stringToDescentant(value: string): Descendant[] {
 function isSlateContainerYjsProps(
   props: SlateContainerProps
 ): props is SlateContainerYjsProps {
-  return props.value instanceof Y.XmlText
+  return props.value instanceof Y.Node
 }
 
 function isSlateContainerCollaborationProps(
   props: SlateContainerProps
 ): props is SlateContainerCollaborationProps {
-  return props.value instanceof Y.XmlText && 'awareness' in props && props.awareness != null
+  return props.value instanceof Y.Node && 'awareness' in props && props.awareness != null
 }
 
 function isSlateContainerStringProps(

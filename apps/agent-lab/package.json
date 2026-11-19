@@ -12,16 +12,17 @@
     "@dotvoid/textbit": "*",
     "@dotvoid/textbit-agent": "*",
     "@dotvoid/textbit-plugins": "*",
-    "@hocuspocus/provider": "^4.8.0",
-    "@hocuspocus/server": "^4.8.0",
     "@modelcontextprotocol/server": "^2.4.0",
-    "@slate-yjs/core": "^1.0.2",
+    "@y/protocols": "1.0.6-rc.1",
+    "@y/websocket": "4.0.0-rc.6",
+    "@y/y": "14.0.0-rc.30",
+    "lib0": "^1.0.0-rc.36",
     "slate": "^0.147.4",
-    "y-protocols": "^1.0.5",
-    "yjs": "^13.6.26"
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/ws": "^8.5.12",
     "typescript": "~5.8.3"
   }
 }

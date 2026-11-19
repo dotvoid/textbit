@@ -16,10 +16,8 @@ import {
   type jsonSchemaValidator
 } from '@modelcontextprotocol/server'
 import { serveStdio } from '@modelcontextprotocol/server/stdio'
-import { HocuspocusProvider } from '@hocuspocus/provider'
-import * as Y from 'yjs'
-import { YjsEditor } from '@slate-yjs/core'
-import type { Editor } from 'slate'
+import { WebsocketProvider } from '@y/websocket'
+import * as Y from '@y/y'
 import { createTextbitEditor } from '@dotvoid/textbit/headless'
 import {
   createAgentPresence,
@@ -48,35 +46,33 @@ const documentName = await fetch(URL.replace(/^ws/, 'http') + '/lab')
   })
 
 const ydoc = new Y.Doc()
-const provider = new HocuspocusProvider({
-  url: URL,
-  name: documentName,
-  document: ydoc,
-  token: 'lab',
-  // After a reset the document is another: working on the old copy would be
-  // working on nothing. The MCP client starts the server again on reconnect.
-  onAuthenticationFailed: () => {
-    log(`${documentName} was reset; reconnect the MCP server to join the new document`)
-    process.exit(1)
-  }
+const provider = new WebsocketProvider(URL, documentName, ydoc, { disableBc: true })
+// After a reset the document is another: working on the old copy would be
+// working on nothing. The MCP client starts the server again on reconnect.
+provider.on('closed', () => {
+  log(`${documentName} was reset; reconnect the MCP server to join the new document`)
+  process.exit(1)
 })
 await new Promise<void>((resolve, reject) => {
   const timeout = setTimeout(() => reject(new Error(`No document server at ${URL}. Start it with: npm run lab`)), 8000)
-  provider.on('synced', () => {
-    clearTimeout(timeout)
-    resolve()
+  provider.on('sync', (synced: boolean) => {
+    if (synced) {
+      clearTimeout(timeout)
+      resolve()
+    }
   })
 })
 log(`joined ${documentName} at ${URL}`)
 
-const editor = createTextbitEditor({ plugins, shared: ydoc.get('content', Y.XmlText) })
-YjsEditor.connect(editor as YjsEditor & Editor)
+const editor = createTextbitEditor({ plugins, shared: ydoc.get('content') })
 
-const presence = createAgentPresence(provider.awareness!, { name: NAME, color: COLOR })
+const presence = createAgentPresence(provider.awareness, { name: NAME, color: COLOR })
 presence.set('idle')
 // Edit, or suggest for people to accept or reject: the demo's switch, shared
 // through the document, else LAB_REVIEW
-const review = () => (ydoc.getMap('lab').get('review') ?? process.env.LAB_REVIEW ?? 'apply') === 'suggest' ? 'suggest' : 'apply'
+// The lab's switches, as attributes of a node of the document
+const lab = ydoc.get('lab')
+const review = () => (lab.getAttr('review') ?? process.env.LAB_REVIEW ?? 'apply') === 'suggest' ? 'suggest' : 'apply'
 const agent = createDocumentAgent(editor, { plugins, presence, review: review() })
 let tools = createAgentTools(agent)
 
@@ -99,17 +95,20 @@ function touchRun() {
 }
 
 // The demo's "Undo the agent's run" button asks through the document
-const commands = ydoc.getMap('lab')
-commands.observe((event) => {
-  if (event.keysChanged.has('review')) {
+let reviewSeen = lab.getAttr('review')
+let undoSeen = lab.getAttr('undo')
+lab.on('delta', () => {
+  if (lab.getAttr('review') !== reviewSeen) {
+    reviewSeen = lab.getAttr('review')
     agent.context.options.review = review()
     tools = createAgentTools(agent)
     registerTools()
     log(`the agent now ${review() === 'suggest' ? 'suggests' : 'edits'}`)
   }
-  if (!event.keysChanged.has('undo') || event.transaction.local) {
+  if (lab.getAttr('undo') === undoSeen) {
     return
   }
+  undoSeen = lab.getAttr('undo')
   const target = run ?? lastRun
   if (run) {
     run.finish()

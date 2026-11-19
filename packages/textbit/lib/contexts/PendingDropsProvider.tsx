@@ -2,12 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import type { Editor, Path, PathRef } from 'slate'
 import { Editor as SlateEditor } from 'slate'
 import { useSlate } from 'slate-react'
-import * as Y from 'yjs'
-import {
-  CursorEditor,
-  slatePointToRelativePosition,
-  relativePositionToSlatePoint
-} from '@slate-yjs/core'
+import * as Y from '@y/y'
+import { pointToRelativePosition, relativePositionToPoint } from '../yjs/positions'
+import { useSharedAwareness } from './SharedAwarenessContext'
 import { PendingDropsContext, type PendingDrop, type PendingDropsContextValue } from './PendingDropsContext'
 
 interface Entry {
@@ -66,6 +63,7 @@ export function PendingDropsProvider({ editor: editorProp, children }: {
   // during a mid-flight editor swap). The prop is the source of truth for
   // pipeline wiring.
   const activeEditor = editor ?? editorProp
+  const { awareness } = useSharedAwareness()
 
   const [entries, setEntries] = useState<Map<string, Entry>>(() => new Map())
 
@@ -122,9 +120,7 @@ export function PendingDropsProvider({ editor: editorProp, children }: {
   // broadcasts to every connected peer. Skipped entirely when the editor
   // isn't a CursorEditor (non-collaborative mode).
   useEffect(() => {
-    if (!CursorEditor.isCursorEditor(activeEditor)) return
-    const awareness = activeEditor.awareness
-    const sharedRoot = activeEditor.sharedRoot
+    if (!awareness) return
 
     const outgoing: WirePendingDrop[] = []
     for (const [id, entry] of entries) {
@@ -132,7 +128,8 @@ export function PendingDropsProvider({ editor: editorProp, children }: {
       if (!path) continue
       try {
         const point = SlateEditor.start(activeEditor, path)
-        const relPos = slatePointToRelativePosition(sharedRoot, activeEditor, point)
+        const relPos = pointToRelativePosition(activeEditor, point)
+        if (!relPos) continue
         outgoing.push({
           id,
           relPos: Array.from(Y.encodeRelativePosition(relPos)),
@@ -147,17 +144,16 @@ export function PendingDropsProvider({ editor: editorProp, children }: {
     // `null` (rather than []) leaves the field cleared when we have nothing to
     // broadcast, keeping the awareness footprint minimal.
     awareness.setLocalStateField('pendingDrops', outgoing.length ? outgoing : null)
-  }, [activeEditor, entries])
+  }, [activeEditor, awareness, entries])
 
   // Clear our field on Provider unmount so peers see it vanish immediately —
   // otherwise the state hangs around until the underlying awareness times out.
   useEffect(() => {
-    if (!CursorEditor.isCursorEditor(activeEditor)) return
-    const awareness = activeEditor.awareness
+    if (!awareness) return
     return () => {
       awareness.setLocalStateField('pendingDrops', null)
     }
-  }, [activeEditor])
+  }, [awareness])
 
   // ---- Awareness subscribe: peers → local ---------------------------------
   //
@@ -168,8 +164,10 @@ export function PendingDropsProvider({ editor: editorProp, children }: {
   // moved.
   const [peerEntries, setPeerEntries] = useState<PeerEntry[]>([])
   useEffect(() => {
-    if (!CursorEditor.isCursorEditor(activeEditor)) return
-    const awareness = activeEditor.awareness
+    if (!awareness) {
+      setPeerEntries([])
+      return
+    }
     const localClientId = awareness.clientID
 
     // Client id → JSON-encoded `pendingDrops` field last observed.
@@ -222,7 +220,7 @@ export function PendingDropsProvider({ editor: editorProp, children }: {
     return () => {
       awareness.off('change', onChange)
     }
-  }, [activeEditor])
+  }, [awareness])
 
   // Cache for decoded RelativePosition objects, keyed by the raw bytes joined
   // as a string. Decoding is pure per bytes-key, so this saves work across
@@ -252,12 +250,11 @@ export function PendingDropsProvider({ editor: editorProp, children }: {
     drops.push({ id, source: 'own', path, kind: entry.kind })
   }
 
-  if (CursorEditor.isCursorEditor(activeEditor) && peerEntries.length) {
-    const sharedRoot = activeEditor.sharedRoot
+  if (awareness && peerEntries.length) {
     for (const { peerId, raw, peerData } of peerEntries) {
       try {
         const relPos = getRelPos(raw.relPos)
-        const point = relativePositionToSlatePoint(sharedRoot, activeEditor, relPos)
+        const point = relativePositionToPoint(activeEditor, relPos)
         if (!point) continue
         drops.push({
           id: `${peerId}:${raw.id}`,

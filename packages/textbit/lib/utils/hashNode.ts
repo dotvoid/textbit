@@ -1,7 +1,8 @@
 /**
  * A short hash of a node or document: FNV-1a over its JSON with keys sorted,
  * so the same content hashes the same on every peer, however each ordered
- * the properties it got from Y.js.
+ * the properties it got from Y.js. An empty `properties` counts as none, as a
+ * shared document cannot tell them apart.
  */
 export function hashNode(value: unknown): string {
   const text = canonical(value)
@@ -18,9 +19,14 @@ function canonical(value: unknown): string {
     return `[${value.map(canonical).join(',')}]`
   }
   if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
     return `{${Object.keys(value).sort()
-      .filter((key) => (value as Record<string, unknown>)[key] !== undefined)
+      .filter((key) => record[key] !== undefined && !(key === 'properties' && isEmptyObject(record[key])))
       .map((key) => `${JSON.stringify(key)}:${canonical((value as Record<string, unknown>)[key])}`).join(',')}}`
   }
   return JSON.stringify(value) ?? 'null'
+}
+
+function isEmptyObject(value: unknown): boolean {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && Object.keys(value).length === 0
 }

@@ -25,7 +25,7 @@ export function withNormalizeNode(editor: Editor, _: PluginDefinition[], compone
       // Repair a top-level element that has lost its type (undefined or empty
       // string). Such a node can be produced by Slate's built-in transforms
       // (delete/merge or stray-text wrapping at the document root) or read back
-      // from a Y.XmlText block that carries no `type` attribute. It renders as
+      // from a shared block that carries no `type` attribute. It renders as
       // "UNKNOWN OBJECT" and makes the document unsaveable. Coerce it to
       // base/text - but only when it holds no block-level children (inline
       // nodes and text are fine); a node containing blocks is a container we

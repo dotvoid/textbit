@@ -17,9 +17,9 @@ import {
 } from '../lib/main'
 import { document } from './assets/document'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import * as Y from 'yjs'
-import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from 'y-protocols/awareness'
-import { slateNodesToInsertDelta } from '@slate-yjs/core'
+import * as Y from '@y/y'
+import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from '@y/protocols/awareness'
+import { seedField } from '../lib/yjs'
 import { spellChecker } from './spellChecker'
 import { Link } from './plugins/Link'
 import { Bold, Italic, Underline } from './plugins/Leafs'
@@ -251,8 +251,8 @@ function YjsDemo({ style, headerStyle, plugins }: {
   const sharedState = useMemo(() => {
     const docA = new Y.Doc()
     const docB = new Y.Doc()
-    const valueA = docA.get('content', Y.XmlText)
-    const valueB = docB.get('content', Y.XmlText)
+    const valueA = docA.get('content')
+    const valueB = docB.get('content')
     const awarenessA = new Awareness(docA)
     const awarenessB = new Awareness(docB)
 
@@ -285,7 +285,7 @@ function YjsDemo({ style, headerStyle, plugins }: {
   useEffect(() => {
     if (!seededRef.current) {
       seededRef.current = true
-      sharedState.valueA.applyDelta(slateNodesToInsertDelta(document))
+      seedField(sharedState.valueA, document)
     }
   }, [sharedState.valueA])
 
@@ -327,7 +327,7 @@ function YjsDemo({ style, headerStyle, plugins }: {
  */
 function YjsEditor({ sharedState, style, headerStyle, plugins, userName, userColor }: {
   sharedState: {
-    value: Y.XmlText
+    value: Y.Node
     awareness: Awareness
   }
   style: React.CSSProperties

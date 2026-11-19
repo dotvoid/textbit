@@ -1,9 +1,9 @@
 import type { Editor } from 'slate'
-import { YjsEditor } from '@slate-yjs/core'
-import type * as Y from 'yjs'
+import type * as Y from '@y/y'
+import { sharedOf } from '../yjs/binding'
 import type { Suggestion } from './types'
 
-/** Where suggestions are kept in a shared document: a map of the same Y.Doc */
+/** Where suggestions are kept in a shared document: a node of the same Y.Doc, an attribute per entry */
 export const SUGGESTIONS_MAP = 'textbitSuggestions'
 
 /** The suggestions of a document; see `suggestionStore` */
@@ -28,10 +28,11 @@ const MEMORY = new WeakMap<Editor, SuggestionStore>()
  * same page.
  */
 export function suggestionStore(editor: Editor): SuggestionStore {
-  if (YjsEditor.isYjsEditor(editor) && editor.sharedRoot.doc) {
-    const doc = editor.sharedRoot.doc
+  const shared = sharedOf(editor)
+  const doc = shared?.field.doc
+  if (shared && doc) {
     // Written as this editor's own changes, so its undo can take them back
-    return sharedStore(doc.getMap<SharedEntry>(SUGGESTIONS_MAP), (change) => doc.transact(change, YjsEditor.origin(editor)))
+    return sharedStore(doc.get(SUGGESTIONS_MAP), (change) => doc.transact(change, shared.currentOrigin()))
   }
   let store = MEMORY.get(editor)
   if (!store) {
@@ -59,10 +60,11 @@ interface SharedEntry {
 const SEPARATOR = '\u0000'
 const keyOf = (suggestionId: string, blockId: string) => `${suggestionId}${SEPARATOR}${blockId}`
 
-function sharedStore(map: Y.Map<SharedEntry>, transact: (change: () => void) => void): SuggestionStore {
+function sharedStore(node: Y.Node, transact: (change: () => void) => void): SuggestionStore {
+  const entries = () => node.getAttrs() as Record<string, SharedEntry>
   const all = (): Suggestion[] => {
     const grouped = new Map<string, SharedEntry[]>()
-    for (const entry of map.values()) {
+    for (const entry of Object.values(entries())) {
       grouped.set(entry.id, [...grouped.get(entry.id) ?? [], entry])
     }
     return [...grouped.values()]
@@ -77,27 +79,27 @@ function sharedStore(map: Y.Map<SharedEntry>, transact: (change: () => void) => 
       })
       .sort((a, b) => a.createdAt - b.createdAt)
   }
-  const keysOf = (id: string) => [...map.keys()].filter((key) => key.startsWith(`${id}${SEPARATOR}`))
+  const keysOf = (id: string) => Object.keys(entries()).filter((key) => key.startsWith(`${id}${SEPARATOR}`))
 
   return {
     list: all,
     get: (id) => all().find((suggestion) => suggestion.id === id),
     put: (suggestion) => transact(() => {
       const keep = new Set(suggestion.blocks.map((block) => keyOf(suggestion.id, block.id)))
-      keysOf(suggestion.id).filter((key) => !keep.has(key)).forEach((key) => map.delete(key))
+      keysOf(suggestion.id).filter((key) => !keep.has(key)).forEach((key) => node.deleteAttr(key))
       suggestion.blocks.forEach((block, order) => {
         const key = keyOf(suggestion.id, block.id)
         // Blocks already there stay as they are: rewriting them would
         // overwrite what others did to them meanwhile
-        if (!map.has(key)) {
-          map.set(key, structuredClone({ id: suggestion.id, author: suggestion.author, createdAt: suggestion.createdAt, order, block }))
+        if (!node.hasAttr(key)) {
+          node.setAttr(key, structuredClone({ id: suggestion.id, author: suggestion.author, createdAt: suggestion.createdAt, order, block }))
         }
       })
     }),
-    remove: (id) => transact(() => keysOf(id).forEach((key) => map.delete(key))),
+    remove: (id) => transact(() => keysOf(id).forEach((key) => node.deleteAttr(key))),
     subscribe: (listener) => {
-      map.observe(listener)
-      return () => map.unobserve(listener)
+      node.on('delta', listener)
+      return () => node.off('delta', listener)
     }
   }
 }

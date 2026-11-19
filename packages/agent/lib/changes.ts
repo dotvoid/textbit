@@ -1,8 +1,7 @@
 import { Editor, Element, Node, Text, type Path } from 'slate'
-import * as Y from 'yjs'
-import { YjsEditor, slatePointToRelativePosition } from '@slate-yjs/core'
+import * as Y from '@y/y'
 import type { TBAgentChange as AgentChange } from '@dotvoid/textbit/headless'
-import { diffWords } from '@dotvoid/textbit/headless'
+import { diffWords, pointToRelativePosition, sharedOf } from '@dotvoid/textbit/headless'
 import { pointAt } from './edit'
 
 /** The text of every text-holding element with an id, by id */
@@ -20,10 +19,9 @@ export function textsById(editor: Editor): Map<string, string> {
  * on a shared document: elsewhere nobody else would see it.
  */
 export function textChanges(editor: Editor, before: Map<string, string>, blocks: number[]): AgentChange[] {
-  if (!YjsEditor.isYjsEditor(editor)) {
+  if (!sharedOf(editor)) {
     return []
   }
-  const shared = (editor as YjsEditor & Editor).sharedRoot
   const changes: AgentChange[] = []
 
   for (const index of blocks) {
@@ -35,7 +33,10 @@ export function textChanges(editor: Editor, before: Map<string, string>, blocks:
       for (const change of diffWords(before.get(element.id as string) ?? '', Node.string(element))) {
         const from = pointAt(element, path, change.at, 'start')
         const to = pointAt(element, path, change.at + change.added.length, 'end')
-        const encode = (point: typeof from) => Array.from(Y.encodeRelativePosition(slatePointToRelativePosition(shared, editor, point)))
+        const encode = (point: typeof from) => {
+          const position = pointToRelativePosition(editor, point)
+          return position ? Array.from(Y.encodeRelativePosition(position)) : []
+        }
         changes.push({
           id: crypto.randomUUID(),
           block: top.id,

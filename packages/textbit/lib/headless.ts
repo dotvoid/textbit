@@ -8,6 +8,26 @@
  */
 
 export { createTextbitEditor, type TextbitEditorOptions as TBEditorOptions } from './editor/createTextbitEditor'
+
+// Shared documents: text fields of Y.js 14 documents
+export {
+  bindField,
+  sharedOf,
+  fieldToValue,
+  seedField,
+  SUGGESTED_MARK,
+  pointToRelativePosition,
+  relativePositionToPoint,
+  rangeToRelativePositions,
+  relativePositionsToRange,
+  withSharedCursor,
+  remoteCursors,
+  type TBBindOptions,
+  type TBSharedField,
+  type TBRenderer,
+  type TBCursorOptions,
+  type TBRemoteCursor
+} from './yjs'
 export type { OnSpellcheckCallback as TBOnSpellcheck } from './with/withSpeling'
 export type { TextbitEditorInterface as TBEditorHelpers } from './utils/textbit-editor'
 export type { TextbitElementInterface as TBElementHelpers } from './utils/textbit-element'

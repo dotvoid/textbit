@@ -1,20 +1,20 @@
 import { describe, test, expect } from 'vitest'
 import { render, act } from '@testing-library/react'
-import * as Y from 'yjs'
-import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from 'y-protocols/awareness'
-import { slateNodesToInsertDelta } from '@slate-yjs/core'
-import type { Descendant } from 'slate'
+import * as Y from '@y/y'
+import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from '@y/protocols/awareness'
+import type { Element } from 'slate'
+import { seedField } from '../lib/yjs'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
 import { AGENT_PRESENCE_FIELD, type AgentPresenceState } from '../lib/types/agentPresence'
 
 const paragraph = (id: string, text: string) =>
-  ({ id, type: 'base/text', class: 'text', properties: {}, children: [{ text }] }) as Descendant
+  ({ id, type: 'base/text', class: 'text', properties: {}, children: [{ text }] }) as Element
 
 function shared() {
   const doc = new Y.Doc()
-  const content = doc.get('content', Y.XmlText)
-  content.applyDelta(slateNodesToInsertDelta([paragraph('a', 'First'), paragraph('b', 'Second')]))
+  const content = doc.get('body')
+  seedField(content, [paragraph('a', 'First'), paragraph('b', 'Second')])
   return { doc, content }
 }
 

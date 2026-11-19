@@ -1,9 +1,11 @@
 import { createEditor, type Descendant, type Editor } from 'slate'
 import { withHistory } from 'slate-history'
-import { withCursors, withYHistory, withYjs, YjsEditor } from '@slate-yjs/core'
-import type * as Y from 'yjs'
+import type * as Y from '@y/y'
+import type { Awareness } from '@y/protocols/awareness'
 import { SUGGESTIONS_MAP } from '../suggestions/store'
-import type { Awareness } from 'y-protocols/awareness'
+import { bindField } from '../yjs/binding'
+import { withSharedCursor, type TBCursorOptions } from '../yjs/cursors'
+import type { TBRenderer } from '../yjs/model'
 import type { PluginDefinition } from '../types'
 import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { createRegistry } from '../contexts/PluginRegistry/lib/createRegistry'
@@ -25,7 +27,6 @@ import { withBlockBoundaryGuard } from '../with/withBlockBoundaryGuard'
 import { withInsertFragment } from '../with/withInsertFragment'
 import { withTrimWhitespace } from '../with/withTrimWhitespace'
 import { withSelectionGuard } from '../with/withSelectionGuard'
-import { withRemoteDeltaGuard } from '../with/withRemoteDeltaGuard'
 
 /** What `createTextbitEditor` takes */
 export interface TextbitEditorOptions {
@@ -39,25 +40,21 @@ export interface TextbitEditorOptions {
   /** The content, when not shared through `shared` */
   value?: Descendant[]
   /**
-   * Collaborate through a shared Y.js document. Call `YjsEditor.connect` on
-   * the editor to start, and `YjsEditor.disconnect` when done.
+   * Edit a text field of a shared Y.js 14 document: a `Y.Node` holding the
+   * field's blocks. The editor shows it at once and follows it; `sharedOf(editor)`
+   * gives its link to the field, whose `release()` unbinds it.
    */
-  shared?: Y.XmlText
-  /** The origin of this editor's own changes to the shared document */
-  localOrigin?: symbol
+  shared?: Y.Node
+  /** The origin of this editor's own changes to the shared document. Default: a new object. */
+  origin?: object
+  /** Show the shared field through a Y.js 14 renderer, such as the suggestions view of a fork */
+  renderer?: TBRenderer
   /** Share a cursor through this awareness, with a shared document */
   awareness?: Awareness
   /** The cursor shared through `awareness` */
-  cursor?: {
-    /** The awareness field of the cursor's position. Default: Slate's. */
-    stateField?: string
-    /** The awareness field of `data`. Default: Slate's. */
-    dataField?: string
-    /** Whether the cursor is sent as it moves. Default: `true`. */
-    autoSend?: boolean
-    /** Shown to others, e.g. `{ name, color }` */
-    data?: Record<string, unknown>
-  }
+  cursor?: TBCursorOptions
+  /** With `awareness`: whether the editor is in use, so its cursor is sent. Default: always. */
+  isActive?: () => boolean
   /** Check spelling, as `onSpellcheck` on `Textbit.Root` does */
   onSpellcheck?: OnSpellcheckCallback
   /** Milliseconds the spellcheck waits for changes to pause. Default: `1250`, as in `Textbit.Root`. */
@@ -90,6 +87,8 @@ export function withTextbit(
   options: Omit<TextbitEditorOptions, 'plugins' | 'editor'> & {
     plugins: PluginDefinition[]
     components: Map<string, PluginRegistryComponent>
+    /** @internal Leave binding to the shared field to the caller, as React's container does in an effect */
+    bind?: boolean
   }
 ): Editor {
   const { plugins, components } = options
@@ -98,30 +97,17 @@ export function withTextbit(
 
   if (!options.shared) {
     editor = withHistory(editor)
-  } else {
-    editor = withYHistory(withYjs(editor, options.shared, {
-      localOrigin: options.localOrigin ?? Symbol('textbit-editor')
-    }))
-
-    // A person's own accepts and rejects of suggestions are undone like their edits
-    if (YjsEditor.isYjsEditor(editor) && options.shared.doc) {
-      (editor as typeof editor & { undoManager: Y.UndoManager }).undoManager.addToScope(options.shared.doc.getMap(SUGGESTIONS_MAP))
-    }
-
-    if (YjsEditor.isYjsEditor(editor) && options.awareness) {
-      editor = withCursors(editor, options.awareness, {
-        autoSend: options.cursor?.autoSend ?? true,
-        data: options.cursor?.data,
-        cursorStateField: options.cursor?.stateField,
-        cursorDataField: options.cursor?.dataField
-      })
-    }
-
-    // Outermost of the yjs plugins, so it hands every inner one a private
-    // copy of each remote delta. Required whenever more than one editor is
-    // bound to the same shared root in this client.
-    if (YjsEditor.isYjsEditor(editor)) {
-      withRemoteDeltaGuard(editor)
+  } else if (options.bind !== false) {
+    // Innermost, so every operation the plugins make reaches the field. A
+    // person's own accepts and rejects of suggestions are undone like their edits.
+    const doc = options.shared.doc
+    bindField(editor, options.shared, {
+      origin: options.origin,
+      renderer: options.renderer,
+      undoScope: doc ? [doc.get(SUGGESTIONS_MAP)] : []
+    })
+    if (options.awareness) {
+      withSharedCursor(editor, options.awareness, options.cursor, options.isActive)
     }
   }
 

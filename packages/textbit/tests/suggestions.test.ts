@@ -1,8 +1,8 @@
 // @vitest-environment node
 import { describe, test, expect } from 'vitest'
-import { Editor, Node, Transforms, type Descendant } from 'slate'
-import * as Y from 'yjs'
-import { YjsEditor, slateNodesToInsertDelta } from '@slate-yjs/core'
+import { Editor, Node, Transforms, type Descendant, type Element } from 'slate'
+import * as Y from '@y/y'
+import { seedField } from '../lib/yjs'
 import { createTextbitEditor } from '../lib/editor/createTextbitEditor'
 import {
   suggestionFor, suggestionStore, suggestedBlockState, suggestedTextChanges,
@@ -10,7 +10,7 @@ import {
 } from '../lib/suggestions'
 import { hashNode } from '../lib/utils/hashNode'
 
-const p = (id: string, text: string) => ({ id, type: 'base/text', class: 'text', properties: {}, children: [{ text }] }) as Descendant
+const p = (id: string, text: string) => ({ id, type: 'base/text', class: 'text', children: [{ text }] }) as Descendant
 const AUTHOR = { name: 'Assistant' }
 
 function editorWith(document: Descendant[]) {
@@ -78,20 +78,17 @@ describe('a suggestion', () => {
 
   test('in a shared document, every peer sees it', () => {
     const doc = new Y.Doc()
-    doc.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta(structuredClone(before)))
+    seedField(doc.get('body'), structuredClone(before) as Element[])
     const other = new Y.Doc()
-    const one = createTextbitEditor({ shared: doc.get('content', Y.XmlText) })
-    const two = createTextbitEditor({ shared: other.get('content', Y.XmlText) })
-    YjsEditor.connect(one as YjsEditor & Editor)
+    const one = createTextbitEditor({ shared: doc.get('body') })
 
     const suggestion = suggestionFor(before, after, AUTHOR)!
     suggestionStore(one).put(suggestion)
     Y.applyUpdate(other, Y.encodeStateAsUpdate(doc))
-    YjsEditor.connect(two as YjsEditor & Editor)
+    const two = createTextbitEditor({ shared: other.get('body') })
 
     expect(suggestionStore(two).get(suggestion.id)?.blocks).toHaveLength(4)
     expect(acceptSuggestedBlock(two, suggestion.id, 'a')).toEqual({ ok: true })
-    YjsEditor.flushLocalChanges(two as YjsEditor & Editor)
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(other, Y.encodeStateVector(doc)))
     expect(Node.string(one.children[0])).toBe('Spelling: the mistake.')
     expect(suggestionStore(one).get(suggestion.id)?.blocks.map((b) => b.id)).toEqual(['n1', 'n2', 'b'])
@@ -99,18 +96,14 @@ describe('a suggestion', () => {
 })
 
 describe('suggestions with several people', () => {
-  const peer = (doc: Y.Doc) => {
-    const editor = createTextbitEditor({ shared: doc.get('content', Y.XmlText) }) as YjsEditor & Editor
-    YjsEditor.connect(editor)
-    return editor
-  }
+  const peer = (doc: Y.Doc) => createTextbitEditor({ shared: doc.get('body') })
   const sync = (a: Y.Doc, b: Y.Doc) => {
     Y.applyUpdate(b, Y.encodeStateAsUpdate(a, Y.encodeStateVector(b)))
     Y.applyUpdate(a, Y.encodeStateAsUpdate(b, Y.encodeStateVector(a)))
   }
   function two() {
     const base = new Y.Doc()
-    base.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta([p('a', 'Spelling: teh mistake.'), p('z', 'Last.')]))
+    seedField(base.get('body'), [p('a', 'Spelling: teh mistake.'), p('z', 'Last.')] as Element[])
     const A = new Y.Doc()
     const B = new Y.Doc()
     sync(base, A)
@@ -128,15 +121,19 @@ describe('suggestions with several people', () => {
     return { A, B, a, b, suggestion }
   }
 
-  test('two accepting the same block at once end up with it once', () => {
+  // Editors no longer repair what arrives: the exact copy two accepts leave is
+  // removed by the document's owner, here a headless editor normalizing
+  test('two accepting the same block at once end up with it once, once the owner repairs', () => {
     const { A, B, a, b, suggestion } = two()
     expect(acceptSuggestedBlock(a, suggestion.id, 'a')).toEqual({ ok: true })
     expect(acceptSuggestedBlock(b, suggestion.id, 'a')).toEqual({ ok: true })
-    YjsEditor.flushLocalChanges(a)
-    YjsEditor.flushLocalChanges(b)
     sync(A, B)
-    YjsEditor.flushLocalChanges(a)
-    YjsEditor.flushLocalChanges(b)
+    expect(a.children).toEqual(b.children)
+
+    const O = new Y.Doc()
+    sync(A, O)
+    Editor.normalize(peer(O), { force: true })
+    sync(O, A)
     sync(A, B)
 
     for (const editor of [a, b]) {
@@ -148,7 +145,6 @@ describe('suggestions with several people', () => {
   test('once one has accepted and it has reached the other, the other cannot', () => {
     const { A, B, a, b, suggestion } = two()
     acceptSuggestedBlock(a, suggestion.id, 'a')
-    YjsEditor.flushLocalChanges(a)
     sync(A, B)
     expect(acceptSuggestedBlock(b, suggestion.id, 'a')).toEqual({ ok: false, reason: 'gone' })
   })
@@ -170,7 +166,6 @@ describe('suggestions with several people', () => {
   test('undoing an accept brings back the text and the suggestion', async () => {
     const { a, suggestion } = two()
     acceptSuggestedBlock(a, suggestion.id, 'a')
-    YjsEditor.flushLocalChanges(a)
     a.undo()
     expect(Node.string(a.children[0])).toBe('Spelling: teh mistake.')
     expect(suggestionStore(a).get(suggestion.id)).toBeDefined()
@@ -182,15 +177,11 @@ describe('decisions on a suggestion by several people', () => {
     Y.applyUpdate(b, Y.encodeStateAsUpdate(a, Y.encodeStateVector(b)))
     Y.applyUpdate(a, Y.encodeStateAsUpdate(b, Y.encodeStateVector(a)))
   }
-  const peer = (doc: Y.Doc) => {
-    const editor = createTextbitEditor({ shared: doc.get('content', Y.XmlText) }) as YjsEditor & Editor
-    YjsEditor.connect(editor)
-    return editor
-  }
+  const peer = (doc: Y.Doc) => createTextbitEditor({ shared: doc.get('body') })
   function three() {
     const before = [p('a', 'Spelling: teh mistake.'), p('b', 'Second.'), p('c', 'Third.')]
     const base = new Y.Doc()
-    base.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta(structuredClone(before)))
+    seedField(base.get('body'), structuredClone(before) as Element[])
     const docs = [new Y.Doc(), new Y.Doc(), new Y.Doc()]
     docs.forEach((doc) => sync(base, doc))
     const [agent, alice, bob] = docs.map(peer)
@@ -211,8 +202,7 @@ describe('decisions on a suggestion by several people', () => {
 
   test('undoing an accept brings its block back, whatever others decided after', () => {
     const { docs, alice, bob, suggestion } = three()
-    acceptSuggestedBlock(bob, suggestion.id, 'a')
-    YjsEditor.flushLocalChanges(bob)
+    expect(acceptSuggestedBlock(bob, suggestion.id, 'a')).toEqual({ ok: true })
     sync(docs[2], docs[1])
     rejectSuggestedBlock(alice, suggestion.id, 'c')
     sync(docs[1], docs[2])

@@ -1,5 +1,5 @@
 import { Editor, Element, type Node } from 'slate'
-import { YjsEditor } from '@slate-yjs/core'
+import { sharedOf } from '../yjs/binding'
 
 /*
  * If a node is in any way inserted or created it must be assigned a unique id.
@@ -49,9 +49,9 @@ export function withUniqueIds(editor: Editor) {
   return editor
 }
 
-/** Whether the operation being applied comes from another Yjs peer */
+/** Whether the operation being applied is someone else's change to the shared field */
 function isRemote(editor: Editor): boolean {
-  return YjsEditor.isYjsEditor(editor) && !YjsEditor.isLocal(editor)
+  return sharedOf(editor)?.isApplyingRemote() ?? false
 }
 
 /**

@@ -1,6 +1,7 @@
 import { Editor, Path, Point, Range, Text } from 'slate'
-import * as Y from 'yjs'
-import { YjsEditor, relativePositionToSlatePoint } from '@slate-yjs/core'
+import * as Y from '@y/y'
+import { sharedOf } from '../yjs/binding'
+import { relativePositionToPoint } from '../yjs/positions'
 import type { PresentAgent } from '../contexts/AgentPresenceContext'
 
 /** An agent's change where it now is in this editor's document */
@@ -31,7 +32,7 @@ export interface ResolvedAgentChange {
  * change whose text was edited since, by anyone, is no longer shown.
  */
 export function resolveAgentChanges(editor: Editor, agents: PresentAgent[], dismissed: ReadonlySet<string>): ResolvedAgentChange[] {
-  if (!YjsEditor.isYjsEditor(editor)) {
+  if (!sharedOf(editor)) {
     return []
   }
   const resolved: ResolvedAgentChange[] = []
@@ -131,7 +132,7 @@ export function agentChangeRanges(changes: readonly ResolvedAgentChange[], path:
 function point(editor: Editor, bytes: number[]): Point | null {
   try {
     const position = Y.decodeRelativePosition(Uint8Array.from(bytes))
-    return relativePositionToSlatePoint((editor as YjsEditor & Editor).sharedRoot, editor, position)
+    return relativePositionToPoint(editor, position) ?? null
   } catch {
     return null
   }

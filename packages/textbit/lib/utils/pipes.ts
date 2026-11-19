@@ -294,7 +294,7 @@ async function executePipeItem(consume: ConsumeFunction, input: Resource | Resou
   //
   // The visual loader lives in a local React store (attached to the editor
   // by PendingDropsProvider), NOT in the shared document. That's how we
-  // guarantee zero placeholder pollution of Y.XmlText: if this session
+  // guarantee zero placeholder pollution of the shared document: if this session
   // unmounts, crashes, or the tab closes mid-await, no shared state was
   // ever touched.
   const pathRef = Editor.pathRef(editor, [position])

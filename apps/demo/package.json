@@ -12,14 +12,13 @@
     "@dotvoid/textbit": "*",
     "@dotvoid/textbit-plugins": "*",
     "@dotvoid/textbit-styles": "*",
-    "@hocuspocus/provider": "^4.8.0",
-    "@slate-yjs/core": "^1.0.2",
+    "@y/protocols": "1.0.6-rc.1",
+    "@y/websocket": "4.0.0-rc.6",
+    "@y/y": "14.0.0-rc.30",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "slate": "^0.147.4",
-    "slate-react": "^0.147.6",
-    "y-protocols": "^1.0.5",
-    "yjs": "^13.6.26"
+    "slate-react": "^0.147.6"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.5.2",

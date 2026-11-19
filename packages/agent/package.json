@@ -40,12 +40,13 @@
   },
   "peerDependencies": {
     "@dotvoid/textbit": "^2.1.0 || ^3.0.0",
-    "@slate-yjs/core": "^1.0.2",
-    "slate": "^0.147.4",
-    "yjs": "^13.6.26"
+    "@y/y": "14.0.0-rc.30",
+    "slate": "^0.147.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
+    "@y/protocols": "1.0.6-rc.1",
+    "@y/y": "14.0.0-rc.30",
     "esbuild": "*",
     "eslint": "^9.29.0",
     "globals": "^16.2.0",

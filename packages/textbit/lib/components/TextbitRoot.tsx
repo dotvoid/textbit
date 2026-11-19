@@ -2,13 +2,15 @@ import type { PlaceholdersVisibility } from '../contexts/TextbitContext'
 import { TextbitProvider } from '../contexts/TextbitProvider'
 import { PluginRegistryProvider } from '../contexts/PluginRegistry/PluginRegistryProvider'
 import type { Plugin, SpellingError } from '../types'
-import type { Awareness } from 'y-protocols/awareness'
+import type { Awareness } from '@y/protocols/awareness'
 
 import { editorPlugins } from '../editor/editorPlugins'
 import { ContextMenuHintsProvider } from './ContextMenu/ContextMenuHintsProvider'
 import { SelectionBoundsProvider } from '../contexts/SelectionBoundsProvider'
 import { Descendant } from 'slate'
-import * as Y from 'yjs'
+import * as Y from '@y/y'
+import type { TBCursorOptions } from '../yjs/cursors'
+import type { TBRenderer } from '../yjs/model'
 import { SlateContainer } from './SlateContainer'
 import { GutterProvider } from './GutterProvider/GutterProvider'
 import type { TextbitLabels } from '../contexts/TextbitContext'
@@ -84,8 +86,13 @@ export interface TextbitRootDefaultProps extends TextbitRootBaseProps {
 
 /** A root editing a shared document, without cursors */
 export interface TextbitRootYjsProps extends TextbitRootBaseProps {
-  /** The shared document's content: `ydoc.get('content', Y.XmlText)` */
-  value: Y.XmlText
+  /**
+   * A text field of a shared Y.js 14 document: the `Y.Node` holding its blocks,
+   * e.g. `ydoc.get('body')`. Fill a new one once with `seedField`.
+   */
+  value: Y.Node
+  /** Show the field through a Y.js 14 renderer, such as the suggestions view of a fork */
+  renderer?: TBRenderer
   /** The document after a change, by anyone */
   onChange?: (value: Descendant[]) => void
 }
@@ -94,17 +101,12 @@ export interface TextbitRootYjsProps extends TextbitRootBaseProps {
 export interface TextbitRootCollaborationProps extends TextbitRootYjsProps {
   /** The awareness of the connection to the shared document, e.g. a provider's */
   awareness?: Awareness | null
-  /** This person's cursor, as others see it */
-  cursor?: {
-    /** The awareness field of the cursor's position. Default: Slate's. */
-    stateField?: string
-    /** The awareness field of `data`. Default: Slate's. */
-    dataField?: string
-    /** Whether the cursor is sent as it moves. Default: `true`. */
-    autoSend?: boolean
-    /** Shown to others: `name` and `color` label the cursor */
-    data: Record<string, unknown>
-  }
+  /**
+   * This person's cursor, as others see it: `data.name` and `data.color` label
+   * it. Sent while the editable has focus, so another editor on the same
+   * document in the page never moves it.
+   */
+  cursor?: TBCursorOptions
 }
 
 /** Any of the kinds of root props */
@@ -186,5 +188,5 @@ export function TextbitRoot(props: TextbitRootProps) {
 function isTextbitRootCollaborationProps(
   props: TextbitRootProps
 ): props is TextbitRootCollaborationProps {
-  return props.value instanceof Y.XmlText && 'awareness' in props && props.awareness != null
+  return props.value instanceof Y.Node && 'awareness' in props && props.awareness != null
 }

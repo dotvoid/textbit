@@ -1,8 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { Editor, Node, Transforms, type Descendant } from 'slate'
-import * as Y from 'yjs'
-import { YjsEditor, slateNodesToInsertDelta } from '@slate-yjs/core'
-import { createTextbitEditor, AGENT_PRESENCE_FIELD } from '@dotvoid/textbit/headless'
+import * as Y from '@y/y'
+import { createTextbitEditor, AGENT_PRESENCE_FIELD, seedField } from '@dotvoid/textbit/headless'
 import { Text, Bold } from '@dotvoid/textbit-plugins/definitions'
 import { createDocumentAgent, createAgentPresence } from '../lib'
 
@@ -11,17 +10,16 @@ const paragraph = (id: string, text: string) =>
   ({ id, type: 'base/text', class: 'text', properties: {}, children: [{ text }] }) as Descendant
 
 function sharedEditor(doc: Y.Doc) {
-  const editor = createTextbitEditor({ plugins: PLUGINS, shared: doc.get('content', Y.XmlText) })
-  YjsEditor.connect(editor as YjsEditor & Editor)
+  const editor = createTextbitEditor({ plugins: PLUGINS, shared: doc.get('content') })
   return editor
 }
 
 function seeded() {
   const doc = new Y.Doc()
-  doc.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta([
+  seedField(doc.get('content'), [
     paragraph('11111111-a', 'One'),
     paragraph('22222222-b', 'Two')
-  ]))
+  ])
   return doc
 }
 
@@ -47,7 +45,6 @@ describe('a run of agent edits', () => {
     sync(agentDoc, personDoc)
 
     Transforms.insertText(person, ' by a person', { at: Editor.end(person, [0]) })
-    YjsEditor.flushLocalChanges(person as YjsEditor & Editor)
     sync(personDoc, agentDoc)
 
     expect(agent.edit({ operations: [{ op: 'insert', content: '[text] Third' }] }).ok).toBe(true)
@@ -64,7 +61,6 @@ describe('a run of agent edits', () => {
     const agent = createDocumentAgent(editor, { plugins: PLUGINS })
 
     Transforms.insertText(editor, '!', { at: Editor.end(editor, [0]) })
-    YjsEditor.flushLocalChanges(editor as YjsEditor & Editor)
     expect(agent.edit({ operations: [{ op: 'replaceText', id: '22222222', find: 'Two', replace: 'Agent' }] }).ok).toBe(true)
 
     editor.undo()
