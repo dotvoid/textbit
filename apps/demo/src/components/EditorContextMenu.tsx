@@ -3,7 +3,7 @@ import { ContextMenu, useAction, useContextMenuHints } from '@dotvoid/textbit'
 /**
  * The right-click menu: spelling suggestions on a marked word, with a way to
  * accept the word in this document, and inserting a special character. The
- * plugins' actions for where it opened, such as a table's, follow on their own.
+ * plugins' actions for where it opened, such as a table's, come first on their own.
  */
 export const EditorContextMenu = ({ onAccept }: {
   onAccept?: (word: string, accept: boolean) => void

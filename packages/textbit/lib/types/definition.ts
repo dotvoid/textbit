@@ -86,7 +86,7 @@ export interface Action {
   /**
    * Offer the action in the context menu wherever `visibility` shows it. The
    * menu then opens there whatever the editable's `contextMenu` mode, and
-   * lists it after the host's own items. Default: `false`.
+   * lists it before the host's own items. Default: `false`.
    */
   contextMenu?: boolean
   /**
