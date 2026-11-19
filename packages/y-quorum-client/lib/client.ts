@@ -30,6 +30,7 @@ import {
   type Principal,
   type ReasonCode
 } from './protocol'
+import { CommentsOfHandle, type Comments } from './commentsHandle'
 
 export type Status = 'connecting' | 'connected' | 'disconnected' | 'closed'
 export type Welcome = Headers[typeof ToClient.WELCOME]
@@ -117,6 +118,8 @@ export interface DocumentHandle {
   readonly capabilities: Capabilities
   readonly records: DocumentRecord[]
   readonly hasUnsavedChanges: boolean
+  /** The comment threads beside the content, for a type with comments */
+  readonly comments: Comments
   /** An origin whose transactions are sent in frames of their own, carrying the claim */
   claimOrigin(claim: ActorClaim): object
   appendRecord(kind: string, data: unknown, claim?: ActorClaim): void
@@ -1064,6 +1067,7 @@ class Listeners<E extends object> {
 
 class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   private released = false
+  private commentsOfHandle: CommentsOfHandle | undefined
 
   constructor(private readonly client: QuorumClient, private readonly state: DocState) {
     super()
@@ -1079,6 +1083,11 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   get capabilities() { return this.state.capabilities }
   get records() { return this.state.records }
   get hasUnsavedChanges() { return this.state.local.length > 0 }
+
+  get comments(): Comments {
+    this.commentsOfHandle ??= new CommentsOfHandle(this, () => this.client.principal)
+    return this.commentsOfHandle
+  }
 
   claimOrigin(claim: ActorClaim): object {
     const origin = { claim }
@@ -1107,6 +1116,7 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
       return
     }
     this.released = true
+    this.commentsOfHandle?.destroy()
     this.state.handles.delete(this)
     this.client.release(this.state)
   }

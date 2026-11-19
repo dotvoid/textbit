@@ -23,8 +23,18 @@ import {
   type Principal,
   type ReasonCode
 } from '@dotvoid/y-quorum-client/protocol'
-import { pathOf, projection, resolvePath, toJSON, type Path } from '@dotvoid/y-quorum-client/model'
+import {
+  COMMENTS,
+  pathOf,
+  projection,
+  readThreads,
+  resolvePath,
+  toJSON,
+  type CommentThread,
+  type Path
+} from '@dotvoid/y-quorum-client/model'
 import type { Actor, LogEntry, ServerOptions, ServerType, Storage, StoredDocument } from './types'
+import { judgeComments } from './judgeComments'
 
 /** A connection, as a document sees it */
 export interface Peer {
@@ -55,8 +65,11 @@ export interface Opening {
 const HELD_UPDATES = 64
 const HELD_BYTES = 4 * 1024 * 1024
 
-/** What judging a write found */
-type Judgement = { code: ReasonCode, reason: string } | 'pending' | undefined
+/**
+ * What judging a write found: refused, waiting, or allowed into a layer of
+ * the log; `null` when it changes nothing, so there is nothing to store
+ */
+type Judgement = { code: ReasonCode, reason: string } | 'pending' | { layer: string | null }
 
 const CONTENT = 'content'
 
@@ -109,6 +122,11 @@ export class DocumentOwner {
     return toJSON(this.root, this.type.content)
   }
 
+  /** The comment threads, oldest first */
+  comments(): CommentThread[] {
+    return readThreads(this.doc.get(COMMENTS))
+  }
+
   get isIdle(): boolean {
     return this.openings.size === 0
   }
@@ -127,11 +145,15 @@ export class DocumentOwner {
   }
 
   capabilitiesFor(principal: Principal, roles: string[]): Capabilities {
-    if (this.type.policy) {
-      return this.type.policy({ actor: { principal }, roles, layer: CONTENT, content: this.root })
-    }
     const write = roles.some((role) => role === 'editor' || role === 'owner')
-    return { read: roles.length > 0, write, records: write ? Object.keys(this.type.records ?? {}) : [] }
+    const capabilities = this.type.policy
+      ? this.type.policy({ actor: { principal }, roles, layer: CONTENT, content: this.root })
+      : { read: roles.length > 0, write, records: write ? Object.keys(this.type.records ?? {}) : [] }
+    // Comments only where the type has them; by role unless the policy says
+    const comments = !this.type.comments
+      ? 'none'
+      : capabilities.comments ?? (write ? 'all' : roles.some((role) => role === 'commenter' || role === 'suggester') ? 'own' : 'none')
+    return { ...capabilities, comments }
   }
 
   // ---- Opening and closing ------------------------------------------------
@@ -197,8 +219,13 @@ export class DocumentOwner {
   }
 
   // Judges one update of an opening and acts on it: committed and acknowledged,
-  // refused with a reason, or found to depend on something not here yet
-  private async write(opening: Opening, header: Headers[typeof ToServer.UPDATE], update: Uint8Array): Promise<'committed' | 'refused' | 'pending'> {
+  // acknowledged as changing nothing, refused with a reason, or found to
+  // depend on something not here yet
+  private async write(
+    opening: Opening,
+    header: Headers[typeof ToServer.UPDATE],
+    update: Uint8Array
+  ): Promise<'committed' | 'unchanged' | 'refused' | 'pending'> {
     const actor = this.actorOf(opening, header.claim)
     const judgement: Judgement = actor
       ? await this.judge(opening.peer.principal.id, actor, opening.roles, update)
@@ -206,11 +233,15 @@ export class DocumentOwner {
     if (judgement === 'pending') {
       return 'pending'
     }
-    if (judgement) {
+    if ('code' in judgement) {
       this.sendTo(opening, ToClient.REJECTED, { ref: opening.ref, seq: header.seq, code: judgement.code, reason: judgement.reason }, update)
       return 'refused'
     }
-    const log = await this.commit(actor!, header.layer, update, opening)
+    if (judgement.layer === null) {
+      this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log: this.seq })
+      return 'unchanged'
+    }
+    const log = await this.commit(actor!, judgement.layer, update, opening)
     this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log })
     return 'committed'
   }
@@ -264,10 +295,13 @@ export class DocumentOwner {
         return false
       }
       const judgement = await this.judge(actor.principal.id, actor, roles, update)
-      if (judgement) {
+      if (judgement === 'pending' || 'code' in judgement) {
         return false
       }
-      await this.commit(actor, CONTENT, update)
+      if (judgement.layer === null) {
+        return true
+      }
+      await this.commit(actor, judgement.layer, update)
       await this.retryHeld()
       return true
     })
@@ -307,22 +341,68 @@ export class DocumentOwner {
       this.shadow = this.copy()
       return 'pending'
     }
-    // 3. The policy, on the paths it changes
-    const paths = this.pathsOf(changed)
+    // 3. Each part by its own rules: comments by who wrote what, the content
+    //    by the policy on the paths it changes
+    const refuse = (reason: string): Judgement => {
+      this.shadow = this.copy()
+      return { code: 'not-allowed', reason }
+    }
+    // A client that reopens sends what the server may lack, and Y.js always
+    // includes every deletion it knows of: nothing new is a change to nobody
+    if (!changed?.size) {
+      return { layer: null }
+    }
+    const { content, comments, elsewhere } = this.split(changed)
+    if (elsewhere) {
+      return refuse('Changes only the content and the comments')
+    }
+    if (comments.size) {
+      const rights = this.capabilitiesFor(actor.principal, roles).comments ?? 'none'
+      const reason = judgeComments(this.doc.get(COMMENTS), this.shadow.get(COMMENTS), comments, actor, rights)
+      if (reason) {
+        return refuse(reason)
+      }
+      if (!content.size) {
+        return { layer: COMMENTS }
+      }
+    }
+    const paths = this.pathsOf(content)
     const allowed = this.type.policy
       ? this.type.policy({ actor, roles, layer: CONTENT, content: this.root, next: this.shadow.get(CONTENT), paths }).write
       : roles.some((role) => role === 'editor' || role === 'owner')
     if (!allowed) {
-      this.shadow = this.copy()
-      return { code: 'not-allowed', reason: paths.length ? `Not allowed to change ${paths.map((p) => p.join('.')).join(', ')}` : 'Not allowed to write here' }
+      return refuse(paths.length ? `Not allowed to change ${paths.map((p) => p.join('.')).join(', ')}` : 'Not allowed to write here')
     }
-    return undefined
+    return { layer: CONTENT }
   }
 
-  private pathsOf(changed: Map<Y.Node, Set<string | null>> | undefined): Path[] {
+  // What a change touched, by the root it is in
+  private split(changed: Map<Y.Node, Set<string | null>> | undefined) {
+    const contentRoot = this.shadow.get(CONTENT)
+    const commentsRoot = this.shadow.get(COMMENTS)
+    const content = new Map<Y.Node, Set<string | null>>()
+    const comments = new Map<Y.Node, Set<string | null>>()
+    let elsewhere = false
+    for (const [node, keys] of changed ?? []) {
+      let top = node
+      while (top.parent) {
+        top = top.parent
+      }
+      if (top === contentRoot) {
+        content.set(node, keys)
+      } else if (top === commentsRoot) {
+        comments.set(node, keys)
+      } else {
+        elsewhere = true
+      }
+    }
+    return { content, comments, elsewhere }
+  }
+
+  private pathsOf(changed: Map<Y.Node, Set<string | null>>): Path[] {
     const root = this.shadow.get(CONTENT)
     const found = new Map<string, Path>()
-    for (const [node, keys] of changed ?? []) {
+    for (const [node, keys] of changed) {
       const base = node === root ? [] : pathOf(node, root, this.type.content)
       if (!base) {
         continue
@@ -507,7 +587,7 @@ export class DocumentOwner {
     await this.serial(async () => {
       clearTimeout(this.projecting)
       await this.checkpoint()
-      await this.storage.unloaded?.(this.namespace, this.id, Y.encodeStateAsUpdate(this.doc), this.json(), this.type.name)
+      await this.storage.unloaded?.(this.namespace, this.id, Y.encodeStateAsUpdate(this.doc), this.json(), this.type.name, this.comments())
       this.awareness.destroy()
     })
   }

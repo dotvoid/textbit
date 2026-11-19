@@ -1,7 +1,7 @@
 import type * as Y from '@y/y'
 import type { IncomingMessage } from 'node:http'
 import type { Capabilities, DocumentRecord, Limits, Principal } from '@dotvoid/y-quorum-client/protocol'
-import type { Path, TypeDefinition } from '@dotvoid/y-quorum-client/model'
+import type { CommentThread, Path, TypeDefinition } from '@dotvoid/y-quorum-client/model'
 
 /** Who made a change: the principal, and whom it acted for */
 export interface Actor {
@@ -93,7 +93,14 @@ export interface Storage {
   /** Deletes a document, or a whole namespace */
   delete(namespace: string, id?: string): Promise<void>
   /** Called when a document is unloaded: a chance to store what was waiting */
-  unloaded?(namespace: string, id: string, state: Uint8Array, json: Record<string, unknown>, type: string): Promise<void>
+  unloaded?(
+    namespace: string,
+    id: string,
+    state: Uint8Array,
+    json: Record<string, unknown>,
+    type: string,
+    comments: CommentThread[]
+  ): Promise<void>
   close?(): Promise<void>
 }
 
@@ -136,6 +143,8 @@ export interface QuorumServer {
   transact(namespace: string, id: string, actor: Actor, change: (content: Y.Node) => void): Promise<boolean>
   /** A document's content as JSON */
   read(namespace: string, id: string): Promise<Record<string, unknown> | undefined>
+  /** A document's comment threads, oldest first */
+  comments(namespace: string, id: string): Promise<CommentThread[] | undefined>
   /** Appends a record from code in this process */
   appendRecord(namespace: string, id: string, actor: Actor, kind: string, data: unknown): Promise<DocumentRecord>
   /** Sends a host's message to every client that has the document open */

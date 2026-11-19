@@ -18,7 +18,7 @@ import {
   type PresenceEntry,
   type ReasonCode
 } from '@dotvoid/y-quorum-client/protocol'
-import { createContent } from '@dotvoid/y-quorum-client/model'
+import { COMMENTS, createContent, seedComments, type CommentThread } from '@dotvoid/y-quorum-client/model'
 import { DocumentOwner, type Opening, type Peer } from './document'
 import type { Actor, Authenticated, QuorumServer, ServerOptions, ServerType, StoredDocument } from './types'
 import type { HostStore } from './storage/host'
@@ -88,17 +88,26 @@ export function createServer(options: ServerOptions): QuorumServer {
     if (!found) {
       return undefined
     }
-    await create(namespace, id, found.type, found.content)
+    await create(namespace, id, found.type, found.content, found.comments)
     return options.storage.load(namespace, id)
   }
 
-  async function create(namespace: string, id: string, typeName: string, initial: Record<string, unknown> = {}): Promise<void> {
+  async function create(
+    namespace: string,
+    id: string,
+    typeName: string,
+    initial: Record<string, unknown> = {},
+    comments: CommentThread[] = []
+  ): Promise<void> {
     const type = types.get(typeName)
     if (!type) {
       throw new Error(`y-quorum: no type ${typeName}`)
     }
     const doc = new Y.Doc()
     createContent(doc.get('content'), type.content, initial)
+    if (type.comments && comments.length) {
+      seedComments(doc.get(COMMENTS), comments)
+    }
     await options.storage.create(namespace, id, { type: typeName, incarnation: randomUUID(), createdAt: Date.now() }, Y.encodeStateAsUpdate(doc))
   }
 
@@ -400,7 +409,7 @@ export function createServer(options: ServerOptions): QuorumServer {
       attach(http)
       http.listen(port, () => resolve(http!))
     }),
-    create,
+    create: (namespace, id, type, initial) => create(namespace, id, type, initial),
     transact: async (namespace, id, actor, change) => {
       const owner = await ownerOf(namespace, id)
       if (!owner) {
@@ -421,6 +430,15 @@ export function createServer(options: ServerOptions): QuorumServer {
       const json = owner.json()
       changed(owner)
       return json
+    },
+    comments: async (namespace, id) => {
+      const owner = await ownerOf(namespace, id)
+      if (!owner) {
+        return undefined
+      }
+      const threads = owner.comments()
+      changed(owner)
+      return threads
     },
     appendRecord: async (namespace, id, actor: Actor, kind, data) => {
       const owner = await ownerOf(namespace, id)

@@ -197,6 +197,12 @@ defineType('example/tag', { content: object({ name: string(), kind: oneOf(tagKin
 
 - **comments** and **suggestions** as before. Suggestions fork the whole tree, so a suggestion
   can add a list item or change a date as well as edit text.
+- **Comments are a second root of the document's Y.Doc,** `comments`, not a document of their
+  own (decided while building step 3). The server tells the roots apart in every write and judges
+  each by its own rules, which is what the separate document was for: a commenter cannot touch
+  the content, nobody writes or resolves as someone else, and the content's JSON holds only
+  content. One Y.Doc spares a second set of state vectors, rebuilds and storage per document, and
+  anchors resolve in the same document. Suggestions still need a fork of their own.
 - **records:** append-only entries with a schema per kind from the host: status changes, AI use,
   acknowledgements, dismissals. The server stamps actor and time, entries are never edited,
   and they are part of the hash chain. Records are not a CRDT: a client asks, the server
@@ -632,7 +638,13 @@ through MCP is an agent action: people edit over the socket.
    - an HTTP API for writers in other processes (they use the client from Node with a service
      token today);
    - READMEs for both packages, and the guides.
-3. **Comments.**
+3. **Comments.** Server and client done 19 November 2026: threads in the `comments` root
+   (`@dotvoid/y-quorum-client/model`), judged by `judgeComments` in the server against the
+   roles' rights (`Capabilities.comments`: none, own or all; nobody edits someone else's words),
+   `handle.comments` in the client, `server.comments()`, comments in a host's JSON, and agents
+   commenting for a person. Anchors are stored two ways, relative positions and a quote in its
+   block. To come: the editor (anchors from a selection, highlights, `useComments`), the demo,
+   comment events for hosts, and the guides.
 4. **History:** attribution, the log and checkpoints, versions, scrubbing, differences,
    restore, review evidence.
 5. **Suggestions in the fork,** people's suggesting mode, agents suggesting, run revert.

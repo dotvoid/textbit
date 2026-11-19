@@ -110,12 +110,21 @@ export interface ActorClaim {
   model?: string
 }
 
+/**
+ * What someone may do with comments: nothing; open threads, reply, and edit,
+ * delete and resolve their own; or also resolve and delete anyone's. Nobody
+ * edits someone else's words.
+ */
+export type CommentRights = 'none' | 'own' | 'all'
+
 /** What may be done in a document, as the server's policy decided */
 export interface Capabilities {
   read: boolean
   write: boolean
   /** Record kinds this connection may append */
   records?: string[]
+  /** What this connection may do with comments; `'none'` where the type has none */
+  comments?: CommentRights
 }
 
 /** Presence in a namespace: who has which document open, doing what */

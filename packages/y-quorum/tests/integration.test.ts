@@ -118,6 +118,31 @@ describe('people writing together', () => {
     expect(toJSON(bob.content, article.content)).toMatchObject({ body: [{ children: [{ text: 'The harbour in winter.' }] }] })
   })
 
+  it('a reader rebuilt from a document with deletions is not refused again', async () => {
+    await start()
+    await seed('a-2b')
+    const alice = await client('alice').open('news', 'a-2b')
+    const aliceEditor = createTextbitEditor({ shared: field(alice, 'body') })
+    Transforms.delete(aliceEditor, { at: { anchor: { path: [0, 0], offset: 0 }, focus: { path: [0, 0], offset: 4 } } })
+    await until(() => !alice.hasUnsavedChanges)
+    const bob = await client('bob').open('news', 'a-2b')
+    const rejections: Rejection[] = []
+    bob.on('rejected', (rejection) => rejections.push(rejection))
+    const rebuilt = new Promise<void>((resolve) => bob.on('rebuilt', () => resolve()))
+    const block = field(bob, 'body').get(0)
+    if (block instanceof Y.Node) {
+      block.insert(0, 'Mine. ')
+    }
+
+    await rebuilt
+    // Reopening sends every deletion Y.js knows of; that changes nothing and is
+    // no write of the reader's
+    await until(() => !bob.hasUnsavedChanges)
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(rejections).toHaveLength(1)
+    expect(toJSON(bob.content, article.content)).toMatchObject({ body: [{ children: [{ text: 'harbour in winter.' }] }] })
+  })
+
   it('publishing makes the document read-only for everyone who has it open', async () => {
     await start()
     await seed('a-3')
