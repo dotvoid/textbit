@@ -1,11 +1,11 @@
 // An MCP server, over stdio, giving an agent the textbit-agent tools on the
-// shared document "lab". The MCP client starts it, e.g.
+// lab's shared document. The MCP client starts it, e.g.
 //
 //   claude mcp add textbit-lab -- node /path/to/textbit/apps/agent-lab/src/mcp.ts
 //
-// It joins the document server (npm run lab) as a peer of its own, like a
-// person's browser, with a presence the editors show. stdout is the MCP
-// channel: everything else goes to stderr.
+// It joins the lab's y-quorum server (npm run lab) as an agent of its own, so
+// everything it writes is the agent's, with a presence the editors show.
+// stdout is the MCP channel: everything else goes to stderr.
 import {
   McpServer,
   fromJsonSchema,
@@ -16,8 +16,8 @@ import {
   type jsonSchemaValidator
 } from '@modelcontextprotocol/server'
 import { serveStdio } from '@modelcontextprotocol/server/stdio'
-import { WebsocketProvider } from '@y/websocket'
 import * as Y from '@y/y'
+import { createClient } from '@dotvoid/y-quorum-client'
 import { createTextbitEditor } from '@dotvoid/textbit/headless'
 import {
   createAgentPresence,
@@ -36,43 +36,38 @@ const RUN_IDLE_MS = Number(process.env.LAB_RUN_IDLE_MS ?? 20000)
 
 const log = (...args: unknown[]) => console.error('[textbit-lab]', ...args)
 
-// The current incarnation of the lab document, see server.ts
-const documentName = await fetch(URL.replace(/^ws/, 'http') + '/lab')
-  .then((response) => response.json() as Promise<{ document: string }>)
-  .then((body) => body.document)
-  .catch(() => {
-    log(`No document server at ${URL}. Start it with: npm run lab`)
-    process.exit(1)
-  })
-
-const ydoc = new Y.Doc()
-const provider = new WebsocketProvider(URL, documentName, ydoc, { disableBc: true })
-// After a reset the document is another: working on the old copy would be
-// working on nothing. The MCP client starts the server again on reconnect.
-provider.on('closed', () => {
-  log(`${documentName} was reset; reconnect the MCP server to join the new document`)
+const client = createClient({ url: URL, token: `agent:${NAME}` })
+const handle = await Promise.race([
+  client.ready.then(() => client.open('lab', 'article')),
+  new Promise<never>((_resolve, reject) => setTimeout(() => reject(new Error(`No document server at ${URL}. Start it with: npm run lab`)), 8000))
+]).catch((error: unknown) => {
+  log(error instanceof Error ? error.message : String(error))
   process.exit(1)
 })
-await new Promise<void>((resolve, reject) => {
-  const timeout = setTimeout(() => reject(new Error(`No document server at ${URL}. Start it with: npm run lab`)), 8000)
-  provider.on('sync', (synced: boolean) => {
-    if (synced) {
-      clearTimeout(timeout)
-      resolve()
-    }
-  })
+// Working on a document that was reset, or a copy the server refused, would be
+// working on nothing: the MCP client starts the server again on reconnect
+handle.on('closed', () => {
+  log('the lab document is gone; reconnect the MCP server to join the new one')
+  process.exit(1)
 })
-log(`joined ${documentName} at ${URL}`)
+handle.on('rebuilt', () => {
+  log('the server refused a change and the document was rebuilt; reconnect the MCP server')
+  process.exit(1)
+})
+log(`joined lab/article at ${URL}`)
 
-const editor = createTextbitEditor({ plugins, shared: ydoc.get('content') })
+const body = handle.content.getAttr('body')
+if (!(body instanceof Y.Node)) {
+  log('The lab document has no body')
+  process.exit(1)
+}
+const editor = createTextbitEditor({ plugins, shared: body })
 
-const presence = createAgentPresence(provider.awareness, { name: NAME, color: COLOR })
+const presence = createAgentPresence(handle.awareness, { name: NAME, color: COLOR })
 presence.set('idle')
-// Edit, or suggest for people to accept or reject: the demo's switch, shared
-// through the document, else LAB_REVIEW
-// The lab's switches, as attributes of a node of the document
-const lab = ydoc.get('lab')
-const review = () => (lab.getAttr('review') ?? process.env.LAB_REVIEW ?? 'apply') === 'suggest' ? 'suggest' : 'apply'
+// Edit, or suggest for people to accept or reject: the demo's switch, a field
+// of the document, else LAB_REVIEW
+const review = () => (handle.content.getAttr('review') ?? process.env.LAB_REVIEW ?? 'apply') === 'suggest' ? 'suggest' : 'apply'
 const agent = createDocumentAgent(editor, { plugins, presence, review: review() })
 let tools = createAgentTools(agent)
 
@@ -94,21 +89,26 @@ function touchRun() {
   }, RUN_IDLE_MS)
 }
 
-// The demo's "Undo the agent's run" button asks through the document
-let reviewSeen = lab.getAttr('review')
-let undoSeen = lab.getAttr('undo')
-lab.on('delta', () => {
-  if (lab.getAttr('review') !== reviewSeen) {
-    reviewSeen = lab.getAttr('review')
+// The switch between editing and suggesting
+let reviewSeen = review()
+handle.content.on('delta', () => {
+  if (review() !== reviewSeen) {
+    reviewSeen = review()
     agent.context.options.review = review()
     tools = createAgentTools(agent)
     registerTools()
     log(`the agent now ${review() === 'suggest' ? 'suggests' : 'edits'}`)
   }
-  if (lab.getAttr('undo') === undoSeen) {
+})
+
+// The demo's "Undo the agent's run" button appends a record
+let recordsSeen = handle.records.length
+handle.on('records', () => {
+  const fresh = handle.records.slice(recordsSeen)
+  recordsSeen = handle.records.length
+  if (!fresh.some((record) => record.kind === 'agent.undo')) {
     return
   }
-  undoSeen = lab.getAttr('undo')
   const target = run ?? lastRun
   if (run) {
     run.finish()
@@ -196,7 +196,8 @@ log('MCP server ready')
 
 const quit = () => {
   presence.clear()
-  provider.destroy()
+  handle.release()
+  client.close()
   process.exit(0)
 }
 process.on('SIGINT', quit)

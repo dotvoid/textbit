@@ -1,0 +1,73 @@
+{
+  "name": "@dotvoid/y-quorum-client",
+  "version": "0.0.0",
+  "license": "MIT",
+  "description": "The client of y-quorum: many shared documents over one connection, for people and agents writing together.",
+  "author": {
+    "name": "Danne Lundqvist"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./protocol": {
+      "types": "./dist/protocol.d.ts",
+      "import": "./dist/protocol.js",
+      "require": "./dist/protocol.cjs"
+    },
+    "./model": {
+      "types": "./dist/model.d.ts",
+      "import": "./dist/model.js",
+      "require": "./dist/model.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dotvoid/textbit.git",
+    "directory": "packages/y-quorum-client"
+  },
+  "homepage": "https://github.com/dotvoid/textbit/tree/main/packages/y-quorum-client#readme",
+  "bugs": {
+    "url": "https://github.com/dotvoid/textbit/issues"
+  },
+  "scripts": {
+    "build": "npm run typecheck && vite build && node ../../scripts/fix-dts-extensions.mjs",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --cache --max-warnings 0",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "lib0": "^1.0.0-rc.36"
+  },
+  "peerDependencies": {
+    "@dotvoid/textbit": "^3.0.0 || ^2.1.0",
+    "@y/protocols": "1.0.6-rc.1",
+    "@y/y": "14.0.0-rc.30",
+    "slate": "^0.147.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.29.0",
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.5.12",
+    "@y/protocols": "1.0.6-rc.1",
+    "@y/y": "14.0.0-rc.30",
+    "eslint": "^9.29.0",
+    "globals": "^16.2.0",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.72.1",
+    "vite": "^7.3.7",
+    "vite-plugin-dts": "^5.0.0",
+    "vitest": "^4.1.12",
+    "ws": "^8.18.0"
+  }
+}

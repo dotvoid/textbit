@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    // Type-check against the editor's source, so nothing has to be built first
+    "paths": {
+      "@dotvoid/textbit/headless": ["../textbit/lib/headless.ts"]
+    }
+  },
+  "include": ["lib", "tests"]
+}
