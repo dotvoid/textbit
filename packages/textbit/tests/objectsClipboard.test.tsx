@@ -551,6 +551,30 @@ describe('an object whose plugin is missing', () => {
     expect(texts(editor.children)).toEqual(['One', 'Facts @ann', 'Body text', 'Two'])
   })
 
+  test('with text only in a void: offers Remove, not Convert to text', () => {
+    const embed = {
+      id: 'e', type: 'acme/embed', class: 'block', properties: {}, children: [
+        { id: 'e-v', type: 'acme/embed/frame', class: 'void', children: [{ text: 'https://example.com' }] }
+      ]
+    } as Descendant
+    const { queryByText } = setup({ plugins: noFactbox, value: [p('p0', 'One'), embed] })
+    expect(queryByText('Convert to text')).toBeNull()
+    expect(queryByText('Remove')).not.toBeNull()
+  })
+
+  test('shows each item of a list in it as its own text', () => {
+    const notes = {
+      id: 'n', type: 'acme/notes', class: 'block', properties: {}, children: [
+        { id: 'n-l', type: 'acme/notes/list', class: 'text', children: [
+          { id: 'i1', type: 'acme/notes/list/item', class: 'text', children: [{ text: 'One' }] },
+          { id: 'i2', type: 'acme/notes/list/item', class: 'text', children: [{ text: 'Two' }] }
+        ] }
+      ]
+    } as Descendant
+    const { container } = setup({ plugins: noFactbox, value: [p('p0', 'Before'), notes] })
+    expect([...container.querySelectorAll('[data-tb="unknown-text"]')].map((e) => e.textContent)).toEqual(['One', 'Two'])
+  })
+
   test('can be removed', () => {
     const { editor, getByText } = setup({ plugins: noFactbox, value: unknownValue() })
     act(() => { fireEvent.click(getByText('Remove')) })

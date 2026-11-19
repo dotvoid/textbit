@@ -74,7 +74,7 @@ function textFields(editor: Editor, node: Element): Descendant[] {
 }
 
 /** Text, or an inline element: what a text field holds */
-function isTextContent(node: Descendant): boolean {
+export function isTextContent(node: Descendant): boolean {
   return Text.isText(node) || (Element.isElement(node) && node.class === 'inline')
 }
 
