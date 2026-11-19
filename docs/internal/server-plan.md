@@ -177,6 +177,8 @@ defineType('example/tag', { content: object({ name: string(), kind: oneOf(tagKin
 
 - The content is one Y.js node; objects map their fields to attributes or child nodes; a text
   field is a child node holding textbit's blocks.
+- **Text fields are created with their parent, never on first use.** Two clients creating the
+  same text field at once keep one and lose the other person's text entirely (tested).
 - **A single value is always an attribute, never a node.** Attributes are last writer wins per
   key, the same on every client, so a status or a priority set by two people at once ends with
   one value. Stored as a node, it would end with two.
@@ -264,16 +266,20 @@ The same document in a list row and in a full editor, in the same tab, both edit
 
 Several editable views of one document is the riskiest idea in this plan, and the team that
 built it went back to one view per document. We keep it, because the use cases need it, and
-design the binding for it:
+the spike bears it out (`apps/spike-y14/FINDINGS.md`): two editors on one text field and a
+third on another client converged in 400 runs of 1,000 random edits each. The binding is built
+for it:
 
 - **Plain fields have no mirror.** A list row editing a status reads and writes the Y.js
   attribute directly. Most "second views" in a list edit plain fields, so the risk exists only
   where two Slate editors bind the same text field.
-- **One translation, applied to every editor.** For each text field, the Y.js changes are turned
-  into Slate operations once, by one binding per field per tab, and the same operations are
-  applied to every editor bound to it. Editors do not each interpret the deltas.
-- **Event deltas are read-only.** Y.js hands the same delta to every observer; the binding never
-  changes one in place, and freezes them in development builds to catch code that tries.
+- **Editors are compared with Y.js, not fed replayed deltas.** On a change, each editor reads
+  the blocks it touched from Y.js and is brought to them with the smallest Slate operations
+  found by comparing. A mistake cannot accumulate through replaying, and each change to a
+  block corrects that block. (The earlier idea, one translation shared by every editor, is not
+  needed.)
+- **Event deltas are read-only.** Y.js hands the same delta to every observer; the binding only
+  reads which blocks they touched, never changes one.
 - **Each editor can be checked and re-read.** A hash of the editor's value is compared with one
   computed from Y.js when a view gets focus and after idle periods; a mismatch re-reads the
   field from Y.js, keeps the selection where it can, and is counted.
@@ -281,8 +287,8 @@ design the binding for it:
   view never moves or clears the person's caret.
 - **A convergence test is a release gate:** several editors on one text field, in one tab and
   across clients, under random edits, compared with Y.js and with each other after every step.
-- If the spike shows this cannot be made safe, the fallback is the team's runner-up: one
-  editable view per text field, the others derived and read-only.
+- The fallback, not needed so far, is the team's runner-up: one editable view per text field,
+  the others derived and read-only.
 
 ## The binding
 
@@ -327,9 +333,9 @@ Before any document state is exchanged:
 - **Protocol version.** An old bundle is told to reload instead of being served.
 - **Identity and namespaces,** from the host's `authenticate`.
 - **Client id claims.** The client proposes the Y.js client ids it will use; the server refuses
-  one already claimed by another principal and the client picks another. Ids are 32-bit and
-  random, so collisions happen in long-lived documents; settled here, they never cost anyone
-  their typing.
+  one already claimed by another principal and the client picks another, so nobody writes
+  under someone else's id. (Y.js 14's ids are 53-bit, so accidental collisions are no longer a
+  practical concern: about one in 200 million among 10,000 ids.)
 - **Incarnation per document,** sent before the client sends any local state, so a copy kept in
   IndexedDB from an earlier incarnation (a reseeded or wiped document) is discarded, never
   merged.
@@ -592,7 +598,8 @@ through MCP is an agent action: people edit over the socket.
 
 ## Order of work
 
-0. **Spikes,** each answering one question with running code:
+0. **Spikes,** each answering one question with running code. Done 19 November 2026; the
+   results are in `apps/spike-y14/FINDINGS.md`:
    - a Slate binding on Y.js 14 bound to a text field inside a typed tree: load a 13 document,
      edit, cursors, undo per view, two clients;
    - two editable editors on one text field in one tab, with one translation applied to both,
@@ -634,11 +641,13 @@ not expect.
 
 - **Y.js 14 is a moving target.** Pin, wrap behind our own modules, re-verify at each release
   candidate, report upstream.
-- **The tree in Y.js 14** (attributes holding nodes, ordering lists without moves) is unproven
-  until the spike.
+- **Accepting a suggestion needs Y.js item ids,** reachable only through internals today: a
+  public way, upstream or our own wrapper, is needed.
 - **Several editable views of one text field** went wrong for the team that built it before
-  us. The spike and the convergence gate decide; one editable view per field is the fallback.
-- **The fork's granularity** is a contiguous run; anchored operations are the fallback.
+  us. It passes our convergence gate; the gate stays a release requirement.
+- **The fork's granularity** is a contiguous run of changes; in the spike, a text change, a
+  plain field and a new list item were each accepted on their own. Anchored operations remain
+  the fallback.
 - **Scope.** This is a document model, a server, a binding, a client, history and MCP. Each
   step is usable on its own, and the lab runs on the new stack from step 2.
 - **Time.** Textbit 3.0 waits for Y.js 14.0, which has no date.

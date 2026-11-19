@@ -1,0 +1,24 @@
+{
+  "name": "textbit-spike-y14",
+  "private": true,
+  "type": "module",
+  "description": "Spikes for textbit on Y.js 14: the Slate binding, several editors on one text field, the document tree, suggestions in the fork.",
+  "scripts": {
+    "test": "vitest run",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@dotvoid/textbit": "*",
+    "@dotvoid/textbit-plugins": "*",
+    "@y/y": "14.0.0-rc.30",
+    "lib0": "1.0.0-rc.37",
+    "slate": "^0.147.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "~5.8.3",
+    "vitest": "^4.1.12",
+    "yjs": "^13.6.26",
+    "@slate-yjs/core": "^1.0.2"
+  }
+}
