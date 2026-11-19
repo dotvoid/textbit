@@ -87,9 +87,16 @@ export function handleOnKeyDown(
 
     // Not at a block boundary — fall through to action loop
   } else if (key === 'ArrowUp' || key === 'ArrowDown') {
-    if (adjacentBlock) {
+    // With a modifier the key is the browser's, or a shortcut's: Shift extends
+    // the selection, Alt, Cmd and Ctrl move by paragraph or to an end
+    const modified = event.shiftKey || event.altKey || event.metaKey || event.ctrlKey
+
+    if (adjacentBlock && !modified) {
       handleVerticalArrowWithAdjacentBlock(editor, event, adjacentBlock, setAdjacentBlock)
       return
+    }
+    if (adjacentBlock) {
+      setAdjacentBlock(null)
     }
 
     // No indicator active: guard against Slate losing the selection when the
@@ -106,7 +113,7 @@ export function handleOnKeyDown(
       const down = key === 'ArrowDown'
       const neighborIndex = down ? topLevelIndex + 1 : topLevelIndex - 1
       const neighbor = editor.children[neighborIndex]
-      if (Element.isElement(currentBlock) && currentBlock.class === 'text'
+      if (!modified && Element.isElement(currentBlock) && currentBlock.class === 'text'
         && Element.isElement(neighbor) && editor.isVoid(neighbor) && neighbor.id
         && caretOnEdgeLine(editor, topLevelIndex, down)) {
         event.preventDefault()
