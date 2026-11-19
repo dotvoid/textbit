@@ -196,7 +196,7 @@ a misspelled word. `func` on an item gets the editor; `disabled` shows the item 
 from being chosen, and the arrow keys skip it.
 
 Plugins add their own actions for where the menu opened, such as a table's rows and columns.
-They come after your items, a group per plugin, and an action that is visible but not enabled
+They come before your items, a group per plugin, and an action that is visible but not enabled
 is shown disabled. Where a plugin offers actions the menu opens whatever the `contextMenu`
 mode, and without a `ContextMenu.Root` of yours the editor shows its own menu with just those.
 

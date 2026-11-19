@@ -9,7 +9,7 @@ import { useTextbit } from '../../hooks/useTextbit'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 import { focusItem, handleRovingKeys, MENU_ITEM } from '../../utils/menuKeyboard'
 
-/** The host's context menu: its own items, then the plugins' actions for where it opened */
+/** The host's context menu: the plugins' actions for where it opened, then its own items */
 export function Menu({ children, className, 'aria-label': ariaLabel }: {
   className?: string
   children?: React.ReactNode
@@ -21,8 +21,8 @@ export function Menu({ children, className, 'aria-label': ariaLabel }: {
 
   return createPortal(
     <Popover className={className} ariaLabel={ariaLabel}>
-      {children}
       <Actions />
+      {children}
     </Popover>,
     document.body
   )

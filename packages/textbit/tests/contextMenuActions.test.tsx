@@ -100,16 +100,16 @@ afterAll(() => {
 })
 
 describe('plugin actions in the context menu', () => {
-  test('follow the host\'s items, those visible where it opened, a group per plugin', async () => {
+  test('come before the host\'s items, those visible where it opened, a group per plugin', async () => {
     const { openAt } = setup({ mode: 'always' })
 
     const menu = await openAt([1])
 
     const groups = within(menu).getAllByRole('group')
     expect(groups.map((g) => within(g).getAllByRole('menuitem').map((i) => i.textContent))).toEqual([
-      ['Host item'],
       ['Stamp', 'Erase'],
-      ['Shout']
+      ['Shout'],
+      ['Host item']
     ])
   })
 
@@ -118,7 +118,7 @@ describe('plugin actions in the context menu', () => {
 
     const menu = await openAt([0])
 
-    expect(labels(menu)).toEqual(['Host item', 'Shout'])
+    expect(labels(menu)).toEqual(['Shout', 'Host item'])
   })
 
   test('open the menu even in spelling mode, where a plugin offers something', async () => {
@@ -126,7 +126,7 @@ describe('plugin actions in the context menu', () => {
 
     const menu = await openAt([1])
 
-    expect(labels(menu)).toEqual(['Host item', 'Stamp', 'Erase', 'Shout'])
+    expect(labels(menu)).toEqual(['Stamp', 'Erase', 'Shout', 'Host item'])
   })
 
   test('picking one runs the action and closes the menu', async () => {
