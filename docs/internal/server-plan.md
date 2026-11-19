@@ -197,6 +197,12 @@ defineType('example/tag', { content: object({ name: string(), kind: oneOf(tagKin
 
 - **comments** and **suggestions** as before. Suggestions fork the whole tree, so a suggestion
   can add a list item or change a date as well as edit text.
+- **Each layer is a Y.Doc of its own,** following Y.js 14, which keeps suggestions in a fork:
+  the content's Y.Doc holds only content. Comments were first built as a second root of the
+  content's Y.Doc and moved out the same day, after comparing with the Y.js 14 and BlockNote talk
+  at FOSDEM 2026: a fork of the content must not carry the comments, a provider without our server
+  can then grant comments and content separately, and versions and restores of the content never
+  touch the comments. Updates name their layer; the server judges each layer by its own rules.
 - **records:** append-only entries with a schema per kind from the host: status changes, AI use,
   acknowledgements, dismissals. The server stamps actor and time, entries are never edited,
   and they are part of the hash chain. Records are not a CRDT: a client asks, the server
@@ -632,7 +638,16 @@ through MCP is an agent action: people edit over the socket.
    - an HTTP API for writers in other processes (they use the client from Node with a service
      token today);
    - READMEs for both packages, and the guides.
-3. **Comments.**
+3. **Comments.** Server and client done 19 November 2026: threads in the comments layer, a Y.Doc of
+   its own (`@dotvoid/y-quorum-client/model`), judged by `judgeComments` in the server against the
+   roles' rights (`Capabilities.comments`: none, own or all; nobody edits someone else's words),
+   `handle.comments` in the client, `server.comments()`, comments in a host's JSON, and agents
+   commenting for a person. Anchors are stored two ways, relative positions and a quote in its
+   block. The editor followed the same day: a comment store on `Textbit.Root` (core's
+   `createCommentStore`, or `handle.comments.field(path)`), anchors from a selection,
+   highlights, `useComments`, and a comments panel in the demo and the lab. Carried forward:
+   comment events for hosts (webhooks), mentions, and agents' comment tools in the MCP module
+   (step 6).
 4. **History:** attribution, the log and checkpoints, versions, scrubbing, differences,
    restore, review evidence.
 5. **Suggestions in the fork,** people's suggesting mode, agents suggesting, run revert.

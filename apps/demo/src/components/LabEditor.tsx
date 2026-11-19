@@ -6,6 +6,7 @@ import { demoPlugins } from '../lib/plugins'
 import { GutterMenu } from './GutterMenu'
 import { SelectionToolbar } from './SelectionToolbar'
 import { EditorContextMenu } from './EditorContextMenu'
+import { CommentsPanel } from './CommentsPanel'
 
 export const LAB_URL = 'ws://localhost:1234'
 
@@ -23,8 +24,9 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
   const plugins = useMemo(() => demoPlugins(), [])
   const [handle, setHandle] = useState<DocumentHandle | null>(null)
   const [status, setStatus] = useState('connecting')
-  // A rebuilt document is another Y.Doc: the editor binds to the new one
+  // A rebuilt content is another Y.Doc: the editor binds to the new one
   const [generation, setGeneration] = useState(0)
+  const [composing, setComposing] = useState(false)
   // The latest callback, without making a new connection when it changes
   const gone = useRef(onGone)
   useEffect(() => {
@@ -48,7 +50,12 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
         }
         opened = document
         document.on('closed', () => gone.current('The lab document was reset. Join again.'))
-        document.on('rebuilt', () => setGeneration((n) => n + 1))
+        // A rebuilt content is another Y.Doc; rebuilt comments follow by themselves
+        document.on('rebuilt', ({ layer }) => {
+          if (layer === 'content') {
+            setGeneration((n) => n + 1)
+          }
+        })
         setHandle(document)
       })
       .catch(() => {
@@ -82,20 +89,28 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
         awareness={handle.awareness}
         cursor={{ data: { name: person.name, color: person.color } }}
         plugins={plugins}
+        comments={handle.comments.field(['body'])}
+        className={compact ? undefined : 'demo-commented'}
       >
-        <AgentStatus handle={handle} onUndo={() => handle.appendRecord('agent.undo', { at: Date.now() })} />
-        <div className='demo-editor'>
-          {!compact && (
-            <Textbit.Gutter>
-              <GutterMenu />
-            </Textbit.Gutter>
-          )}
-          <Textbit.Editable contextMenu='always' aria-label={compact ? `${person.name}’s editor` : 'Lab document'}>
-            <SelectionToolbar />
-            <EditorContextMenu />
-          </Textbit.Editable>
+        <div>
+          <AgentStatus handle={handle} onUndo={() => handle.appendRecord('agent.undo', { at: Date.now() })} />
+          <div className='demo-editor'>
+            {!compact && (
+              <Textbit.Gutter>
+                <GutterMenu />
+              </Textbit.Gutter>
+            )}
+            <Textbit.Editable contextMenu='always' aria-label={compact ? `${person.name}’s editor` : 'Lab document'}>
+              <SelectionToolbar />
+              <EditorContextMenu onComment={() => setComposing(true)} />
+            </Textbit.Editable>
+          </div>
+          <Textbit.Suggestions className='demo-lab-suggestions' aria-label='Suggestions from the agent' />
         </div>
-        <Textbit.Suggestions className='demo-lab-suggestions' aria-label='Suggestions from the agent' />
+        {!compact && (
+          // The lab names people's principals this way
+          <CommentsPanel composing={composing} onComposed={() => setComposing(false)} me={`person:${person.name.toLowerCase()}`} />
+        )}
       </Textbit.Root>
     </div>
   )

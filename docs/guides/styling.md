@@ -20,7 +20,7 @@ Or only the parts you want:
 ```ts
 import '@dotvoid/textbit-styles/fonts.css'       // the default faces, optional
 import '@dotvoid/textbit-styles/variables.css'   // the tokens, needed by the others
-import '@dotvoid/textbit-styles/editor.css'      // menus, toolbar, pickers, spelling, agents, suggestions
+import '@dotvoid/textbit-styles/editor.css'      // menus, toolbar, pickers, spelling, comments, agents, suggestions
 import '@dotvoid/textbit-styles/plugins.css'     // the ready-made plugins
 ```
 
@@ -59,6 +59,7 @@ Override any token on `:root`, or on an element around one editor:
 | `--tb-agent-color` | Agents' changes and suggestions, when an agent has no colour of its own |
 | `--tb-spelling-error-line`, `--tb-spelling-error-tint` | Spelling errors |
 | `--tb-spelling-suggestion-line`, `--tb-spelling-suggestion-tint` | Spelling suggestions |
+| `--tb-comment-line`, `--tb-comment-tint`, `--tb-comment-active-tint` | Text that comments are on, and the thread being looked at |
 
 These tokens are read by textbit itself, with or without the styles package:
 
@@ -133,6 +134,7 @@ themselves inline, so they read right without any stylesheet.
 |---|---|
 | `[data-spelling-error]` | A misspelled word. `data-spelling-level` says `error` or `suggestion`; `data-spelling-accepted` is set once it is accepted. |
 | `.tb-mark`, `[data-tb-mark~="id"]` | Text covered by a decoration; see [The editor](./the-editor.md#decorations) |
+| `.tb-comment`, `.tb-comment-active`, `[data-tb-comment~="id"]` | Text that comments are on, and the thread being looked at; see [The editor](./the-editor.md#comments) |
 | `.tb-nbsp` | A non-breaking space |
 | `.tb-newline` | A line break |
 | `.tb-agent-change`, `.tb-agent-fading` | Text an agent changed, and the same text as the change fades |

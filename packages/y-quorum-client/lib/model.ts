@@ -13,6 +13,8 @@ import * as delta from 'lib0/delta'
 import { fieldToValue, seedField } from '@dotvoid/textbit/headless'
 import type { Descendant } from 'slate'
 
+export * from './comments'
+
 export type ScalarKind = 'string' | 'number' | 'boolean' | 'date' | 'id'
 
 export interface ScalarField {

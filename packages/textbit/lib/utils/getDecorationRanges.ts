@@ -2,7 +2,7 @@ import { Editor, NodeEntry, Node, Text, Element, type Range } from 'slate'
 import { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/types'
 import { PlaceholdersVisibility } from '../contexts/TextbitContext'
 import { Decoration, SpellcheckLookupTable, SpellingError } from '../types'
-import { getDecorationMarkRanges } from './decorationMarks'
+import { getCommentRanges, getDecorationMarkRanges, type CommentHighlight } from './decorationMarks'
 import { agentChangeRanges, type ResolvedAgentChange } from './agentChanges'
 import { suggestionRanges } from './suggestionRanges'
 import type { ShownSuggestion } from '../contexts/SuggestionsContext'
@@ -46,7 +46,8 @@ export function getDecorationRanges(
   isSpellingAccepted?: (error: SpellingError) => boolean,
   decorations?: readonly Decoration[],
   agentChanges?: readonly ResolvedAgentChange[],
-  suggestions?: ReadonlyMap<string, ShownSuggestion>
+  suggestions?: ReadonlyMap<string, ShownSuggestion>,
+  comments?: readonly CommentHighlight[]
 ): Range[] {
   const [node, path] = nodeEntry
   const ranges: Range[] = []
@@ -121,6 +122,10 @@ export function getDecorationRanges(
   }
 
   // What is suggested
+  if (comments?.length && Text.isText(node)) {
+    ranges.push(...getCommentRanges(comments, path, node.text.length))
+  }
+
   if (suggestions?.size && Text.isText(node)) {
     ranges.push(...suggestionRanges(editor, suggestions, node, path))
   }

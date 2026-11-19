@@ -25,7 +25,8 @@ export const labArticle = defineType('lab/article', {
     review: oneOf(['apply', 'suggest'], { optional: true }),
     created: number({ optional: true })
   }),
-  records: { 'agent.undo': { description: 'Someone asked to undo the agent’s last run' } }
+  records: { 'agent.undo': { description: 'Someone asked to undo the agent’s last run' } },
+  comments: true
 })
 
 const server = createServer({

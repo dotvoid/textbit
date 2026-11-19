@@ -1,9 +1,9 @@
-import type { DocumentRecord } from '@dotvoid/y-quorum-client/protocol'
+import type { DocumentRecord, Layer } from '@dotvoid/y-quorum-client/protocol'
 import type { LogEntry, Storage, StoredMeta } from '../types'
 
 interface Kept {
   meta: StoredMeta
-  checkpoint: { state: Uint8Array, seq: number }
+  checkpoint: { states: Partial<Record<Layer, Uint8Array>>, seq: number }
   entries: LogEntry[]
   records: DocumentRecord[]
   claims: Map<number, string>
@@ -31,18 +31,18 @@ export function memory(): Storage {
         records: [...kept.records]
       }
     },
-    create: async (namespace, id, meta, state) => {
+    create: async (namespace, id, meta, states) => {
       const key = keyOf(namespace, id)
       if (documents.has(key)) {
         throw new Error(`y-quorum: ${namespace}/${id} exists`)
       }
-      documents.set(key, { meta, checkpoint: { state, seq: 0 }, entries: [], records: [], claims: new Map() })
+      documents.set(key, { meta, checkpoint: { states, seq: 0 }, entries: [], records: [], claims: new Map() })
     },
     append: async (namespace, id, entries) => {
       get(namespace, id).entries.push(...entries)
     },
-    checkpoint: async (namespace, id, state, seq) => {
-      get(namespace, id).checkpoint = { state, seq }
+    checkpoint: async (namespace, id, states, seq) => {
+      get(namespace, id).checkpoint = { states, seq }
     },
     appendRecord: async (namespace, id, record) => {
       get(namespace, id).records.push(record)

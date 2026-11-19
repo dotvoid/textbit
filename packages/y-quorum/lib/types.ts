@@ -1,7 +1,7 @@
 import type * as Y from '@y/y'
 import type { IncomingMessage } from 'node:http'
-import type { Capabilities, DocumentRecord, Limits, Principal } from '@dotvoid/y-quorum-client/protocol'
-import type { Path, TypeDefinition } from '@dotvoid/y-quorum-client/model'
+import type { Capabilities, DocumentRecord, Layer, Limits, Principal } from '@dotvoid/y-quorum-client/protocol'
+import type { CommentThread, Path, TypeDefinition } from '@dotvoid/y-quorum-client/model'
 
 /** Who made a change: the principal, and whom it acted for */
 export interface Actor {
@@ -53,7 +53,7 @@ export interface ServerType extends TypeDefinition {
 export interface LogEntry {
   seq: number
   at: number
-  layer: string
+  layer: Layer
   actor: Actor
   update: Uint8Array
 }
@@ -68,8 +68,8 @@ export interface StoredMeta {
 /** A document as storage gives it back */
 export interface StoredDocument {
   meta: StoredMeta
-  /** The latest checkpoint: the whole state at a log position */
-  checkpoint?: { state: Uint8Array, seq: number }
+  /** The latest checkpoint: the whole state of each layer at a log position */
+  checkpoint?: { states: Partial<Record<Layer, Uint8Array>>, seq: number }
   /** The log after the checkpoint */
   entries: LogEntry[]
   records: DocumentRecord[]
@@ -81,10 +81,11 @@ export interface StoredDocument {
  */
 export interface Storage {
   load(namespace: string, id: string): Promise<StoredDocument | undefined>
-  /** Creates a document; fails when it exists */
-  create(namespace: string, id: string, meta: StoredMeta, state: Uint8Array): Promise<void>
+  /** Creates a document with the state of each layer; fails when it exists */
+  create(namespace: string, id: string, meta: StoredMeta, states: Partial<Record<Layer, Uint8Array>>): Promise<void>
   append(namespace: string, id: string, entries: LogEntry[]): Promise<void>
-  checkpoint(namespace: string, id: string, state: Uint8Array, seq: number): Promise<void>
+  /** Keeps the whole state of each layer at a log position */
+  checkpoint(namespace: string, id: string, states: Partial<Record<Layer, Uint8Array>>, seq: number): Promise<void>
   appendRecord(namespace: string, id: string, record: DocumentRecord): Promise<void>
   /** The log, from a position on: who changed what, kept whole whatever was checkpointed */
   log(namespace: string, id: string, from?: number): Promise<LogEntry[]>
@@ -93,7 +94,14 @@ export interface Storage {
   /** Deletes a document, or a whole namespace */
   delete(namespace: string, id?: string): Promise<void>
   /** Called when a document is unloaded: a chance to store what was waiting */
-  unloaded?(namespace: string, id: string, state: Uint8Array, json: Record<string, unknown>, type: string): Promise<void>
+  unloaded?(
+    namespace: string,
+    id: string,
+    state: Uint8Array,
+    json: Record<string, unknown>,
+    type: string,
+    comments: CommentThread[]
+  ): Promise<void>
   close?(): Promise<void>
 }
 
@@ -136,6 +144,8 @@ export interface QuorumServer {
   transact(namespace: string, id: string, actor: Actor, change: (content: Y.Node) => void): Promise<boolean>
   /** A document's content as JSON */
   read(namespace: string, id: string): Promise<Record<string, unknown> | undefined>
+  /** A document's comment threads, oldest first */
+  comments(namespace: string, id: string): Promise<CommentThread[] | undefined>
   /** Appends a record from code in this process */
   appendRecord(namespace: string, id: string, actor: Actor, kind: string, data: unknown): Promise<DocumentRecord>
   /** Sends a host's message to every client that has the document open */

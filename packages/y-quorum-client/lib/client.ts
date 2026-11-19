@@ -5,7 +5,8 @@
 // the last handle is released, so a list that re-renders does not reopen it.
 // A connection that drops is reopened, and every document with it; what the
 // server is missing is worked out again from state vectors, so nothing is
-// queued for resending.
+// queued for resending. A document is a Y.Doc per layer: the content, and its
+// comments beside it, each sent and rebuilt on its own.
 import * as Y from '@y/y'
 import {
   Awareness,
@@ -25,11 +26,13 @@ import {
   type DocumentRecord,
   type Frame,
   type Headers,
+  type Layer,
   type Limits,
   type PresenceEntry,
   type Principal,
   type ReasonCode
 } from './protocol'
+import { CommentsOfHandle, type Comments } from './commentsHandle'
 
 export type Status = 'connecting' | 'connected' | 'disconnected' | 'closed'
 export type Welcome = Headers[typeof ToClient.WELCOME]
@@ -78,8 +81,12 @@ export interface DocumentEvents {
   records: DocumentRecord[]
   message: unknown
   rejected: Rejection
-  /** The document was replaced: bind to `handle.doc` and `handle.awareness` again */
-  rebuilt: { doc: Y.Doc }
+  /**
+   * A layer was replaced after a refusal: for the content, bind to `handle.doc`
+   * and `handle.awareness` again; for the comments, `handle.comments` follows
+   * by itself
+   */
+  rebuilt: { doc: Y.Doc, layer: Layer }
   /** Every local change is stored; `log` is the position of the last one, when known */
   saved: { log?: number }
   /** The server closed the document, or the client was closed for good */
@@ -111,12 +118,17 @@ export interface DocumentHandle {
   readonly id: string
   readonly type: string
   readonly incarnation: string
+  /** The content's Y.Doc */
   readonly doc: Y.Doc
   readonly content: Y.Node
+  /** The comments' Y.Doc, beside the content; `comments` reads and writes it */
+  readonly commentsDoc: Y.Doc
   readonly awareness: Awareness
   readonly capabilities: Capabilities
   readonly records: DocumentRecord[]
   readonly hasUnsavedChanges: boolean
+  /** The comment threads beside the content, for a type with comments */
+  readonly comments: Comments
   /** An origin whose transactions are sent in frames of their own, carrying the claim */
   claimOrigin(claim: ActorClaim): object
   appendRecord(kind: string, data: unknown, claim?: ActorClaim): void
@@ -178,6 +190,7 @@ class Emitter<E extends object> {
 }
 
 interface LocalUpdate {
+  layer: Layer
   update: Uint8Array
   claim?: ActorClaim
   /** Set once sent in the current opening */
@@ -214,6 +227,7 @@ interface DocState extends Opening {
   kind: 'doc'
   doc: Y.Doc
   content: Y.Node
+  commentsDoc: Y.Doc
   awareness: Awareness
   detach: () => void
   type: string
@@ -226,7 +240,8 @@ interface DocState extends Opening {
   pendingRecords: PendingRecord[]
   /** Whether this Y.Doc has ever made a change of its own */
   changed: boolean
-  rebuilding: boolean
+  /** Layers rebuilt and not yet open again, to announce once they are */
+  rebuilt: Layer[]
   closeWhenSaved: boolean
   mode?: { mode: 'reading' | 'editing', visible: boolean }
   claims: WeakMap<object, ActorClaim>
@@ -415,10 +430,10 @@ class QuorumClient implements Client {
     }, this.grace)
   }
 
-  sendUpdate(state: DocState, update: Uint8Array, claim?: ActorClaim): void {
+  sendUpdate(state: DocState, layer: Layer, update: Uint8Array, claim?: ActorClaim): void {
     const seq = ++state.seq
-    state.local.push({ update, claim, seq })
-    const header = { ref: state.ref, layer: 'content', seq, ...(claim ? { claim } : {}) }
+    state.local.push({ layer, update, claim, seq })
+    const header = { ref: state.ref, layer, seq, ...(claim ? { claim } : {}) }
     this.send(encodeFrame(ToServer.UPDATE, header, update))
   }
 
@@ -681,7 +696,7 @@ class QuorumClient implements Client {
     } else if (isFrame(frame, ToClient.OPENED)) {
       this.opened(state, frame.header, frame.payload)
     } else if (isFrame(frame, ToClient.UPDATE)) {
-      Y.applyUpdate(state.doc, frame.payload, this.remote)
+      Y.applyUpdate(layerDoc(state, frame.header.layer), frame.payload, this.remote)
     } else if (isFrame(frame, ToClient.AWARENESS)) {
       applyAwarenessUpdate(state.awareness, frame.payload, this.remote)
     } else if (isFrame(frame, ToClient.ACK)) {
@@ -714,6 +729,7 @@ class QuorumClient implements Client {
       everOpened: false,
       doc,
       content: doc.get('content'),
+      commentsDoc: new Y.Doc(),
       awareness: new Awareness(doc),
       detach: () => undefined,
       type: '',
@@ -724,7 +740,7 @@ class QuorumClient implements Client {
       local: [],
       pendingRecords: [],
       changed: false,
-      rebuilding: false,
+      rebuilt: [],
       closeWhenSaved: false,
       claims: new WeakMap(),
       handles: new Set(),
@@ -736,22 +752,26 @@ class QuorumClient implements Client {
 
   /** Sends a document's local changes and presence from now on */
   private listen(state: DocState): void {
-    const { doc, awareness } = state
-    const onUpdate = (update: Uint8Array, origin: unknown) => {
+    const { doc, commentsDoc, awareness } = state
+    const onUpdateOf = (layer: Layer) => (update: Uint8Array, origin: unknown) => {
       if (origin === this.remote) {
         return
       }
-      state.changed = true
+      if (layer === 'content') {
+        state.changed = true
+      }
       const claim = typeof origin === 'object' && origin !== null
         ? state.claims.get(origin)
         : undefined
       if (this.isOpen(state)) {
-        this.sendUpdate(state, update, claim)
+        this.sendUpdate(state, layer, update, claim)
       } else {
         // Sent with the rest of what the server lacks once the document is open
-        state.local.push({ update, claim })
+        state.local.push({ layer, update, claim })
       }
     }
+    const onUpdate = onUpdateOf('content')
+    const onComments = onUpdateOf('comments')
     const onAwareness = (
       { added, updated, removed }: { added: number[], updated: number[], removed: number[] },
       origin: unknown
@@ -763,9 +783,11 @@ class QuorumClient implements Client {
       }
     }
     doc.on('update', onUpdate)
+    commentsDoc.on('update', onComments)
     awareness.on('update', onAwareness)
     state.detach = () => {
       doc.off('update', onUpdate)
+      commentsDoc.off('update', onComments)
       awareness.off('update', onAwareness)
       awareness.destroy()
     }
@@ -820,7 +842,8 @@ class QuorumClient implements Client {
       id,
       mode: 'open' as const,
       clientId: state.doc.clientID,
-      ...(state.incarnation ? { incarnation: state.incarnation } : {})
+      ...(state.incarnation ? { incarnation: state.incarnation } : {}),
+      layers: { comments: toBase64(Y.encodeStateVector(state.commentsDoc)) }
     }
     this.send(encodeFrame(ToServer.OPEN, header, Y.encodeStateVector(state.doc)))
   }
@@ -833,11 +856,15 @@ class QuorumClient implements Client {
         code: 'gone',
         reason: 'y-quorum: the document was replaced on the server',
         updates
-      }, true, updates.length > 0)
+      }, true, updates.length > 0, ['content', 'comments'])
       return
     }
     if (missing.length) {
       Y.applyUpdate(state.doc, missing, this.remote)
+    }
+    const comments = header.layers?.comments
+    if (comments) {
+      Y.applyUpdate(state.commentsDoc, fromBase64(comments.missing), this.remote)
     }
     state.type = header.type
     state.incarnation = header.incarnation
@@ -851,7 +878,13 @@ class QuorumClient implements Client {
     const serverState = header.stateVector ? fromBase64(header.stateVector) : undefined
     const diff = Y.encodeStateAsUpdate(state.doc, serverState)
     if (hasContent(diff)) {
-      this.sendUpdate(state, diff)
+      this.sendUpdate(state, 'content', diff)
+    }
+    if (comments) {
+      const commentsDiff = Y.encodeStateAsUpdate(state.commentsDoc, fromBase64(comments.stateVector))
+      if (hasContent(commentsDiff)) {
+        this.sendUpdate(state, 'comments', commentsDiff)
+      }
     }
     if (state.mode) {
       this.send(encodeFrame(ToServer.MODE, { ref: state.ref, ...state.mode }))
@@ -867,9 +900,8 @@ class QuorumClient implements Client {
     for (const waiter of state.waiters.splice(0)) {
       waiter.resolve()
     }
-    if (state.rebuilding) {
-      state.rebuilding = false
-      emitAll(state.handles, 'rebuilt', { doc: state.doc })
+    for (const layer of state.rebuilt.splice(0)) {
+      emitAll(state.handles, 'rebuilt', { doc: layerDoc(state, layer), layer })
     }
     if (hadUnsaved && !state.local.length) {
       this.allSaved(state, undefined)
@@ -925,21 +957,23 @@ class QuorumClient implements Client {
       emitAll(state.handles, 'rejected', { code, reason, updates: [], record: { kind, data } })
       return
     }
-    const later = state.local.filter((entry) => entry.seq === undefined || entry.seq >= seq)
+    // Only the refused layer is rebuilt: the other's changes still stand
+    const layer = state.local.find((entry) => entry.seq === seq)?.layer ?? 'content'
+    const later = state.local.filter((entry) => entry.layer === layer && (entry.seq === undefined || entry.seq >= seq))
     const updates = later.map((entry) => entry.update)
     if (!later.some((entry) => entry.seq === seq)) {
       updates.unshift(refused)
     }
-    this.rebuild(state, { code, reason, updates }, true, true)
+    this.rebuild(state, { code, reason, updates }, true, true, [layer])
   }
 
   /**
-   * Starts the document again from the server's state under a new client id:
-   * after a refusal every later change of the old one depends on what the
-   * server will never have, so none of them could be stored.
+   * Starts layers of the document again from the server's state under new
+   * client ids: after a refusal every later change of the old one depends on
+   * what the server will never have, so none of them could be stored. The
+   * document is opened again; a layer kept sends what the server lacks then.
    */
-  private rebuild(state: DocState, rejection: Rejection, close: boolean, announce: boolean): void {
-    const old = state.doc
+  private rebuild(state: DocState, rejection: Rejection, close: boolean, announce: boolean, layers: Layer[]): void {
     const presence = state.awareness.getLocalState()
     if (close && this.refs.has(state.ref)) {
       this.removeLocalAwareness(state)
@@ -947,20 +981,24 @@ class QuorumClient implements Client {
     }
     this.refs.delete(state.ref)
     state.detach()
-    const doc = new Y.Doc()
-    while (doc.clientID === old.clientID) {
-      doc.clientID = newClientId()
+    if (layers.includes('content')) {
+      const doc = freshDoc(state.doc)
+      state.doc = doc
+      state.content = doc.get('content')
+      state.awareness = new Awareness(doc)
+      state.incarnation = ''
+      state.changed = false
+    } else {
+      state.awareness = new Awareness(state.doc)
     }
-    state.doc = doc
-    state.content = doc.get('content')
-    state.awareness = new Awareness(doc)
     state.awareness.setLocalState(presence)
+    if (layers.includes('comments')) {
+      state.commentsDoc = freshDoc(state.commentsDoc)
+    }
     this.listen(state)
     state.phase = 'idle'
     state.local = []
-    state.incarnation = ''
-    state.changed = false
-    state.rebuilding = true
+    state.rebuilt = [...new Set([...state.rebuilt, ...layers])]
     if (announce) {
       emitAll(state.handles, 'rejected', rejection)
     }
@@ -982,8 +1020,8 @@ class QuorumClient implements Client {
         state.awareness.setLocalState(presence)
         this.sendOpen(state)
       } else {
-        const updates = state.local.map((entry) => entry.update)
-        this.rebuild(state, { ...refusal, updates }, false, true)
+        const updates = state.local.filter((entry) => entry.layer === 'content').map((entry) => entry.update)
+        this.rebuild(state, { ...refusal, updates }, false, true, ['content'])
       }
       return
     }
@@ -1064,6 +1102,7 @@ class Listeners<E extends object> {
 
 class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   private released = false
+  private commentsOfHandle: CommentsOfHandle | undefined
 
   constructor(private readonly client: QuorumClient, private readonly state: DocState) {
     super()
@@ -1075,10 +1114,16 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   get incarnation() { return this.state.incarnation }
   get doc() { return this.state.doc }
   get content() { return this.state.content }
+  get commentsDoc() { return this.state.commentsDoc }
   get awareness() { return this.state.awareness }
   get capabilities() { return this.state.capabilities }
   get records() { return this.state.records }
   get hasUnsavedChanges() { return this.state.local.length > 0 }
+
+  get comments(): Comments {
+    this.commentsOfHandle ??= new CommentsOfHandle(this, () => this.client.principal)
+    return this.commentsOfHandle
+  }
 
   claimOrigin(claim: ActorClaim): object {
     const origin = { claim }
@@ -1107,6 +1152,7 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
       return
     }
     this.released = true
+    this.commentsOfHandle?.destroy()
     this.state.handles.delete(this)
     this.client.release(this.state)
   }
@@ -1144,6 +1190,28 @@ function emitAll<E extends object, K extends keyof E>(
 
 function keyOf(namespace: string, id: string): string {
   return `${namespace}\u0000${id}`
+}
+
+/** The Y.Doc of a document's layer */
+function layerDoc(state: DocState, layer: Layer): Y.Doc {
+  return layer === 'comments' ? state.commentsDoc : state.doc
+}
+
+/** An empty Y.Doc to start a layer again in, under a client id of its own */
+function freshDoc(old: Y.Doc): Y.Doc {
+  const doc = new Y.Doc()
+  while (doc.clientID === old.clientID) {
+    doc.clientID = newClientId()
+  }
+  return doc
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = ''
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte)
+  }
+  return btoa(binary)
 }
 
 function newClientId(): number {

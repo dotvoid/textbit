@@ -45,4 +45,7 @@
   --tb-spelling-error-tint: light-dark(rgb(207 34 46 / 0.12), rgb(255 129 130 / 0.18));
   --tb-spelling-suggestion-line: light-dark(#0969da, #79c0ff);
   --tb-spelling-suggestion-tint: light-dark(rgb(9 105 218 / 0.1), rgb(121 192 255 / 0.15));
+  --tb-comment-line: light-dark(#bf8700, #d29922);
+  --tb-comment-tint: light-dark(rgb(212 167 44 / 0.18), rgb(210 153 34 / 0.18));
+  --tb-comment-active-tint: light-dark(rgb(212 167 44 / 0.42), rgb(210 153 34 / 0.4));
 }

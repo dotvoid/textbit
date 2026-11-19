@@ -60,6 +60,16 @@ export {
   type ReviewResult as TBReviewResult
 } from './suggestions'
 export { hashNode } from './utils/hashNode'
+export { commentAnchor, resolveAnchor } from './comments/anchor'
+export { createCommentStore, type CommentStoreOptions as TBCommentStoreOptions } from './comments/store'
+export type {
+  Comments as TBComments,
+  CommentThread as TBCommentThread,
+  Comment as TBComment,
+  CommentAnchor as TBCommentAnchor,
+  CommentAuthor as TBCommentAuthor,
+  CommentRights as TBCommentRights
+} from './comments/types'
 
 export type {
   PluginDefinition as TBPluginDefinition,

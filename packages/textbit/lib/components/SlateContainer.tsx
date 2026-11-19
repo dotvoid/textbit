@@ -19,6 +19,8 @@ import { TEXT_TYPE } from '../utils/textType'
 import { AgentPresenceProvider } from '../contexts/AgentPresenceProvider'
 import { AgentChangesProvider } from '../contexts/AgentChangesProvider'
 import { SuggestionsProvider } from '../contexts/SuggestionsProvider'
+import { CommentsProvider } from '../contexts/CommentsProvider'
+import type { Comments } from '../comments/types'
 import { SharedAwarenessContext } from '../contexts/SharedAwarenessContext'
 
 interface SlateContainerBaseProps {
@@ -32,6 +34,7 @@ interface SlateContainerBaseProps {
   className?: string
   style?: React.CSSProperties
   onSpellcheck?: (texts: { lang: string, text: string }[]) => Promise<Omit<SpellingError, 'id'>[][]>
+  comments?: Comments
 }
 
 interface SlateContainerStringProps extends SlateContainerBaseProps {
@@ -170,7 +173,9 @@ export function SlateContainer(props: SlateContainerProps) {
         <AgentPresenceProvider>
           <AgentChangesProvider>
             <SuggestionsProvider>
-              {children}
+              <CommentsProvider store={props.comments}>
+                {children}
+              </CommentsProvider>
             </SuggestionsProvider>
           </AgentChangesProvider>
         </AgentPresenceProvider>

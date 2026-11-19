@@ -1,15 +1,23 @@
-import { ContextMenu, useAction, useContextMenuHints } from '@dotvoid/textbit'
+import { Range } from 'slate'
+import { useSlateSelection } from 'slate-react'
+import { ContextMenu, useAction, useComments, useContextMenuHints } from '@dotvoid/textbit'
 
 /**
  * The right-click menu: spelling suggestions on a marked word, with a way to
- * accept the word in this document, and inserting a special character. The
- * plugins' actions for where it opened, such as a table's, come first on their own.
+ * accept the word in this document, commenting on the selection, and
+ * inserting a special character. The plugins' actions for where it opened,
+ * such as a table's, come first on their own.
  */
-export const EditorContextMenu = ({ onAccept }: {
+export const EditorContextMenu = ({ onAccept, onComment }: {
   onAccept?: (word: string, accept: boolean) => void
+  /** Opens the box for a new comment on the selection */
+  onComment?: () => void
 }) => {
   const { spelling } = useContextMenuHints()
   const openSpecialCharacters = useAction('core/specialchars', 'open')
+  const { rights } = useComments()
+  const selection = useSlateSelection()
+  const canComment = !!onComment && rights !== 'none' && !!selection && Range.isExpanded(selection)
 
   return (
     <ContextMenu.Root>
@@ -28,6 +36,11 @@ export const EditorContextMenu = ({ onAccept }: {
           <ContextMenu.Item func={() => onAccept(spelling.text, !spelling.accepted)}>
             {spelling.accepted ? `Stop accepting “${spelling.text}”` : `Accept “${spelling.text}” here`}
           </ContextMenu.Item>
+        </ContextMenu.Group>
+      )}
+      {canComment && (
+        <ContextMenu.Group>
+          <ContextMenu.Item func={() => onComment()}>Comment…</ContextMenu.Item>
         </ContextMenu.Group>
       )}
       {openSpecialCharacters && (

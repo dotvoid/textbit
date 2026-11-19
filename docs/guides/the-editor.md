@@ -28,6 +28,7 @@ Holds the document, the plugins and the settings. Everything else goes inside it
 | `debounce` | `250` | Milliseconds of quiet before `onChange` |
 | `onSpellcheck` | | See [Spelling](#spelling) |
 | `spellcheckDebounce` | `1250` | Milliseconds of quiet before text is spellchecked |
+| `comments` | | Where comments on the text are kept. See [Comments](#comments). |
 | `labels` | English | Text textbit itself shows, to translate. See [Labels](#labels). |
 | `agentChangeDuration` | `8000` | Milliseconds what an agent changed stays marked. See [Agents](./agents.md). |
 | `awareness`, `cursor` | | Cursors and presence when collaborating. See [Collaboration](./collaboration.md). |
@@ -203,6 +204,52 @@ mode, and without a `ContextMenu.Root` of yours the editor shows its own menu wi
 A right-click on a misspelled word selects it, so a suggestion replaces it. Anywhere else it
 puts the caret where you clicked, or keeps the selection when you click inside it.
 
+## Comments
+
+Comments are threads on a range of text, kept beside the document, never in it. Give the root a
+store and the editor finds each thread's text, highlights it, and gives the rest through
+`useComments()`, to build a panel of your own.
+
+```tsx
+import { Textbit, createCommentStore, useComments } from '@dotvoid/textbit'
+
+const comments = useMemo(() => createCommentStore({
+  author: { kind: 'person', id: user.id, name: user.name },
+  threads: saved.comments,
+  onChange: (threads) => save({ comments: threads })
+}), [])
+
+<Textbit.Root value={value} onChange={setValue} comments={comments}>
+  <Textbit.Editable aria-label='Article' />
+  <CommentsPanel />
+</Textbit.Root>
+```
+
+`createCommentStore` keeps comments in memory for a host that saves them itself. A
+collaboration server's client gives a store instead: with y-quorum, `handle.comments.field(['body'])`
+for the editor of the `body` field, where the server decides who may do what.
+
+`useComments()` gives:
+
+| | |
+|---|---|
+| `threads` | Every thread, open and resolved, in the order of the text, each with its `range` now; a thread whose text is gone has none and comes last |
+| `create(body, range?)` | Opens a thread on the selection, or on a range; returns its id |
+| `reply`, `edit`, `remove`, `resolve` | Write to a thread. A deleted comment stays in its thread, emptied. |
+| `active`, `setActive` | The thread being looked at: the one the caret went into, or one you set |
+| `atSelection` | The open threads whose text holds the caret |
+| `rights` | `'none'`, `'own'` or `'all'`, from the store |
+
+Each thread is anchored two ways. In a shared editor, Y.js relative positions follow the text
+through everyone's edits; typing at either edge stays outside the range. Every editor also keeps
+the quote, the element it is in and a little text either side, so a document restored from JSON
+finds its comments again. When the text is gone the thread is detached, never moved to the same
+words elsewhere. `commentAnchor(editor, range)` and `resolveAnchor(editor, anchor)` do this for
+code of your own.
+
+The highlighted text has the class `tb-comment`, `tb-comment-active` for the thread being looked
+at, and `data-tb-comment` lists the threads' ids.
+
 ## Decorations
 
 Mark ranges of text without changing the document: review findings, search hits, sources.
@@ -375,6 +422,7 @@ options.
 | `usePendingDrops()` | Drops in progress |
 | `useAgents()`, `useAgentChanges()` | Agents in a shared document, and what they changed. See [Agents](./agents.md). |
 | `useSuggestions()` | Suggestions waiting for review. See [Suggestions](./suggestions.md). |
+| `useComments()` | The comment threads, where each is in the text, and writing them. See [Comments](#comments). |
 
 Call them inside `Textbit.Root`. Their exact shapes are in the API reference.
 
