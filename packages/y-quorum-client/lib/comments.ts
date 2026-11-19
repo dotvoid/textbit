@@ -10,68 +10,32 @@
 // comment's attributes are its author, its text and whether it was edited or
 // deleted. A deleted comment stays, emptied, so a thread never loses its shape.
 import * as Y from '@y/y'
+import type {
+  TBComment,
+  TBCommentAnchor,
+  TBCommentAuthor,
+  TBCommentThread
+} from '@dotvoid/textbit/headless'
 
 /** The name of the comments root in a document's Y.Doc */
 export const COMMENTS = 'comments'
 
 /** Who wrote a comment, as the server knows them */
-export interface CommentAuthor {
-  kind: 'person' | 'agent' | 'service'
-  id: string
-  name: string
-}
+export type CommentAuthor = TBCommentAuthor
 
 /**
- * Where a thread is in the content, stored two ways. `start` and `end` are
- * Y.js relative positions, base64: precise, and they follow the text as it
- * is edited. The rest is a text selector for when they cannot be used, such
- * as a host that stores JSON: the quoted text within the block that held it,
- * at about the offset it had there.
+ * Where a thread is: the text field, as a path in the document, and in it as
+ * textbit anchors text, by relative positions and by a quote in its block
  */
-export interface CommentAnchor {
-  /** The text field, as a path in the document, e.g. `['body']` */
+export interface CommentAnchor extends TBCommentAnchor {
+  /** The text field, e.g. `['body']` or `['assignments', '#a1', 'description']` */
   path: string[]
-  /** The relative position of the start, base64 */
-  start?: string
-  /** The relative position of the end, base64 */
-  end?: string
-  /** The id of the block the quote is in */
-  block?: string
-  /** The quote's offset in the block's text */
-  offset?: number
-  /** The text commented on */
-  quote: string
-  /** A little text before the quote, to tell one occurrence from another */
-  prefix?: string
-  /** A little text after it */
-  suffix?: string
 }
 
-export interface Comment {
-  id: string
-  author: CommentAuthor
-  /** The person an agent wrote it for */
-  onBehalfOf?: CommentAuthor
-  /** When it was written, in milliseconds */
-  at: number
-  /** Its text; empty when deleted */
-  body: string
-  /** When it was last edited */
-  edited?: number
-  /** When it was deleted */
-  deleted?: number
-}
+export type Comment = TBComment
 
-export interface CommentThread {
-  id: string
-  author: CommentAuthor
-  onBehalfOf?: CommentAuthor
-  at: number
+export interface CommentThread extends Omit<TBCommentThread, 'anchor'> {
   anchor: CommentAnchor
-  /** Who resolved it, and when; absent while open */
-  resolved?: { by: CommentAuthor, at: number }
-  /** Its comments, the first one opening it */
-  comments: Comment[]
 }
 
 /** The attributes a thread node may have */

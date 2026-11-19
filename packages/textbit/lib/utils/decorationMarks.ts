@@ -54,3 +54,43 @@ export function getLeafMarkIds(leaf: Text): string[] {
 
   return ids.sort()
 }
+
+const COMMENT_PREFIX = 'tbComment:'
+
+/** A thread's text, as the editor highlights it */
+export interface CommentHighlight {
+  id: string
+  range: Range
+  /** The thread the person is looking at */
+  active: boolean
+}
+
+/**
+ * Pieces of the open threads' text that fall inside one text node, each
+ * carrying its thread's id, and whether it is the one looked at
+ */
+export function getCommentRanges(highlights: readonly CommentHighlight[], path: Path, textLength: number): Range[] {
+  const textRange: Range = { anchor: { path, offset: 0 }, focus: { path, offset: textLength } }
+  const ranges: Range[] = []
+  for (const { id, range, active } of highlights) {
+    const piece = Range.intersection(range, textRange)
+    if (!piece || Range.isCollapsed(piece)) {
+      continue
+    }
+    const [start, end] = Range.edges(piece)
+    ranges.push({ anchor: start, focus: end, [`${COMMENT_PREFIX}${id}`]: id, ...(active ? { tbCommentActive: true } : {}) })
+  }
+  return ranges
+}
+
+/** The threads whose text a leaf is part of, sorted */
+export function getLeafCommentIds(leaf: Text): string[] {
+  const ids: string[] = []
+  for (const key of Object.keys(leaf)) {
+    const value = leaf[key]
+    if (key.startsWith(COMMENT_PREFIX) && typeof value === 'string') {
+      ids.push(value)
+    }
+  }
+  return ids.sort()
+}

@@ -15,7 +15,13 @@ import {
   type CommentThread
 } from '@dotvoid/y-quorum-client/model'
 import type { Principal } from '@dotvoid/y-quorum-client/protocol'
-import { createTextbitEditor, pointToRelativePosition, relativePositionToPoint } from '@dotvoid/textbit/headless'
+import {
+  commentAnchor,
+  createTextbitEditor,
+  pointToRelativePosition,
+  relativePositionToPoint,
+  resolveAnchor
+} from '@dotvoid/textbit/headless'
 import { createServer, host, memory, type HostDocument, type QuorumServer, type ServerType, type Storage } from '../lib'
 
 const paragraph = (id: string, words: string) => ({ id, type: 'base/text', class: 'text', children: [{ text: words }] })
@@ -219,6 +225,28 @@ describe('comments', () => {
 
     const position = Y.decodeRelativePosition(fromBase64(carol.comments.threads[0].anchor.start!))
     expect(relativePositionToPoint(carolEditor, position)).toEqual({ path: [0, 0], offset: 10 })
+  })
+
+  it('gives each text field’s editor its own comments, anchored by the editor', async () => {
+    await start()
+    await seed('c-8')
+    const carol = await open('carol', 'c-8')
+    const alice = await open('alice', 'c-8')
+    const body = carol.comments.field(['body'])
+    expect(carol.comments.field(['body'])).toBe(body)
+    const carolEditor = createTextbitEditor({ shared: carol.content.getAttr('body') as Y.Node })
+    const aliceEditor = createTextbitEditor({ shared: alice.content.getAttr('body') as Y.Node })
+
+    const anchor = commentAnchor(carolEditor, { anchor: { path: [0, 0], offset: 4 }, focus: { path: [0, 0], offset: 11 } })!
+    body.create(anchor, 'Which harbour?')
+    carol.comments.field(['title']).create({ quote: 'Harbour' }, 'Too short')
+    await until(() => alice.comments.threads.length === 2)
+
+    expect(body.threads.map((thread) => thread.comments[0].body)).toEqual(['Which harbour?'])
+    expect(alice.comments.threads.map((thread) => thread.anchor.path)).toEqual([['body'], ['title']])
+    Transforms.insertText(aliceEditor, 'Cold. ', { at: { path: [0, 0], offset: 0 } })
+    const range = resolveAnchor(aliceEditor, alice.comments.field(['body']).threads[0].anchor)!
+    expect(range).toEqual({ anchor: { path: [0, 0], offset: 10 }, focus: { path: [0, 0], offset: 17 } })
   })
 
   it('a host that stores JSON keeps the comments with the content', async () => {

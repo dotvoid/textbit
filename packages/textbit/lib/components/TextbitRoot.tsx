@@ -14,6 +14,7 @@ import type { TBRenderer } from '../yjs/model'
 import { SlateContainer } from './SlateContainer'
 import { GutterProvider } from './GutterProvider/GutterProvider'
 import type { TextbitLabels } from '../contexts/TextbitContext'
+import type { Comments } from '../comments/types'
 
 /** What every kind of `Textbit.Root` takes */
 export interface TextbitRootBaseProps {
@@ -66,6 +67,12 @@ export interface TextbitRootBaseProps {
    * Default: 8000.
    */
   agentChangeDuration?: number
+  /**
+   * Where comments on the text are kept: `createCommentStore` for comments the
+   * host saves itself, or a collaboration server's store for the text field.
+   * The editor highlights each thread's text; `useComments` gives the rest.
+   */
+  comments?: Comments
 }
 
 /** A root editing plain text: the value is a string, a paragraph per line */

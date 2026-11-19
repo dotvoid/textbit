@@ -1,7 +1,7 @@
 /*
  * textbit's own UI: the gutter menu, the selection toolbar, the context menu and
  * the special characters pane, targeted through their data-tb attributes, plus
- * spelling marks. Needs variables.css.
+ * spelling and comment marks. Needs variables.css.
  */
 
 /* The editor: one surface around the gutter and the text */
@@ -310,6 +310,19 @@
 [data-spelling-accepted] {
   text-decoration: none;
   background-color: transparent;
+}
+
+/*
+ * Text that comments are on: tinted, with a line under it that stays in forced
+ * colours; the thread being looked at stronger
+ */
+.tb-comment {
+  background-color: var(--tb-comment-tint);
+  border-bottom: 2px solid var(--tb-comment-line);
+}
+
+.tb-comment-active {
+  background-color: var(--tb-comment-active-tint);
 }
 
 /* An object whose plugin is missing: its type, its text, and what can be done */

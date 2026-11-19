@@ -232,6 +232,18 @@ export { usePendingDrops } from './hooks/usePendingDrops'
 export { useAgents } from './hooks/useAgents'
 export { useAgentChanges } from './hooks/useAgentChanges'
 export { useSuggestions } from './hooks/useSuggestions'
+export { useComments } from './hooks/useComments'
+export type { CommentsValue as TBCommentsValue, ShownThread as TBShownThread } from './contexts/CommentsContext'
+export { commentAnchor, resolveAnchor } from './comments/anchor'
+export { createCommentStore, type CommentStoreOptions as TBCommentStoreOptions } from './comments/store'
+export type {
+  Comments as TBComments,
+  CommentThread as TBCommentThread,
+  Comment as TBComment,
+  CommentAnchor as TBCommentAnchor,
+  CommentAuthor as TBCommentAuthor,
+  CommentRights as TBCommentRights
+} from './comments/types'
 export type { ShownSuggestion as TBShownSuggestion } from './contexts/SuggestionsContext'
 export type { ResolvedAgentChange as TBShownAgentChange } from './utils/agentChanges'
 export type { PresentAgent as TBPresentAgent } from './contexts/AgentPresenceContext'

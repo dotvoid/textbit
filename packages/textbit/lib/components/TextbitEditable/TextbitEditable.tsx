@@ -4,6 +4,7 @@ import { Editable, ReactEditor, useFocused, useSlateSelector, type RenderElement
 import { getDecorationRanges } from '../../utils/getDecorationRanges'
 import { useAgentChanges } from '../../hooks/useAgentChanges'
 import { useSuggestionPlacement } from '../../hooks/useSuggestions'
+import { useComments } from '../../hooks/useComments'
 import { AgentAnnouncer } from './AgentAnnouncer'
 import { sharedOf } from '../../yjs/binding'
 import { ElementComponent } from '../Element/Element'
@@ -206,6 +207,11 @@ export function TextbitEditable(props: TextbitEditableProps) {
   const { changes: agentChanges } = useAgentChanges()
   // What is suggested, shown in the text
   const { onBlock: suggestionsOnBlock } = useSuggestionPlacement()
+  // The open threads' text, highlighted
+  const { threads: commentThreads, active: activeThread } = useComments()
+  const commentHighlights = useMemo(() => commentThreads.flatMap(({ thread, range }) =>
+    range && !thread.resolved ? [{ id: thread.id, range, active: thread.id === activeThread }] : []
+  ), [commentThreads, activeThread])
 
   // Render decorate callback
   const decorate = useCallback((entry: NodeEntry) => {
@@ -220,7 +226,8 @@ export function TextbitEditable(props: TextbitEditableProps) {
       isSpellingAccepted,
       decorations,
       agentChanges,
-      suggestionsOnBlock
+      suggestionsOnBlock,
+      commentHighlights
     )
   }, [
     editor,
@@ -232,7 +239,8 @@ export function TextbitEditable(props: TextbitEditableProps) {
     isSpellingAccepted,
     decorations,
     agentChanges,
-    suggestionsOnBlock
+    suggestionsOnBlock,
+    commentHighlights
   ])
 
   const handleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {

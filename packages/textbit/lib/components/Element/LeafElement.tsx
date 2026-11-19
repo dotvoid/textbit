@@ -3,7 +3,7 @@ import { type RenderLeafProps } from 'slate-react'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 import { TextbitPlugin } from '../../utils/textbit-plugin'
 import type { SpellingError } from '../../types'
-import { getLeafMarkIds } from '../../utils/decorationMarks'
+import { getLeafCommentIds, getLeafMarkIds } from '../../utils/decorationMarks'
 import { AgentRemoved } from './AgentRemoved'
 import { AgentTag } from './AgentTag'
 import { SuggestedText } from './SuggestedText'
@@ -74,6 +74,14 @@ export function LeafElement(props: RenderLeafProps) {
     className += ' tb-mark'
   }
 
+  // Text that comments are on: the class, and the threads' ids, so a panel can
+  // find the text of a thread with `[data-tb-comment~="<id>"]`
+  const commentIds = getLeafCommentIds(leaf)
+  const comment = commentIds.length ? commentIds.join(' ') : undefined
+  if (comment) {
+    className += leaf.tbCommentActive ? ' tb-comment tb-comment-active' : ' tb-comment'
+  }
+
   // What an agent changed: its new text tinted in its colour, and the text
   // it removed struck through beside it
   // Once its time is up a change fades: the tint goes, then the change
@@ -125,25 +133,26 @@ export function LeafElement(props: RenderLeafProps) {
   }
 
   if (leaf.spellingError) {
-    return <MisspelledLeaf {...props} className={className} style={style} mark={mark} />
+    return <MisspelledLeaf {...props} className={className} style={style} mark={mark} comment={comment} />
   } else if (leaf.placeholder) {
     return <EmptyLeaf {...props} className={className} style={style} />
   } else {
-    return <OrdinaryLeaf {...props} className={className} style={style} mark={mark} />
+    return <OrdinaryLeaf {...props} className={className} style={style} mark={mark} comment={comment} />
   }
 }
 
 type LeafProps = RenderLeafProps & { className: string, style: CSSProperties }
-type MarkableLeafProps = LeafProps & { mark?: string }
+type MarkableLeafProps = LeafProps & { mark?: string, comment?: string }
 
 function OrdinaryLeaf(props: MarkableLeafProps) {
-  const { attributes, style, className, mark } = props
+  const { attributes, style, className, mark, comment } = props
 
   return (
     <span
       style={style}
       className={className}
       data-tb-mark={mark}
+      data-tb-comment={comment}
       {...attributes}
     >
       {props.children}
@@ -180,7 +189,7 @@ function EmptyLeaf(props: LeafProps) {
 }
 
 function MisspelledLeaf(props: MarkableLeafProps) {
-  const { leaf, attributes, style, className, mark } = props
+  const { leaf, attributes, style, className, mark, comment } = props
   const spellingError = leaf.spellingError as unknown as SpellingError | undefined
 
   return (
@@ -191,6 +200,7 @@ function MisspelledLeaf(props: MarkableLeafProps) {
       data-spelling-level={spellingError?.level || undefined}
       data-spelling-accepted={leaf.spellingAccepted ? '' : undefined}
       data-tb-mark={mark}
+      data-tb-comment={comment}
       {...attributes}
     >
       {props.children}

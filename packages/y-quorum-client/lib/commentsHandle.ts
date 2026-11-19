@@ -14,6 +14,7 @@ import {
   type CommentAuthor,
   type CommentThread
 } from './comments'
+import type { TBComments } from '@dotvoid/textbit/headless'
 import type { ActorClaim, CommentRights, Principal } from './protocol'
 
 /** What a handle needs to give for its comments */
@@ -43,12 +44,18 @@ export interface Comments {
   remove(threadId: string, commentId: string, claim?: ActorClaim): void
   /** Resolves a thread, or opens it again */
   resolve(threadId: string, resolved?: boolean, claim?: ActorClaim): void
+  /**
+   * The comments of one text field, for its editor: give it to `Textbit.Root`
+   * as `comments`. The same object every time for one path.
+   */
+  field(path: string[]): TBComments
 }
 
 export class CommentsOfHandle implements Comments {
   private listeners = new Set<(threads: CommentThread[]) => void>()
   private cached: CommentThread[] | undefined
   private stop: () => void = () => undefined
+  private fields = new Map<string, TBComments>()
 
   constructor(private readonly host: CommentsHost, private readonly principal: () => Principal | undefined) {
     host.on('rebuilt', this.rebuilt)
@@ -109,6 +116,32 @@ export class CommentsOfHandle implements Comments {
 
   resolve(threadId: string, resolved = true, claim?: ActorClaim): void {
     this.write(claim, (who) => setResolved(this.root, threadId, resolved ? { by: who.author, at: Date.now() } : null))
+  }
+
+  field(path: string[]): TBComments {
+    const key = path.join('\u0000')
+    let scoped = this.fields.get(key)
+    if (!scoped) {
+      const inField = (thread: CommentThread) => thread.anchor.path.join('\u0000') === key
+      const threads = () => this.threads.filter(inField)
+      const rights = () => this.rights
+      scoped = {
+        get threads() {
+          return threads()
+        },
+        get rights() {
+          return rights()
+        },
+        subscribe: (listener) => this.subscribe((threads) => listener(threads.filter(inField))),
+        create: (anchor, body) => this.create({ ...anchor, path }, body),
+        reply: (threadId, body) => this.reply(threadId, body),
+        edit: (threadId, commentId, body) => this.edit(threadId, commentId, body),
+        remove: (threadId, commentId) => this.remove(threadId, commentId),
+        resolve: (threadId, resolved) => this.resolve(threadId, resolved)
+      }
+      this.fields.set(key, scoped)
+    }
+    return scoped
   }
 
   /** Stops following the document, for a released handle */
