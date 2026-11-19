@@ -11,6 +11,13 @@ A React rich-text editor built on Slate, with collaborative editing through Yjs.
 
 [`apps/demo`](apps/demo) uses all three, as a host would.
 
+## Documentation
+
+The guides are in [docs](docs/README.md). Background on decisions that shape textbit:
+
+- [Where comments and suggestions live](docs/background/comments-and-suggestions.md): why they
+  sit in documents of their own beside the content, and how that leads into Y.js 14
+
 ## Development
 
 ```bash
