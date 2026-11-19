@@ -7,8 +7,12 @@ import type { BlockSelectionState } from '../../../contexts/BlockSelectionContex
 import { handleArrowWithAdjacentBlock, handleArrowNoAdjacentBlock, handleVerticalArrowWithAdjacentBlock } from './arrowHandlers'
 import { handleNonArrowWithAdjacentBlock } from './nonArrowHandler'
 import { enterBlockFromEnd, enterBlockFromStart, isAtAccessibleEnd, isAtAccessibleStart } from './blockUtils'
-import { ReactEditor } from 'slate-react'
-import { enterBlockSelectionFromAdjacentCaret, handleBlockSelectionKeyDown } from './blockSelectionHandler'
+import { caretOnEdgeLine } from './caretOnEdgeLine'
+import {
+  enterBlockSelectionFromAdjacentCaret,
+  enterBlockSelectionFromShiftArrow,
+  handleBlockSelectionKeyDown
+} from './blockSelectionHandler'
 import { typesCharacter } from '../../../utils/menuKeyboard'
 
 /*
@@ -42,6 +46,17 @@ export function handleOnKeyDown(
       setBlockSelection(newSelection)
     }
     return
+  }
+
+  // 3. Shift+Arrow onto an object, or out of the one the selection ends in:
+  // select it
+  if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    const newSelection = enterBlockSelectionFromShiftArrow(editor, event)
+    if (newSelection) {
+      event.preventDefault()
+      setBlockSelection(newSelection)
+      return
+    }
   }
 
   const key = event.key
@@ -115,7 +130,7 @@ export function handleOnKeyDown(
       const neighbor = editor.children[neighborIndex]
       if (!modified && Element.isElement(currentBlock) && currentBlock.class === 'text'
         && Element.isElement(neighbor) && editor.isVoid(neighbor) && neighbor.id
-        && caretOnEdgeLine(editor, topLevelIndex, down)) {
+        && caretOnEdgeLine(editor, anchor, [topLevelIndex], down)) {
         event.preventDefault()
         if (down) {
           enterBlockFromStart(editor, [neighborIndex], neighbor)
@@ -200,29 +215,3 @@ export function handleOnKeyDown(
     break
   }
 }
-
-/**
- * Whether the caret is on the last line of the top-level block at index, or
- * the first when going up. Measured in the page; where that cannot be done,
- * the end or the start of the block counts.
- */
-function caretOnEdgeLine(editor: Editor, index: number, last: boolean): boolean {
-  const { selection } = editor
-  if (!selection) {
-    return false
-  }
-  try {
-    const range = ReactEditor.toDOMRange(editor, selection)
-    const caret = range.getClientRects()[0] ?? range.getBoundingClientRect()
-    const block = ReactEditor.toDOMNode(editor, editor.children[index]).getBoundingClientRect()
-    if (caret.height > 0) {
-      return last ? block.bottom - caret.bottom < caret.height : caret.top - block.top < caret.height
-    }
-  } catch {
-    // Not measurable
-  }
-  return last
-    ? Editor.isEnd(editor, selection.anchor, [index])
-    : Editor.isStart(editor, selection.anchor, [index])
-}
-

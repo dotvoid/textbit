@@ -1,7 +1,16 @@
-import { Editor, Element, Transforms } from 'slate'
+import { Editor, Element, Path, type Point, Range, Transforms } from 'slate'
 import type { AdjacentBlockState } from '../../../contexts/AdjacentBlockContext'
 import type { BlockSelectionState } from '../../../contexts/BlockSelectionContext'
-import { resolveTargetIndex, enterBlockFromStart, enterBlockFromEnd } from './blockUtils'
+import {
+  resolveTargetIndex,
+  enterBlockFromStart,
+  enterBlockFromEnd,
+  firstEditableChildIdx,
+  isAtAccessibleEnd,
+  isAtAccessibleStart,
+  lastEditableChildIdx
+} from './blockUtils'
+import { caretOnEdgeLine } from './caretOnEdgeLine'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -102,6 +111,80 @@ export function enterBlockSelectionFromAdjacentCaret(
   const state = { anchorIndex: selectIndex, focusIndex: selectIndex }
   syncSlateSelection(editor, state)
   return state
+}
+
+// ---------------------------------------------------------------------------
+// Entry from a text selection
+// ---------------------------------------------------------------------------
+
+/**
+ * Shift+Arrow that would take the selection onto an object, or out of the
+ * object it ends in, selects the object instead: a block selection from the
+ * block the selection starts in. Up and Down count from the first or last
+ * line; with Alt, Cmd or Ctrl they jump further and are left to the browser.
+ * Returns the block selection, or null to leave the key alone.
+ */
+export function enterBlockSelectionFromShiftArrow(
+  editor: Editor,
+  event: React.KeyboardEvent<HTMLDivElement>
+): BlockSelectionState | null {
+  const { selection } = editor
+  const { key } = event
+  const vertical = key === 'ArrowUp' || key === 'ArrowDown'
+  if (!selection || !event.shiftKey || (vertical && (event.altKey || event.metaKey || event.ctrlKey))) {
+    return null
+  }
+
+  const forward = key === 'ArrowDown' || key === 'ArrowRight'
+  const { focus } = selection
+  const index = focus.path[0]
+  const block = editor.children[index]
+  if (!Element.isElement(block)) {
+    return null
+  }
+
+  let target = -1
+  if (block.class !== 'text') {
+    // Out of the object the selection ends in
+    if (vertical ? onObjectEdgeLine(editor, focus, index, forward)
+      : forward ? isAtAccessibleEnd(editor, focus, index) : isAtAccessibleStart(editor, focus, index)) {
+      target = index
+    }
+  } else {
+    // Onto the object beside the text block it ends in
+    const neighborIndex = forward ? index + 1 : index - 1
+    const neighbor = editor.children[neighborIndex]
+    const onEdge = vertical ? caretOnEdgeLine(editor, focus, [index], forward)
+      : forward ? Editor.isEnd(editor, focus, [index]) : Editor.isStart(editor, focus, [index])
+    if (Element.isElement(neighbor) && neighbor.class !== 'text' && onEdge) {
+      target = neighborIndex
+    }
+  }
+
+  if (target === -1) {
+    return null
+  }
+
+  const state = {
+    anchorIndex: Range.isCollapsed(selection) ? target : selection.anchor.path[0],
+    focusIndex: target
+  }
+  syncSlateSelection(editor, state)
+  return state
+}
+
+/**
+ * Whether a point is on the last line of an object's last field, or on the
+ * first line of its first
+ */
+function onObjectEdgeLine(editor: Editor, point: Point, index: number, last: boolean): boolean {
+  const block = editor.children[index]
+  if (!Element.isElement(block)) {
+    return false
+  }
+  const field = last ? lastEditableChildIdx(editor, block) : firstEditableChildIdx(editor, block)
+  const path = field === -1 ? [index] : [index, field]
+  return Path.isCommon(path, point.path) && caretOnEdgeLine(editor, point, path, last)
 }
 
 // ---------------------------------------------------------------------------

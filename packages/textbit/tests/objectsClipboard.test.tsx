@@ -494,6 +494,69 @@ describe('clicking an object selects all of it', () => {
   })
 })
 
+describe('Shift+Arrow onto an object, or out of one, selects it', () => {
+  const selected = (container: HTMLElement) => [...container.querySelectorAll('[data-block-selected]')].map((el) => el.getAttribute('data-id'))
+  const from = (anchor: (editor: Editor) => Point, focus?: (editor: Editor) => Point) => {
+    const { editor, container } = setup()
+    act(() => Transforms.select(editor, { anchor: anchor(editor), focus: (focus ?? anchor)(editor) }))
+    return {
+      container,
+      // Whether the browser may act on the key, as fireEvent reports it
+      press: (key: string, modifiers: Record<string, boolean> = {}) => {
+        let allowed = true
+        act(() => { allowed = fireEvent.keyDown(container.querySelector('[data-slate-editor]')!, { key, shiftKey: true, ...modifiers }) })
+        return allowed
+      }
+    }
+  }
+
+  test.each([
+    ['Right at the end of the paragraph before it', 'ArrowRight', (editor: Editor) => Editor.end(editor, [0])],
+    ['Down on the last line of the paragraph before it', 'ArrowDown', (editor: Editor) => Editor.end(editor, [0])],
+    ['Left at the start of the paragraph after it', 'ArrowLeft', (editor: Editor) => Editor.start(editor, [2])],
+    ['Up on the first line of the paragraph after it', 'ArrowUp', (editor: Editor) => Editor.start(editor, [2])],
+    ['Right at the end of its byline', 'ArrowRight', (editor: Editor) => Editor.end(editor, [1])],
+    ['Down on the last line of its byline', 'ArrowDown', (editor: Editor) => Editor.end(editor, [1])],
+    ['Left at the start of its caption', 'ArrowLeft', () => caption(0)],
+    ['Up on the first line of its caption', 'ArrowUp', () => caption(0)]
+  ])('Shift+%s', (_, key, point) => {
+    const { container, press } = from(point)
+    expect(press(key)).toBe(false)
+    expect(selected(container)).toEqual(['img'])
+  })
+
+  test('a text selection grows into whole blocks with the object', () => {
+    const { container, press } = from(() => ({ path: [0, 0], offset: 2 }), (editor) => Editor.end(editor, [0]))
+    press('ArrowRight')
+    expect(selected(container)).toEqual(['p0', 'img'])
+  })
+
+  test('the next Shift+Arrow extends it block by block', () => {
+    const { container, press } = from((editor) => Editor.end(editor, [0]))
+    press('ArrowRight')
+    press('ArrowRight')
+    expect(selected(container)).toEqual(['img', 'p2'])
+  })
+
+  test('away from an edge, the key is the browser\'s', () => {
+    const { container, press } = from(() => ({ path: [0, 0], offset: 2 }))
+    expect(press('ArrowRight')).toBe(true)
+    expect(selected(container)).toEqual([])
+  })
+
+  test.each(['altKey', 'metaKey', 'ctrlKey'])('Shift+Down with %s jumps further and is the browser\'s', (modifier) => {
+    const { container, press } = from((editor) => Editor.end(editor, [0]))
+    expect(press('ArrowDown', { [modifier]: true })).toBe(true)
+    expect(selected(container)).toEqual([])
+  })
+
+  test('Shift+Right with Alt at the edge selects it too', () => {
+    const { container, press } = from((editor) => Editor.end(editor, [0]))
+    expect(press('ArrowRight', { altKey: true })).toBe(false)
+    expect(selected(container)).toEqual(['img'])
+  })
+})
+
 describe('the caret after pasting an object', () => {
   const stateOf = (container: HTMLElement, id: string) => container.querySelector(`[data-id="${id}"][data-slate-node="element"]`)!.getAttribute('data-state')
   const editable = (container: HTMLElement) => container.querySelector('[data-slate-editor]')!
@@ -611,7 +674,14 @@ describe('an object whose plugin is missing', () => {
       expect(state()).toBe('after')
     })
 
-    test.each(['shiftKey', 'altKey', 'metaKey', 'ctrlKey'])('ArrowDown with %s is left to the browser', (modifier) => {
+    test('Shift+ArrowDown from the paragraph above selects it', () => {
+      const { press, state } = at((editor) => Editor.end(editor, [0]))
+      expect(press('ArrowDown', { shiftKey: true })).toBe(false)
+      expect(state()).not.toBe('before')
+      expect(document.querySelector('[data-id="fb"][data-block-selected]')).not.toBeNull()
+    })
+
+    test.each(['altKey', 'metaKey', 'ctrlKey'])('ArrowDown with %s is left to the browser', (modifier) => {
       const { press, state } = at((editor) => Editor.end(editor, [0]))
       expect(press('ArrowDown', { [modifier]: true })).toBe(true)
       expect(state()).not.toBe('before')
