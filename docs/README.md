@@ -7,7 +7,7 @@ which `npm run docs:api` generates into `docs/reference` from the doc comments i
 |---|---|
 | [Getting started](guides/getting-started.md) | Install, a first editor, plugins, styles |
 | [Concepts](guides/concepts.md) | Documents, elements and their classes, ids, types, plugins |
-| [The editor](guides/the-editor.md) | `Textbit.Root` and `Textbit.Editable`, menus, toolbar, gutter, context menu, keyboard, copy and paste, read-only |
+| [The editor](guides/the-editor.md) | `Textbit.Root` and `Textbit.Editable`, menus, toolbar, gutter, context menu, comments, keyboard, copy and paste, read-only |
 | [Plugins](guides/plugins.md) | Using the ready-made plugins, and writing your own: definition and view |
 | [Styling](guides/styling.md) | The styles package, tokens, the `data-tb` hooks |
 | [Accessibility](guides/accessibility.md) | Keyboard use, screen readers, what textbit does and what hosts do |

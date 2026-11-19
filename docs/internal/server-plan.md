@@ -643,8 +643,11 @@ through MCP is an agent action: people edit over the socket.
    roles' rights (`Capabilities.comments`: none, own or all; nobody edits someone else's words),
    `handle.comments` in the client, `server.comments()`, comments in a host's JSON, and agents
    commenting for a person. Anchors are stored two ways, relative positions and a quote in its
-   block. To come: the editor (anchors from a selection, highlights, `useComments`), the demo,
-   comment events for hosts, and the guides.
+   block. The editor followed the same day: a comment store on `Textbit.Root` (core's
+   `createCommentStore`, or `handle.comments.field(path)`), anchors from a selection,
+   highlights, `useComments`, and a comments panel in the demo and the lab. Carried forward:
+   comment events for hosts (webhooks), mentions, and agents' comment tools in the MCP module
+   (step 6).
 4. **History:** attribution, the log and checkpoints, versions, scrubbing, differences,
    restore, review evidence.
 5. **Suggestions in the fork,** people's suggesting mode, agents suggesting, run revert.

@@ -1,6 +1,6 @@
 body { margin: 0; font-family: system-ui, sans-serif; }
 .demo { min-height: 100vh; padding: 2rem; color: var(--tb-text); background: var(--tb-subtle); box-sizing: border-box; }
-.demo header { display: flex; align-items: center; justify-content: space-between; max-width: 48rem; margin: 0 auto 0.75rem; color: var(--tb-muted); font-size: 0.8125rem; }
+.demo > header { display: flex; align-items: center; justify-content: space-between; max-width: 74rem; margin: 0 auto 0.75rem; color: var(--tb-muted); font-size: 0.8125rem; }
 /* About 70 characters a line, with the margin balanced against the gutter */
 .demo [data-tb="editor"] { max-width: 48rem; margin: 0 auto; padding: 2.5rem 4rem 2.5rem 1.5rem; }
 .demo-editor { display: grid; grid-template-columns: 2.5rem 1fr; }
@@ -21,3 +21,20 @@ body { margin: 0; font-family: system-ui, sans-serif; }
 .demo-lab-join { font-size: 0.875rem; color: var(--tb-muted); }
 .demo-lab-status { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 0.75rem; font-size: 0.875rem; color: var(--tb-muted); }
 .demo-lab-suggestions { margin-top: 1rem; }
+/* An editor with comments beside it */
+.demo [data-tb="editor"].demo-commented { max-width: 74rem; display: grid; grid-template-columns: minmax(0, 1fr) 18rem; gap: 2.5rem; align-items: start; }
+.demo-comments { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.875rem; }
+.demo-comments header { display: flex; align-items: center; justify-content: space-between; margin: 0; max-width: none; }
+.demo-comments h2 { margin: 0; font-size: 0.875rem; font-weight: 600; color: var(--tb-text); }
+.demo-comments-hint { margin: 0; color: var(--tb-muted); }
+.demo-thread { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem; border: 1px solid var(--tb-border); border-radius: var(--tb-radius); background: var(--tb-surface); }
+.demo-thread[data-active] { border-color: var(--tb-comment-line); box-shadow: 0 0 0 2px var(--tb-comment-tint); }
+.demo-thread[data-resolved] { opacity: 0.7; }
+.demo-thread-quote { all: unset; cursor: pointer; color: var(--tb-muted); font-style: italic; }
+.demo-thread-quote:focus-visible { outline: var(--tb-focus); outline-offset: 2px; }
+.demo-comment p { margin: 0.125rem 0 0; }
+.demo-comment-form { display: flex; flex-direction: column; gap: 0.5rem; }
+.demo-comment-form textarea, .demo-comment-form input { font: inherit; padding: 0.375rem 0.5rem; border: 1px solid var(--tb-border); border-radius: calc(var(--tb-radius) - 2px); background: var(--tb-surface); color: inherit; }
+.demo-comment-form div { display: flex; gap: 0.5rem; }
+.demo-link { all: unset; cursor: pointer; align-self: flex-start; color: var(--tb-accent); font-size: 0.8125rem; }
+.demo-link:focus-visible { outline: var(--tb-focus); outline-offset: 2px; }
