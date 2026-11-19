@@ -66,7 +66,7 @@ const Factbox: Plugin = {
       'test/factbox': {
         component: ({ children }) => (
           <div>
-            <div contentEditable={false} data-testid='factbox-header'>
+            <div contentEditable={false} data-testid='factbox-header' onMouseDown={(e) => e.stopPropagation()}>
               Factbox <button type='button' onClick={onHeaderButton}>Collapse</button>
             </div>
             {children}
@@ -358,6 +358,40 @@ describe('clicking an object selects all of it', () => {
     act(() => { fireEvent.click(captionText) })
     act(() => { fireEvent.click(bodyText) })
     expect(blocksSelected(container)).toEqual([])
+  })
+
+  // The browser fires the click on what holds both ends of the drag
+  test('a drag from a factbox title into its body selects nothing', () => {
+    const { container } = setup()
+    const title = container.querySelector('[data-id="fb-t"] [data-slate-string]')!
+    const body = container.querySelector('[data-id="fb-b"]')!
+    const holder = body.parentElement!
+    expect(holder.contains(title)).toBe(true)
+    act(() => {
+      fireEvent.mouseDown(title, { clientX: 10, clientY: 10 })
+      fireEvent.click(holder, { clientX: 60, clientY: 30 })
+    })
+    expect(blocksSelected(container)).toEqual([])
+  })
+
+  test('a drag that starts on a header which stops mousedown selects nothing', () => {
+    const { container, getByTestId } = setup()
+    const holder = container.querySelector('[data-id="fb-b"]')!.parentElement!
+    act(() => {
+      fireEvent.mouseDown(getByTestId('factbox-header'), { clientX: 10, clientY: 10 })
+      fireEvent.click(holder, { clientX: 10, clientY: 40 })
+    })
+    expect(blocksSelected(container)).toEqual([])
+  })
+
+  test('a click where the mouse moved a little still selects the factbox', () => {
+    const { container, getByTestId } = setup()
+    const header = getByTestId('factbox-header')
+    act(() => {
+      fireEvent.mouseDown(header, { clientX: 10, clientY: 10 })
+      fireEvent.click(header, { clientX: 12, clientY: 13 })
+    })
+    expect(blocksSelected(container)).toEqual(['fb'])
   })
 
   test('a button in an object does what it does, and selects nothing', () => {

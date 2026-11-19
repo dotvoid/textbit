@@ -119,6 +119,13 @@ export function TextbitEditable(props: TextbitEditableProps) {
   // preceded by a mousedown. This lets us tell them apart inside handleFocus.
   const focusFromMouseRef = useRef(false)
 
+  // Where the mouse button last went down in the editable, so a click can tell
+  // a drag from a click. Recorded on capture: plugins often stop mousedown.
+  const pressRef = useRef<{ x: number, y: number } | null>(null)
+  const onMouseDownCapture = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    pressRef.current = { x: event.clientX, y: event.clientY }
+  }, [])
+
   // True from a mousedown in the editor until just after the mouseup, so a
   // selection the click makes is not scrolled to. Cleared by any key too.
   const fromPointerRef = useRef(false)
@@ -374,9 +381,18 @@ export function TextbitEditable(props: TextbitEditableProps) {
    * outside its text selects the whole object, as the keyboard does, so a copy
    * carries it in full. Shift extends a block selection to it. Handled on click,
    * not mousedown: plugins often stop mousedown, and dragging an object fires no
-   * click. Returning true makes slate-react skip its own void click handling.
+   * click. A drag across the object's text does: the browser fires it on what
+   * holds both ends, often the object, so a click that ends away from where it
+   * began selects nothing. Returning true makes slate-react skip its own void
+   * click handling.
    */
   const onClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const press = pressRef.current
+    pressRef.current = null
+    if (press && Math.hypot(event.clientX - press.x, event.clientY - press.y) > DRAG_DISTANCE) {
+      return false
+    }
+
     const index = objectIndexAt(editor, event.target)
     if (index === null) {
       return false
@@ -615,6 +631,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
                   spellCheck={false}
                   dir={dir}
                   onContextMenu={handleContextMenu}
+                  onMouseDownCapture={onMouseDownCapture}
                   onMouseDown={onMouseDown}
                   onClick={onClick}
                   scrollSelectionIntoView={scrollSelection}
@@ -632,6 +649,9 @@ export function TextbitEditable(props: TextbitEditableProps) {
     </>
   )
 }
+
+/** Pixels a mouse may move between press and release and still click */
+const DRAG_DISTANCE = 4
 
 /** Things in the editor's surface a click must reach, not park a block caret */
 const INTERACTIVE = 'button, a, input, textarea, select, label, [role="button"], [role="menu"], [role="menuitem"], [data-tb="menu"], [data-tb="toolbar"]'
