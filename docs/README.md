@@ -21,4 +21,9 @@ which `npm run docs:api` generates into `docs/reference` from the doc comments i
 | [Formats](guides/formats.md) | Specifications: what is stored in documents and sent between peers |
 | [Upgrading from 2.x](guides/upgrading-from-2.md) | Every breaking change, with before and after |
 
+## Background
+
+- [Where comments and suggestions live](background/comments-and-suggestions.md): the
+  architectures weighed, and why they sit in documents of their own beside the content
+
 `internal/` holds what is for working on textbit itself, not for the website.
