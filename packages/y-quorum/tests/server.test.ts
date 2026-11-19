@@ -178,16 +178,46 @@ describe('writes', () => {
     expect((frame.header as { code: string }).code).toBe('client-id-taken')
   })
 
-  it('refuses an update that depends on what the server does not have', async () => {
+  it('holds an update that arrives before what it depends on, until that arrives', async () => {
+    await start()
+    const alice = await enter('alice')
+    const bob = await enter('bob')
+    const a = await alice.open(1, 'news', 'plan-1')
+    const b = await bob.open(1, 'news', 'plan-1')
+    // Two changes, sent in the wrong order
+    const start1 = Y.encodeStateVector(a.doc)
+    a.doc.transact(() => typeInto(titleOf(a.doc), 'One '))
+    const first = Y.encodeStateAsUpdate(a.doc, start1)
+    const start2 = Y.encodeStateVector(a.doc)
+    a.doc.transact(() => typeInto(titleOf(a.doc), 'Two '))
+    const second = Y.encodeStateAsUpdate(a.doc, start2)
+    alice.send(ToServer.UPDATE, { ref: 1, layer: 'content', seq: 2 }, second)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(alice.frames.some((frame) => frame.type === ToClient.REJECTED || frame.type === ToClient.ACK)).toBe(false)
+    alice.send(ToServer.UPDATE, { ref: 1, layer: 'content', seq: 1 }, first)
+    const acks = [await alice.next(ToClient.ACK), await alice.next(ToClient.ACK)].map((frame) => frame.header.seq)
+    expect(acks.sort()).toEqual([1, 2])
+    for (const update of [await bob.next(ToClient.UPDATE), await bob.next(ToClient.UPDATE)]) {
+      Y.applyUpdate(b.doc, update.payload, 'server')
+    }
+    expect(textOf(titleOf(b.doc))).toBe('Two One Harbour feature')
+    expect((await storage.log('news', 'plan-1')).map((entry) => entry.actor.principal.id)).toEqual(['alice', 'alice'])
+  })
+
+  it('refuses what waits too long for what it depends on, as a conflict', async () => {
     await start()
     const alice = await enter('alice')
     const a = await alice.open(1, 'news', 'plan-1')
-    // Two changes; only the second is sent
-    a.doc.transact(() => typeInto(titleOf(a.doc), 'One '))
-    const before = Y.encodeStateVector(a.doc)
-    a.doc.transact(() => typeInto(titleOf(a.doc), 'Two '))
-    alice.send(ToServer.UPDATE, { ref: 1, layer: 'content', seq: 1 }, Y.encodeStateAsUpdate(a.doc, before))
-    expect((await alice.next(ToClient.REJECTED)).header.code).toBe('conflict')
+    // A change the server never gets
+    a.doc.transact(() => typeInto(titleOf(a.doc), 'Lost '))
+    // 65 changes that all depend on one the server never gets
+    for (let seq = 2; seq <= 66; seq++) {
+      const before = Y.encodeStateVector(a.doc)
+      a.doc.transact(() => typeInto(titleOf(a.doc), 'x'))
+      alice.send(ToServer.UPDATE, { ref: 1, layer: 'content', seq }, Y.encodeStateAsUpdate(a.doc, before))
+    }
+    const rejected = await alice.next(ToClient.REJECTED)
+    expect(rejected.header.code).toBe('conflict')
   })
 
   it('records an agent’s change as the agent’s, on behalf of the person', async () => {

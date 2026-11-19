@@ -325,7 +325,8 @@ export function createServer(options: ServerOptions): QuorumServer {
       roles,
       capabilities,
       awarenessClients: new Set(),
-      presence: { mode: header.mode === 'watch' ? 'watching' : 'reading', visible: true }
+      presence: { mode: header.mode === 'watch' ? 'watching' : 'reading', visible: true },
+      held: []
     }
     connection.openings.set(header.ref, { owner, opening })
     await owner.open(opening, header, vector)

@@ -47,7 +47,16 @@ export interface Opening {
   /** The projection last sent, as JSON, for watching */
   sent?: string
   presence: { mode: 'watching' | 'reading' | 'editing', visible: boolean }
+  /** Updates that arrived before what they depend on, waiting for it, in order */
+  held: Array<{ header: Headers[typeof ToServer.UPDATE], update: Uint8Array }>
 }
+
+/** How much one opening may have waiting for what it depends on */
+const HELD_UPDATES = 64
+const HELD_BYTES = 4 * 1024 * 1024
+
+/** What judging a write found */
+type Judgement = { code: ReasonCode, reason: string } | 'pending' | undefined
 
 const CONTENT = 'content'
 
@@ -176,15 +185,71 @@ export class DocumentOwner {
 
   update(opening: Opening, header: Headers[typeof ToServer.UPDATE], update: Uint8Array): Promise<void> {
     return this.serial(async () => {
-      const actor = this.actorOf(opening, header.claim)
-      const refusal = actor ? await this.judge(opening.peer.principal.id, actor, opening.roles, update) : { code: 'not-allowed' as const, reason: 'Agents may not act for this principal' }
-      if (refusal) {
-        this.sendTo(opening, ToClient.REJECTED, { ref: opening.ref, seq: header.seq, code: refusal.code, reason: refusal.reason }, update)
+      const outcome = await this.write(opening, header, update)
+      if (outcome === 'pending') {
+        this.hold(opening, header, update)
         return
       }
-      const log = await this.commit(actor!, header.layer, update, opening)
-      this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log })
+      if (outcome === 'committed') {
+        await this.retryHeld()
+      }
     })
+  }
+
+  // Judges one update of an opening and acts on it: committed and acknowledged,
+  // refused with a reason, or found to depend on something not here yet
+  private async write(opening: Opening, header: Headers[typeof ToServer.UPDATE], update: Uint8Array): Promise<'committed' | 'refused' | 'pending'> {
+    const actor = this.actorOf(opening, header.claim)
+    const judgement: Judgement = actor
+      ? await this.judge(opening.peer.principal.id, actor, opening.roles, update)
+      : { code: 'not-allowed', reason: 'Agents may not act for this principal' }
+    if (judgement === 'pending') {
+      return 'pending'
+    }
+    if (judgement) {
+      this.sendTo(opening, ToClient.REJECTED, { ref: opening.ref, seq: header.seq, code: judgement.code, reason: judgement.reason }, update)
+      return 'refused'
+    }
+    const log = await this.commit(actor!, header.layer, update, opening)
+    this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log })
+    return 'committed'
+  }
+
+  // An update that arrived before what it depends on waits for it; the only
+  // way that happens is a client's own frames out of order, so its own later
+  // frames bring what is missing. Too much waiting is refused.
+  private hold(opening: Opening, header: Headers[typeof ToServer.UPDATE], update: Uint8Array) {
+    opening.held.push({ header, update })
+    const bytes = opening.held.reduce((sum, held) => sum + held.update.length, 0)
+    if (opening.held.length <= HELD_UPDATES && bytes <= HELD_BYTES) {
+      return
+    }
+    for (const held of opening.held.splice(0)) {
+      this.sendTo(opening, ToClient.REJECTED, {
+        ref: opening.ref,
+        seq: held.header.seq,
+        code: 'conflict',
+        reason: 'Too much waiting for changes the server does not have'
+      }, held.update)
+    }
+  }
+
+  // After a change, what was waiting may fit: tried again in order until
+  // nothing more does
+  private async retryHeld() {
+    let progress = true
+    while (progress) {
+      progress = false
+      for (const opening of this.openings) {
+        for (const held of [...opening.held]) {
+          const outcome = await this.write(opening, held.header, held.update)
+          if (outcome !== 'pending') {
+            opening.held.splice(opening.held.indexOf(held), 1)
+            progress ||= outcome === 'committed'
+          }
+        }
+      }
+    }
   }
 
   /** Changes the document from this process, as an actor, through the same rules */
@@ -198,17 +263,18 @@ export class DocumentOwner {
       if (!(await this.storage.claimClient(this.namespace, this.id, copy.clientID, actor.principal.id))) {
         return false
       }
-      const refusal = await this.judge(actor.principal.id, actor, roles, update)
-      if (refusal) {
+      const judgement = await this.judge(actor.principal.id, actor, roles, update)
+      if (judgement) {
         return false
       }
       await this.commit(actor, CONTENT, update)
+      await this.retryHeld()
       return true
     })
   }
 
   // Whether a write may be applied: nothing when it may, the reason when not
-  private async judge(principalId: string, actor: Actor, roles: string[], update: Uint8Array): Promise<{ code: ReasonCode, reason: string } | undefined> {
+  private async judge(principalId: string, actor: Actor, roles: string[], update: Uint8Array): Promise<Judgement> {
     // 1. New content only under the writer's own client ids
     const known = Y.decodeStateVector(Y.encodeStateVector(this.doc))
     const clients = new Set<number>()
@@ -234,9 +300,12 @@ export class DocumentOwner {
     } finally {
       this.shadow.off('afterTransaction', capture)
     }
-    if ((this.shadow as unknown as { store: { pendingStructs: unknown } }).store.pendingStructs) {
+    // Y.js keeps what it cannot integrate yet: structs whose dependencies are
+    // missing, and deletions of content it does not have
+    const store = (this.shadow as unknown as { store: { pendingStructs: unknown, pendingDs: unknown } }).store
+    if (store.pendingStructs || store.pendingDs) {
       this.shadow = this.copy()
-      return { code: 'conflict', reason: 'The update depends on changes the server does not have' }
+      return 'pending'
     }
     // 3. The policy, on the paths it changes
     const paths = this.pathsOf(changed)
