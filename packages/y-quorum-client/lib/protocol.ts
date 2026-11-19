@@ -47,8 +47,12 @@ export const ToServer = {
   MODE: 10,
   /** Follow who has which documents open in a namespace */
   PRESENCE: 11,
-  /** Save: the client's state vector; the server answers once it holds all of it */
-  SAVE: 12
+  /** Save: the client's state vector; the server answers once it holds all of it. With history, a version. */
+  SAVE: 12,
+  /** A version's content, for showing it or comparing; answered with RESULT, the state as payload */
+  VERSION: 13,
+  /** Restore a version, as a new change; answered with RESULT */
+  RESTORE: 14
 } as const
 
 /** Frames a server sends */
@@ -86,7 +90,9 @@ export const ToClient = {
   /** A save is done: the version holding everything the client had */
   SAVED: 116,
   /** Who wrote what in a change just stored; payload: a Y.js ContentMap */
-  ATTRIBUTIONS: 117
+  ATTRIBUTIONS: 117,
+  /** Versions just made */
+  VERSIONS: 118
 } as const
 
 /** Why something was refused, in a fixed place: `header.code` */
@@ -118,6 +124,20 @@ export interface Person {
   name: string
 }
 
+/** A version of a document's content: its state at a position in the log */
+export interface VersionInfo {
+  id: string
+  /** The log position it is at */
+  seq: number
+  /** When it was made */
+  at: number
+  /** Who made it */
+  by: Person
+  label?: string
+  /** Saved by someone, or made by the server before a restore */
+  kind: 'saved' | 'before-restore'
+}
+
 /** What an agent working through a person's connection says about itself */
 export interface ActorClaim {
   agent: string
@@ -141,6 +161,8 @@ export interface Capabilities {
   records?: string[]
   /** What this connection may do with comments; `'none'` where the type has none */
   comments?: CommentRights
+  /** For a type with history: see versions, also make them, or also restore them */
+  versions?: 'read' | 'create' | 'restore'
 }
 
 /** Presence in a namespace: who has which document open, doing what */
@@ -199,6 +221,8 @@ export interface Headers {
   [ToServer.MODE]: { ref: number, mode: 'reading' | 'editing', visible: boolean }
   [ToServer.PRESENCE]: { namespace: string, follow: boolean }
   [ToServer.SAVE]: { ref: number, call: number, label?: string }
+  [ToServer.VERSION]: { ref: number, call: number, id: string }
+  [ToServer.RESTORE]: { ref: number, call: number, id: string }
 
   [ToClient.WELCOME]: { protocol: number, principal: Principal, namespaces: string[] | '*', limits: Limits }
   [ToClient.REFUSED]: { code: ReasonCode, reason: string }
@@ -221,6 +245,8 @@ export interface Headers {
     attributions?: Partial<Record<Layer, string>>
     /** The people the attributions name, by their key */
     people?: Record<string, Person>
+    /** For a type with history: its versions, oldest first */
+    versions?: VersionInfo[]
   }
   [ToClient.CLOSED]: { ref: number, code: ReasonCode, reason: string }
   [ToClient.UPDATE]: { ref: number, layer: Layer }
@@ -236,6 +262,7 @@ export interface Headers {
   [ToClient.PONG]: Record<string, never>
   [ToClient.SAVED]: { ref: number, call: number, log: number }
   [ToClient.ATTRIBUTIONS]: { ref: number, layer: Layer, people: Record<string, Person> }
+  [ToClient.VERSIONS]: { ref: number, versions: VersionInfo[] }
 }
 
 export type FrameType = keyof Headers
