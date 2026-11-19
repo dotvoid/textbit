@@ -46,7 +46,11 @@ export function clipboardFragment(editor: Editor): Descendant[] {
   })
 }
 
-/** A paragraph per text field with text in it, from a partly copied block */
+/**
+ * A paragraph per text field with text in it, from a partly copied block. A
+ * text element holding elements, such as a list of items, gives a paragraph
+ * per item: the items are the fields.
+ */
 function textFields(editor: Editor, node: Element): Descendant[] {
   const paragraphs: Descendant[] = []
 
@@ -55,7 +59,7 @@ function textFields(editor: Editor, node: Element): Descendant[] {
       if (!Element.isElement(child) || Editor.isVoid(editor, child)) {
         continue
       }
-      if (child.class === 'text') {
+      if (child.class === 'text' && child.children.every(isTextContent)) {
         if (Node.string(child).length) {
           paragraphs.push(paragraph(child.children))
         }
@@ -67,6 +71,11 @@ function textFields(editor: Editor, node: Element): Descendant[] {
 
   walk(node)
   return paragraphs
+}
+
+/** Text, or an inline element: what a text field holds */
+function isTextContent(node: Descendant): boolean {
+  return Text.isText(node) || (Element.isElement(node) && node.class === 'inline')
 }
 
 /** The source editor's types from a clipboard, or null when absent or invalid */
@@ -137,7 +146,7 @@ export function convertUnregistered(
     if (node.class === 'inline') {
       return leaves(node)
     }
-    if (node.children.every((c) => Text.isText(c) || (Element.isElement(c) && c.class === 'inline'))) {
+    if (node.children.every(isTextContent)) {
       // An empty field adds nothing, as when copying part of an object
       const children = inlineChildren(node.children)
       return children.every((c) => Text.isText(c) && c.text === '') ? [] : [paragraph(children)]

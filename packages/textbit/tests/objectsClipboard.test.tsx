@@ -231,6 +231,41 @@ describe('copying part of an object carries only its text', () => {
     expect(plain.children.some((c) => 'base/bold' in c)).toBe(true)
     expect(plain.children.every((c) => !('type' in c))).toBe(true)
   })
+
+  test('a list of items in the object: a paragraph per item, never items in a paragraph', () => {
+    const Notes: Plugin = {
+      class: 'block',
+      name: 'test/notes',
+      element: {
+        class: 'block',
+        children: [
+          { type: 'title', class: 'text' },
+          { type: 'list', class: 'text', children: [{ type: 'item', class: 'text' }] }
+        ]
+      },
+      view: {
+        components: {
+          'test/notes': { component: Box },
+          'test/notes/title': { component: Box },
+          'test/notes/list': { component: Box },
+          'test/notes/list/item': { component: Box }
+        }
+      }
+    }
+    const item = (id: string, text: string) => ({ id, type: 'test/notes/list/item', class: 'text', children: [{ text }] })
+    const notes = {
+      id: 'n', type: 'test/notes', class: 'block', properties: {}, children: [
+        { id: 'n-t', type: 'test/notes/title', class: 'text', children: [{ text: 'Title' }] },
+        { id: 'n-l', type: 'test/notes/list', class: 'text', children: [item('i1', 'One'), item('i2', 'Two')] }
+      ]
+    } as Descendant
+    const { editor } = setup({ plugins: [Text(), Notes], value: [p('p0', 'Before'), notes] })
+
+    const fragment = copied(editor, { path: [1, 0, 0], offset: 2 }, { path: [1, 1, 1, 0], offset: 2 })
+    expect(types(fragment)).toEqual(['base/text', 'base/text', 'base/text'])
+    expect(texts(fragment)).toEqual(['tle', 'One', 'Tw'])
+    expect(fragment.every((n) => (n as Element).children.every((c) => !('type' in c)))).toBe(true)
+  })
 })
 
 describe('copying a whole object carries the object', () => {
