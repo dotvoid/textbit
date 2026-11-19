@@ -494,6 +494,53 @@ describe('clicking an object selects all of it', () => {
   })
 })
 
+// jsdom is not a Mac: Ctrl is the shortcut modifier
+describe('shortcuts while objects are selected', () => {
+  const selected = (container: HTMLElement) => [...container.querySelectorAll('[data-block-selected]')].map((el) => el.getAttribute('data-id'))
+  const press = (container: HTMLElement, key: string, modifiers: Record<string, boolean> = {}) => {
+    let allowed = true
+    act(() => { allowed = fireEvent.keyDown(container.querySelector('[data-slate-editor]')!, { key, ...modifiers }) })
+    return allowed
+  }
+
+  test.each([
+    ['find', 'f', { ctrlKey: true }],
+    ['print', 'p', { ctrlKey: true }],
+    ['zoom', '+', { ctrlKey: true }],
+    ['a function key', 'F5', {}]
+  ])('%s reaches the browser, and the object stays selected', (_, key, modifiers) => {
+    const { container, getByTestId } = setup()
+    act(() => { fireEvent.click(getByTestId('img')) })
+    expect(press(container, key, modifiers)).toBe(true)
+    expect(selected(container)).toEqual(['img'])
+  })
+
+  // slate-react undoes on the key, which it does not do in jsdom
+  test.each(['z', 'y'])('Ctrl+%s lets go of the selection and is not blocked', (key) => {
+    const { container, getByTestId } = setup()
+    act(() => { fireEvent.click(getByTestId('img')) })
+    expect(press(container, key, { ctrlKey: true })).toBe(true)
+    expect(selected(container)).toEqual([])
+  })
+
+  test('select all selects every block', () => {
+    const { container, getByTestId } = setup()
+    act(() => { fireEvent.click(getByTestId('img')) })
+    expect(press(container, 'a', { ctrlKey: true })).toBe(false)
+    expect(selected(container)).toEqual(['p0', 'img', 'p2', 'p3', 'fb'])
+  })
+
+  test('typing still changes nothing', () => {
+    const { editor, container, getByTestId } = setup()
+    const before = JSON.stringify(editor.children)
+    act(() => { fireEvent.click(getByTestId('img')) })
+    expect(press(container, 'x')).toBe(false)
+    expect(press(container, 'Enter')).toBe(false)
+    expect(JSON.stringify(editor.children)).toBe(before)
+    expect(selected(container)).toEqual(['img'])
+  })
+})
+
 describe('the caret after pasting an object', () => {
   const stateOf = (container: HTMLElement, id: string) => container.querySelector(`[data-id="${id}"][data-slate-node="element"]`)!.getAttribute('data-state')
   const editable = (container: HTMLElement) => container.querySelector('[data-slate-editor]')!
