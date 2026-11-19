@@ -52,7 +52,11 @@ export const ToServer = {
   /** A version's content, for showing it or comparing; answered with RESULT, the state as payload */
   VERSION: 13,
   /** Restore a version, as a new change; answered with RESULT */
-  RESTORE: 14
+  RESTORE: 14,
+  /** A person reviewed what agents wrote: one run's, or all of it; answered with RESULT */
+  REVIEW: 15,
+  /** What agents wrote that nobody has reviewed; answered with RESULT */
+  UNREVIEWED: 16
 } as const
 
 /** Frames a server sends */
@@ -224,6 +228,8 @@ export interface Headers {
   /** A version by its id, or the content at a log position */
   [ToServer.VERSION]: { ref: number, call: number, id?: string, seq?: number }
   [ToServer.RESTORE]: { ref: number, call: number, id: string }
+  [ToServer.REVIEW]: { ref: number, call: number, run?: string }
+  [ToServer.UNREVIEWED]: { ref: number, call: number }
 
   [ToClient.WELCOME]: { protocol: number, principal: Principal, namespaces: string[] | '*', limits: Limits }
   [ToClient.REFUSED]: { code: ReasonCode, reason: string }

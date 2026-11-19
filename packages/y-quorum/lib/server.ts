@@ -289,6 +289,14 @@ export function createServer(options: ServerOptions): QuorumServer {
       if (held) {
         changed(held.owner)
       }
+    } else if (isFrame(frame, ToServer.REVIEW)) {
+      const held = connection.openings.get(frame.header.ref)
+      await held?.owner.review(held.opening, frame.header)
+    } else if (isFrame(frame, ToServer.UNREVIEWED)) {
+      const held = connection.openings.get(frame.header.ref)
+      if (held) {
+        connection.send(encodeFrame(ToClient.RESULT, { call: frame.header.call, ok: true, value: held.owner.unreviewed() }))
+      }
     } else if (isFrame(frame, ToServer.MODE)) {
       const held = connection.openings.get(frame.header.ref)
       held?.owner.setMode(held.opening, frame.header.mode, frame.header.visible)
@@ -482,6 +490,15 @@ export function createServer(options: ServerOptions): QuorumServer {
       const loaded = await owners.get(keyOf(namespace, id))
       await loaded?.flushHistoryNow()
       return (await options.storage.history(namespace, id)).map(toJSONLine).join('\n')
+    },
+    unreviewed: async (namespace, id) => {
+      const owner = await ownerOf(namespace, id)
+      if (!owner) {
+        return undefined
+      }
+      const found = owner.unreviewed()
+      changed(owner)
+      return found
     },
     comments: async (namespace, id) => {
       const owner = await ownerOf(namespace, id)

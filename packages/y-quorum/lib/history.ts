@@ -8,7 +8,7 @@ import type { Layer } from '@dotvoid/y-quorum-client/protocol'
 import type { Actor } from './types'
 
 /** What a history entry did */
-export type HistoryKind = 'edit' | 'restore'
+export type HistoryKind = 'edit' | 'restore' | 'review'
 
 /** One entry of a document's history: writes of one actor, folded, in the chain */
 export interface HistoryEntry {

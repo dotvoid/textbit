@@ -1,7 +1,7 @@
 import type * as Y from '@y/y'
 import type { IncomingMessage } from 'node:http'
 import type { Capabilities, DocumentRecord, Layer, Limits, Person, Principal, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
-import type { CommentThread, Path, TypeDefinition } from '@dotvoid/y-quorum-client/model'
+import type { CommentThread, Path, TypeDefinition, Unreviewed } from '@dotvoid/y-quorum-client/model'
 import type { HistoryEntry } from './history'
 
 /** Who made a change: the principal, and whom it acted for */
@@ -74,6 +74,8 @@ export interface Checkpoint {
   attributions?: Partial<Record<Layer, Uint8Array>>
   /** The people the attributions name, by their key */
   people?: Record<string, Person>
+  /** The content people have reviewed, a Y.js IdSet encoded */
+  reviewed?: Uint8Array
 }
 
 /** A document as storage gives it back */
@@ -178,6 +180,8 @@ export interface QuorumServer {
   read(namespace: string, id: string): Promise<Record<string, unknown> | undefined>
   /** A document's comment threads, oldest first */
   comments(namespace: string, id: string): Promise<CommentThread[] | undefined>
+  /** What agents wrote that is still in a document and no person has reviewed: for a publishing gate */
+  unreviewed(namespace: string, id: string): Promise<Unreviewed[] | undefined>
   /**
    * A document's history as JSON Lines, every entry chained to the one before:
    * check it with `verifyHistory`

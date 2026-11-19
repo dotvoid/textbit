@@ -15,7 +15,8 @@ const article: ServerType = defineType('example/article', { content: object({ bo
 
 const people: Record<string, Principal> = {
   alice: { kind: 'person', id: 'alice', name: 'Alice' },
-  bob: { kind: 'person', id: 'bob', name: 'Bob' }
+  bob: { kind: 'person', id: 'bob', name: 'Bob' },
+  'agent:copy': { kind: 'agent', id: 'copy', name: 'Copy editor' }
 }
 
 const servers: QuorumServer[] = []
@@ -156,6 +157,66 @@ describe('history', () => {
 
       const exported = await second.exportHistory('news', 'h-4')
       expect(verifyHistory(exported)).toMatchObject({ ok: true, entries: 2 })
+    } finally {
+      rmSync(folder, { recursive: true, force: true })
+    }
+  })
+
+  it('keeps who reviewed what agents wrote, and tells what nobody has', async () => {
+    const server = await start()
+    await server.create('news', 'h-5', 'example/article', { body: [paragraph('p', 'Harbour.')] })
+    const bob = await open('bob', 'h-5')
+    const alice = await open('alice', 'h-5')
+    const agentWrites = async (words: string, run: string) => {
+      bob.doc.transact(() => paragraphOf(bob).insert(0, words), bob.claimOrigin({ agent: 'copy', run }))
+      await until(() => !bob.hasUnsavedChanges)
+    }
+    await agentWrites('Cold. ', 'r1')
+    await agentWrites('Very. ', 'r2')
+    await type(bob, 'Mine. ')
+
+    expect(await alice.unreviewed()).toEqual([
+      { agent: 'agent:copy', onBehalfOf: 'person:bob', run: 'r1', length: 6 },
+      { agent: 'agent:copy', onBehalfOf: 'person:bob', run: 'r2', length: 6 }
+    ])
+    expect(await alice.review('r1')).toEqual([{ agent: 'agent:copy', onBehalfOf: 'person:bob', run: 'r2', length: 6 }])
+    expect(await alice.review()).toEqual([])
+
+    // Written after the review: not covered by it
+    await agentWrites('Grey. ', 'r3')
+    expect(await server.unreviewed('news', 'h-5')).toEqual([{ agent: 'agent:copy', onBehalfOf: 'person:bob', run: 'r3', length: 6 }])
+    // Deleted again: nothing left to review
+    paragraphOf(bob).delete(0, 6)
+    await until(() => !bob.hasUnsavedChanges)
+    await until(() => alice.attributions().deletes.isEmpty() === false)
+    expect(await alice.unreviewed()).toEqual([])
+
+    const exported = await server.exportHistory('news', 'h-5')
+    const reviews = parsed(exported).filter((entry) => entry.kind === 'review')
+    expect(reviews.map((entry) => [(entry.actor as { principal: { id: string } }).principal.id, entry.refs])).toEqual([
+      ['alice', { run: 'r1' }],
+      ['alice', { scope: 'agents' }]
+    ])
+    expect(verifyHistory(exported)).toMatchObject({ ok: true })
+  })
+
+  it('only a person who may edit reviews; reviews last through a restart', async () => {
+    const folder = mkdtempSync(join(tmpdir(), 'y-quorum-review-'))
+    try {
+      const first = await start(sqlite(join(folder, 'db.sqlite')))
+      await first.create('news', 'h-6', 'example/article', { body: [paragraph('p', 'Harbour.')] })
+      const agent = await open('agent:copy', 'h-6')
+      paragraphOf(agent).insert(0, 'Cold. ')
+      await until(() => !agent.hasUnsavedChanges)
+      await expect(agent.review()).rejects.toMatchObject({ code: 'not-allowed' })
+      const alice = await open('alice', 'h-6')
+      await alice.review()
+      clients.splice(0).forEach((client) => client.close())
+      await first.close()
+      servers.splice(0)
+
+      const second = await start(sqlite(join(folder, 'db.sqlite')))
+      expect(await second.unreviewed('news', 'h-6')).toEqual([])
     } finally {
       rmSync(folder, { recursive: true, force: true })
     }

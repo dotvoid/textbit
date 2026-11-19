@@ -35,7 +35,7 @@ import {
   type ReasonCode
 } from './protocol'
 import { CommentsOfHandle, type Comments } from './commentsHandle'
-import { LiveAttributionsRenderer } from './attributions'
+import { LiveAttributionsRenderer, type Unreviewed } from './attributions'
 
 export type Status = 'connecting' | 'connected' | 'disconnected' | 'closed'
 export type Welcome = Headers[typeof ToClient.WELCOME]
@@ -161,6 +161,14 @@ export interface DocumentHandle {
   compare(from: string | number, to?: string | number): Promise<{ doc: Y.Doc, content: Y.Node, renderer: Y.DiffRenderer }>
   /** Restores a version as a new change, after a version of the content as it was; resolves with its log position */
   restore(id: string): Promise<number>
+  /**
+   * Marks what agents wrote as reviewed by this person, one run's or all of
+   * it as it is now: kept in the history as their act. Resolves with what is
+   * still unreviewed.
+   */
+  review(run?: string): Promise<Unreviewed[]>
+  /** What agents wrote that is still in the text and no person has reviewed */
+  unreviewed(): Promise<Unreviewed[]>
   readonly hasUnsavedChanges: boolean
   /** The comment threads beside the content, for a type with comments */
   readonly comments: Comments
@@ -514,6 +522,20 @@ class QuorumClient implements Client {
     return this.request(call, () => {
       this.send(encodeFrame(ToServer.VERSION, { ref: state.ref, call, ...which }))
     }).then(({ payload }) => payload)
+  }
+
+  review(state: DocState, run?: string): Promise<Unreviewed[]> {
+    const call = this.nextCall++
+    return this.request(call, () => {
+      this.send(encodeFrame(ToServer.REVIEW, { ref: state.ref, call, ...(run !== undefined ? { run } : {}) }))
+    }).then(({ value }) => (value as { unreviewed: Unreviewed[] }).unreviewed)
+  }
+
+  unreviewed(state: DocState): Promise<Unreviewed[]> {
+    const call = this.nextCall++
+    return this.request(call, () => {
+      this.send(encodeFrame(ToServer.UNREVIEWED, { ref: state.ref, call }))
+    }).then(({ value }) => value as Unreviewed[])
   }
 
   restore(state: DocState, id: string): Promise<number> {
@@ -1252,6 +1274,14 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
 
   restore(id: string): Promise<number> {
     return this.client.restore(this.state, id)
+  }
+
+  review(run?: string): Promise<Unreviewed[]> {
+    return this.client.review(this.state, run)
+  }
+
+  unreviewed(): Promise<Unreviewed[]> {
+    return this.client.unreviewed(this.state)
   }
   get hasUnsavedChanges() { return this.state.local.length > 0 }
 

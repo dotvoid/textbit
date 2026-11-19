@@ -30,7 +30,10 @@ import {
 import {
   COMMENTS,
   actorKey,
+  agentContent,
   attributionsOf,
+  unreviewed,
+  type Unreviewed,
   pathOf,
   projection,
   readThreads,
@@ -124,6 +127,8 @@ export class DocumentOwner {
   /** The writes being folded into the next history entry, and the last entry */
   private batch: Batch | undefined
   private historyHead: { seq: number, hash: string }
+  /** The content people have reviewed */
+  private reviewed: Y.IdSet
   private seq: number
   private recordSeq: number
   private sinceCheckpoint = 0
@@ -145,6 +150,7 @@ export class DocumentOwner {
     this.layers = new Map<Layer, Y.Doc>([['content', this.doc], ['comments', new Y.Doc()]])
     this.versions = stored.versions ?? []
     this.historyHead = stored.historyHead ?? { seq: 0, hash: GENESIS }
+    this.reviewed = stored.checkpoint?.reviewed ? Y.decodeIdSet(stored.checkpoint.reviewed) : Y.createIdSet()
     for (const [layer, doc] of this.layers) {
       const state = stored.checkpoint?.states[layer]
       if (state) {
@@ -605,7 +611,9 @@ export class DocumentOwner {
     }
     await this.storage.checkpoint(this.namespace, this.id, {
       states,
-      ...(this.type.history ? { attributions: this.encodedAttributions((bytes) => bytes), people: this.people } : {})
+      ...(this.type.history
+        ? { attributions: this.encodedAttributions((bytes) => bytes), people: this.people, reviewed: Y.encodeIdSet(this.reviewed) }
+        : {})
     }, this.seq)
   }
 
@@ -890,6 +898,42 @@ export class DocumentOwner {
         : this.seq
       await this.retryHeld()
       this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: true, value: { log, backup } })
+    })
+  }
+
+  /** What agents wrote that is still in the text and nobody has reviewed */
+  unreviewed(): Unreviewed[] {
+    return unreviewed(this.attributions.get('content') ?? Y.createContentMap(), this.reviewed)
+  }
+
+  /**
+   * A person reviewed what agents wrote, one run's or all of it, as it is
+   * now: an act of its own in the history, never inferred from reading or
+   * editing nearby. What agents write after it is not covered.
+   */
+  review(opening: Opening, header: Headers[typeof ToServer.REVIEW]): Promise<void> {
+    return this.serial(async () => {
+      const principal = opening.peer.principal
+      if (!this.type.history || principal.kind !== 'person' || !opening.capabilities.write) {
+        this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: false, code: 'not-allowed', reason: 'Only a person who may edit reviews' })
+        return
+      }
+      const ids = agentContent(this.attributions.get('content') ?? Y.createContentMap(), header.run !== undefined ? { run: header.run } : {})
+      this.reviewed = Y.mergeIdSets([this.reviewed, ids])
+      await this.flushHistory()
+      const at = Date.now()
+      const entry = seal({
+        doc: `${this.namespace}/${this.id}`, seq: this.historyHead.seq + 1,
+        from: this.seq, to: this.seq, layer: 'content', at, until: at,
+        actor: { principal }, connection: opening.peer.id, kind: 'review',
+        refs: header.run !== undefined ? { run: header.run } : { scope: 'agents' },
+        payload: Y.encodeIdSet(ids)
+      }, this.historyHead.hash)
+      this.historyHead = { seq: entry.seq, hash: entry.hash }
+      await this.storage.appendHistory(this.namespace, this.id, [entry])
+      // Kept at once: a review must not be lost to a crash
+      await this.checkpoint()
+      this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: true, value: { unreviewed: this.unreviewed() } })
     })
   }
 

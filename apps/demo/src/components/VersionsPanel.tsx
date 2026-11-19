@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import * as Y from '@y/y'
 import { Textbit } from '@dotvoid/textbit'
-import type { DocumentHandle } from '@dotvoid/y-quorum-client'
+import type { DocumentHandle, Unreviewed } from '@dotvoid/y-quorum-client'
 import type { TBPlugin } from '@dotvoid/textbit'
 
 type Comparison = Awaited<ReturnType<DocumentHandle['compare']>> & { label: string }
@@ -17,6 +17,21 @@ export const VersionsPanel = ({ handle, plugins }: { handle: DocumentHandle, plu
   const [comparison, setComparison] = useState<Comparison>()
   const [moment, setMoment] = useState<Moment>()
   const [log, setLog] = useState(handle.log)
+  const [waiting, setWaiting] = useState<Unreviewed[]>([])
+
+  // What agents wrote that nobody has reviewed, again whenever someone writes
+  useEffect(() => {
+    let current = true
+    const update = () => {
+      handle.unreviewed().then((found) => current && setWaiting(found), () => undefined)
+    }
+    update()
+    handle.on('attributions', update)
+    return () => {
+      current = false
+      handle.off('attributions', update)
+    }
+  }, [handle])
   const [problem, setProblem] = useState('')
   const may = handle.capabilities.versions
 
@@ -60,6 +75,16 @@ export const VersionsPanel = ({ handle, plugins }: { handle: DocumentHandle, plu
         </form>
       )}
       {problem && <p role='alert'>{problem}</p>}
+      {may !== 'read' && (
+        <p className='demo-review' role='status'>
+          {waiting.length
+            ? `Written by agents and not reviewed: ${waiting.reduce((sum, group) => sum + group.length, 0)} characters in ${waiting.length} ${waiting.length === 1 ? 'run' : 'runs'}`
+            : 'Nothing written by agents waits for review'}
+          {waiting.length > 0 && (
+            <button type='button' onClick={() => attempt(handle.review().then(setWaiting))}>Mark reviewed</button>
+          )}
+        </p>
+      )}
       <label className='demo-scrub'>
         Back in time
         <input

@@ -88,6 +88,9 @@ export function sqlite(file: string): Storage {
         putLayer.run(namespace, id, `attributions:${layer}`, map)
       }
     }
+    if (checkpoint.reviewed) {
+      putLayer.run(namespace, id, 'reviewed', checkpoint.reviewed)
+    }
     if (checkpoint.people) {
       putLayer.run(namespace, id, 'people', new TextEncoder().encode(JSON.stringify(checkpoint.people)))
     }
@@ -113,7 +116,9 @@ export function sqlite(file: string): Storage {
       const checkpoint: Checkpoint = { states: { content: new Uint8Array(row.checkpoint) } }
       for (const part of loadLayers.all(namespace, id) as Array<{ layer: string, state: Uint8Array }>) {
         const bytes = new Uint8Array(part.state)
-        if (part.layer === 'people') {
+        if (part.layer === 'reviewed') {
+          checkpoint.reviewed = bytes
+        } else if (part.layer === 'people') {
           checkpoint.people = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, Person>
         } else if (part.layer.startsWith('attributions:')) {
           checkpoint.attributions = { ...checkpoint.attributions, [part.layer.slice('attributions:'.length)]: bytes }

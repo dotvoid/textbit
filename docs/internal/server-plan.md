@@ -660,8 +660,16 @@ through MCP is an agent action: people edit over the socket.
    through `createDiffRenderer` on two copies, with who changed what; restore is Y.js 14's
    `undoContentIds` on what changed since, a new change in the restorer's name, after an
    automatic version of the content as it was. The content of a type with history keeps its
-   deleted items (`gc: false`), which restoring needs. To come: scrubbing, the log batches and
-   hash chain, review evidence, export.
+   deleted items (`gc: false`), which restoring needs. Then the rest: the owner folds writes into
+   history entries (one actor, connection, layer and run, at most ten seconds, cut at versions;
+   restores and reviews are entries of their own), chained with SHA-256 over each entry's fields
+   and a hash of its change; `exportHistory` gives JSON Lines that `verifyHistory` checks on
+   their own, payloads removed or not. A Created version starts every document with history,
+   and `handle.version(seq)` gives the content at any log position. Review evidence: a person
+   marks one agent run, or all agent text as it is, reviewed, an entry in the chain;
+   `unreviewed()` lists agent text still there and not reviewed since, for a publishing gate.
+   Carried forward: reviewing a range, signed checkpoints and versions with a pluggable signer,
+   W3C PROV export, scrubbing comments in step, and filtering differences by person or run.
 5. **Suggestions in the fork,** people's suggesting mode, agents suggesting, run revert.
 6. **The MCP module.**
 7. **Production:** Postgres and S3, leases and forwarding, audit export, retention and
