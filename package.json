@@ -13,7 +13,7 @@
     "test": "npm test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "lab": "npm run build -w @dotvoid/textbit -w @dotvoid/textbit-plugins -w @dotvoid/textbit-agent && npm run server -w textbit-agent-lab",
+    "lab": "npm run build -w @dotvoid/textbit -w @dotvoid/textbit-plugins -w @dotvoid/textbit-agent -w @dotvoid/y-quorum-client -w @dotvoid/y-quorum && npm run server -w textbit-agent-lab",
     "lab:reset": "node -e \"require('fs').rmSync('apps/agent-lab/.lab', { recursive: true, force: true })\"",
     "docs:api": "typedoc"
   },
