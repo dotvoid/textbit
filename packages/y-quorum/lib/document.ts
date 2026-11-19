@@ -41,9 +41,31 @@ import {
 } from '@dotvoid/y-quorum-client/model'
 import type { Actor, LogEntry, ServerOptions, ServerType, Storage, StoredDocument } from './types'
 import { judgeComments } from './judgeComments'
+import { GENESIS, seal, type HistoryKind } from './history'
+
+/** How long writes of one actor are folded into one history entry at most */
+const BATCH_MS = 10_000
+
+/** Writes being folded into the next history entry */
+interface Batch {
+  key: string
+  layer: Layer
+  actor: Actor
+  connection?: string
+  kind: HistoryKind
+  refs?: Record<string, string>
+  from: number
+  to: number
+  at: number
+  until: number
+  updates: Uint8Array[]
+  timer: ReturnType<typeof setTimeout>
+}
 
 /** A connection, as a document sees it */
 export interface Peer {
+  /** The connection's id, for the history */
+  id: string
   principal: Principal
   /** Whether agents may claim to act for this principal through it */
   agents: boolean
@@ -99,6 +121,9 @@ export class DocumentOwner {
   private people: Record<string, Person> = {}
   /** For a type with history: its versions, oldest first */
   private versions: VersionInfo[]
+  /** The writes being folded into the next history entry, and the last entry */
+  private batch: Batch | undefined
+  private historyHead: { seq: number, hash: string }
   private seq: number
   private recordSeq: number
   private sinceCheckpoint = 0
@@ -119,6 +144,7 @@ export class DocumentOwner {
     this.doc = new Y.Doc({ gc: !type.history })
     this.layers = new Map<Layer, Y.Doc>([['content', this.doc], ['comments', new Y.Doc()]])
     this.versions = stored.versions ?? []
+    this.historyHead = stored.historyHead ?? { seq: 0, hash: GENESIS }
     for (const [layer, doc] of this.layers) {
       const state = stored.checkpoint?.states[layer]
       if (state) {
@@ -502,10 +528,20 @@ export class DocumentOwner {
   }
 
   // Accepted: logged, applied, passed on
-  private async commit(actor: Actor, layer: Layer, update: Uint8Array, from?: Opening): Promise<number> {
+  private async commit(
+    actor: Actor,
+    layer: Layer,
+    update: Uint8Array,
+    from?: Opening,
+    kind: HistoryKind = 'edit',
+    refs?: Record<string, string>
+  ): Promise<number> {
     const entry: LogEntry = { seq: this.seq + 1, at: Date.now(), layer, actor, update }
     await this.storage.append(this.namespace, this.id, [entry])
     this.seq = entry.seq
+    if (this.type.history) {
+      await this.fold(entry, from?.peer.id, kind, refs)
+    }
     const attributed = this.apply(layer, update, actor, entry.at, from ?? this)
     for (const opening of this.openings) {
       if (opening !== from && opening.mode === 'open') {
@@ -687,8 +723,67 @@ export class DocumentOwner {
     }
   }
 
+  /**
+   * Folds a write into the history: into the open entry when it is the same
+   * actor, connection, layer and run within a few seconds, else into a new
+   * one. A restore is an entry of its own.
+   */
+  private async fold(entry: LogEntry, connection: string | undefined, kind: HistoryKind, refs?: Record<string, string>) {
+    const { actor } = entry
+    const key = JSON.stringify([entry.layer, actor.principal, actor.onBehalfOf ?? null, actor.run ?? null, connection ?? null, kind])
+    const open = this.batch
+    if (open && (open.key !== key || kind !== 'edit' || entry.at - open.at > BATCH_MS)) {
+      await this.flushHistory()
+    }
+    if (this.batch) {
+      this.batch.to = entry.seq
+      this.batch.until = entry.at
+      this.batch.updates.push(entry.update)
+    } else {
+      this.batch = {
+        key, layer: entry.layer, actor, kind, from: entry.seq, to: entry.seq, at: entry.at, until: entry.at,
+        updates: [entry.update],
+        ...(connection ? { connection } : {}),
+        ...(refs ? { refs } : {}),
+        // Written once the time is up, even when nothing follows
+        timer: setTimeout(() => void this.serial(() => this.flushHistory()), BATCH_MS)
+      }
+    }
+    if (kind !== 'edit') {
+      await this.flushHistory()
+    }
+  }
+
+  /** Seals the open history entry now, in turn with the document's other work */
+  flushHistoryNow(): Promise<void> {
+    return this.serial(() => this.flushHistory())
+  }
+
+  /** Seals the open history entry into the chain and stores it */
+  async flushHistory(): Promise<void> {
+    const batch = this.batch
+    if (!batch) {
+      return
+    }
+    this.batch = undefined
+    clearTimeout(batch.timer)
+    const entry = seal({
+      doc: `${this.namespace}/${this.id}`,
+      seq: this.historyHead.seq + 1,
+      from: batch.from, to: batch.to, layer: batch.layer, at: batch.at, until: batch.until,
+      actor: batch.actor, kind: batch.kind,
+      ...(batch.connection ? { connection: batch.connection } : {}),
+      ...(batch.refs ? { refs: batch.refs } : {}),
+      payload: Y.mergeUpdates(batch.updates)
+    }, this.historyHead.hash)
+    this.historyHead = { seq: entry.seq, hash: entry.hash }
+    await this.storage.appendHistory(this.namespace, this.id, [entry])
+  }
+
   /** Keeps a version of the content at a log position, and tells everyone */
   private async addVersion(what: Pick<VersionInfo, 'kind' | 'by' | 'label'>, seq: number, state: Uint8Array): Promise<VersionInfo> {
+    // A version cuts the history: what comes after it is another entry
+    await this.flushHistory()
     const version: VersionInfo = { id: randomUUID(), seq, at: Date.now(), ...what }
     await this.storage.addVersion(this.namespace, this.id, version, state)
     this.versions.push(version)
@@ -755,7 +850,9 @@ export class DocumentOwner {
         by: personOf(actor.principal),
         label: `Before restoring ${version.label ?? 'a version'}`
       }, this.seq, Y.encodeStateAsUpdate(this.doc))
-      const log = judgement.layer ? await this.commit(actor, judgement.layer, update) : this.seq
+      const log = judgement.layer
+        ? await this.commit(actor, judgement.layer, update, undefined, 'restore', { restored: version.id, backup: backup.id })
+        : this.seq
       await this.retryHeld()
       this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: true, value: { log, backup } })
     })
@@ -783,6 +880,7 @@ export class DocumentOwner {
   async unload(): Promise<void> {
     await this.serial(async () => {
       clearTimeout(this.projecting)
+      await this.flushHistory()
       await this.checkpoint()
       await this.storage.unloaded?.(this.namespace, this.id, Y.encodeStateAsUpdate(this.doc), this.json(), this.type.name, this.comments())
       this.awareness.destroy()

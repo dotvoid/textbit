@@ -2,6 +2,7 @@ import type * as Y from '@y/y'
 import type { IncomingMessage } from 'node:http'
 import type { Capabilities, DocumentRecord, Layer, Limits, Person, Principal, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
 import type { CommentThread, Path, TypeDefinition } from '@dotvoid/y-quorum-client/model'
+import type { HistoryEntry } from './history'
 
 /** Who made a change: the principal, and whom it acted for */
 export interface Actor {
@@ -85,6 +86,8 @@ export interface StoredDocument {
   records: DocumentRecord[]
   /** For a type with history: its versions, oldest first, without their content */
   versions?: VersionInfo[]
+  /** For a type with history: the last entry of its history, which the next one follows */
+  historyHead?: { seq: number, hash: string }
 }
 
 /**
@@ -103,6 +106,10 @@ export interface Storage {
   log(namespace: string, id: string, from?: number): Promise<LogEntry[]>
   /** Keeps a version: what it is, and the content's state at it */
   addVersion(namespace: string, id: string, version: VersionInfo, state: Uint8Array): Promise<void>
+  /** Adds entries to a document's history, in order */
+  appendHistory(namespace: string, id: string, entries: HistoryEntry[]): Promise<void>
+  /** A document's history, after an entry on */
+  history(namespace: string, id: string, from?: number): Promise<HistoryEntry[]>
   /** The content's state at a version */
   versionState(namespace: string, id: string, versionId: string): Promise<Uint8Array | undefined>
   /** Claims a Y.js client id for a principal; false when another principal holds it */
@@ -171,6 +178,11 @@ export interface QuorumServer {
   read(namespace: string, id: string): Promise<Record<string, unknown> | undefined>
   /** A document's comment threads, oldest first */
   comments(namespace: string, id: string): Promise<CommentThread[] | undefined>
+  /**
+   * A document's history as JSON Lines, every entry chained to the one before:
+   * check it with `verifyHistory`
+   */
+  exportHistory(namespace: string, id: string): Promise<string>
   /** Appends a record from code in this process */
   appendRecord(namespace: string, id: string, actor: Actor, kind: string, data: unknown): Promise<DocumentRecord>
   /** Sends a host's message to every client that has the document open */

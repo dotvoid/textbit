@@ -29,6 +29,7 @@ import {
 import { DocumentOwner, type Opening, type Peer } from './document'
 import type { Actor, Authenticated, QuorumServer, ServerOptions, ServerType, StoredDocument } from './types'
 import type { HostStore } from './storage/host'
+import { toJSONLine } from './history'
 
 const DEFAULT_LIMITS: Limits = { open: 500, watch: 2000, frame: 4 * 1024 * 1024 }
 
@@ -187,6 +188,7 @@ export function createServer(options: ServerOptions): QuorumServer {
 
   function connect(socket: WebSocket, request?: IncomingMessage) {
     const connection: Connection = {
+      id: randomUUID(),
       socket,
       request,
       principal: { kind: 'person', id: '', name: '' },
@@ -466,6 +468,12 @@ export function createServer(options: ServerOptions): QuorumServer {
       const json = owner.json()
       changed(owner)
       return json
+    },
+    exportHistory: async (namespace, id) => {
+      // What is being folded goes into the chain first
+      const loaded = await owners.get(keyOf(namespace, id))
+      await loaded?.flushHistoryNow()
+      return (await options.storage.history(namespace, id)).map(toJSONLine).join('\n')
     },
     comments: async (namespace, id) => {
       const owner = await ownerOf(namespace, id)

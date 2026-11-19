@@ -1,6 +1,7 @@
 import { DatabaseSync } from 'node:sqlite'
 import type { DocumentRecord, Layer, Person, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
 import type { Actor, Checkpoint, LogEntry, Storage } from '../types'
+import type { HistoryEntry } from '../history'
 
 /**
  * Storage in one SQLite file, through Node's built-in `node:sqlite`: the
@@ -35,6 +36,11 @@ export function sqlite(file: string): Storage {
       info TEXT NOT NULL, state BLOB NOT NULL,
       PRIMARY KEY (namespace, id, version_id)
     );
+    CREATE TABLE IF NOT EXISTS history (
+      namespace TEXT NOT NULL, id TEXT NOT NULL, seq INTEGER NOT NULL,
+      entry TEXT NOT NULL, payload BLOB, hash TEXT NOT NULL,
+      PRIMARY KEY (namespace, id, seq)
+    );
     CREATE TABLE IF NOT EXISTS claims (
       namespace TEXT NOT NULL, id TEXT NOT NULL, client INTEGER NOT NULL, principal TEXT NOT NULL,
       PRIMARY KEY (namespace, id, client)
@@ -51,6 +57,9 @@ export function sqlite(file: string): Storage {
   const insertEntry = db.prepare('INSERT INTO log VALUES (?, ?, ?, ?, ?, ?, ?)')
   const updateCheckpoint = db.prepare('UPDATE documents SET checkpoint = ?, checkpoint_seq = ? WHERE namespace = ? AND id = ?')
   const insertRecord = db.prepare('INSERT INTO records VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+  const insertHistory = db.prepare('INSERT INTO history VALUES (?, ?, ?, ?, ?, ?)')
+  const loadHistory = db.prepare('SELECT entry, payload FROM history WHERE namespace = ? AND id = ? AND seq > ? ORDER BY seq')
+  const loadHistoryHead = db.prepare('SELECT seq, hash FROM history WHERE namespace = ? AND id = ? ORDER BY seq DESC LIMIT 1')
   const insertVersion = db.prepare('INSERT INTO versions VALUES (?, ?, ?, ?, ?, ?)')
   const loadVersions = db.prepare('SELECT info FROM versions WHERE namespace = ? AND id = ? ORDER BY seq, rowid')
   const loadVersionState = db.prepare('SELECT state FROM versions WHERE namespace = ? AND id = ? AND version_id = ?')
@@ -124,9 +133,11 @@ export function sqlite(file: string): Storage {
       }))
       const versions = (loadVersions.all(namespace, id) as Array<{ info: string }>)
         .map((version) => JSON.parse(version.info) as VersionInfo)
+      const head = loadHistoryHead.get(namespace, id) as { seq: number, hash: string } | undefined
       return {
         meta: { type: row.type, incarnation: row.incarnation, createdAt: row.created_at },
         versions,
+        ...(head ? { historyHead: { seq: head.seq, hash: head.hash } } : {}),
         checkpoint: { ...checkpoint, seq: row.checkpoint_seq },
         entries,
         records
@@ -160,6 +171,19 @@ export function sqlite(file: string): Storage {
           actor: JSON.parse(entry.actor) as Actor,
           update: new Uint8Array(entry.update_)
         })),
+    appendHistory: async (namespace, id, entries) => {
+      transaction(() => {
+        for (const entry of entries) {
+          const { payload, ...rest } = entry
+          insertHistory.run(namespace, id, entry.seq, JSON.stringify(rest), payload ?? null, entry.hash)
+        }
+      })
+    },
+    history: async (namespace, id, from = 0) =>
+      (loadHistory.all(namespace, id, from) as Array<{ entry: string, payload: Uint8Array | null }>).map((row): HistoryEntry => ({
+        ...(JSON.parse(row.entry) as Omit<HistoryEntry, 'payload'>),
+        ...(row.payload ? { payload: new Uint8Array(row.payload) } : {})
+      })),
     addVersion: async (namespace, id, version, state) => {
       insertVersion.run(namespace, id, version.id, version.seq, JSON.stringify(version), state)
     },
@@ -182,7 +206,7 @@ export function sqlite(file: string): Storage {
       return true
     },
     delete: async (namespace, id) => {
-      for (const table of ['documents', 'layer_checkpoints', 'log', 'records', 'versions', 'claims']) {
+      for (const table of ['documents', 'layer_checkpoints', 'log', 'records', 'versions', 'history', 'claims']) {
         if (id !== undefined) {
           db.prepare(`DELETE FROM ${table} WHERE namespace = ? AND id = ?`).run(namespace, id)
         } else {
