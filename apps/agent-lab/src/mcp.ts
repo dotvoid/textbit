@@ -6,15 +6,28 @@
 // It joins the document server (npm run lab) as a peer of its own, like a
 // person's browser, with a presence the editors show. stdout is the MCP
 // channel: everything else goes to stderr.
-import { Server } from '@modelcontextprotocol/sdk/server/index.js'
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import {
+  McpServer,
+  fromJsonSchema,
+  type CallToolResult,
+  type JsonSchemaType,
+  type JsonSchemaValidator,
+  type RegisteredTool,
+  type jsonSchemaValidator
+} from '@modelcontextprotocol/server'
+import { serveStdio } from '@modelcontextprotocol/server/stdio'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 import { YjsEditor } from '@slate-yjs/core'
 import type { Editor } from 'slate'
 import { createTextbitEditor } from '@dotvoid/textbit/headless'
-import { createAgentPresence, createAgentTools, createDocumentAgent, type AgentRun } from '@dotvoid/textbit-agent'
+import {
+  createAgentPresence,
+  createAgentTools,
+  createDocumentAgent,
+  type AgentRun,
+  type AgentTool
+} from '@dotvoid/textbit-agent'
 import { plugins } from './plugins.ts'
 
 const URL = process.env.LAB_URL ?? 'ws://localhost:1234'
@@ -91,8 +104,8 @@ commands.observe((event) => {
   if (event.keysChanged.has('review')) {
     agent.context.options.review = review()
     tools = createAgentTools(agent)
+    registerTools()
     log(`the agent now ${review() === 'suggest' ? 'suggests' : 'edits'}`)
-    server.sendToolListChanged().catch(() => {})
   }
   if (!event.keysChanged.has('undo') || event.transaction.local) {
     return
@@ -108,40 +121,78 @@ commands.observe((event) => {
   lastRun = undefined
 })
 
-const server = new Server(
-  { name: 'textbit-lab', version: '0.0.0' },
-  {
-    capabilities: { tools: { listChanged: true } },
-    instructions: `A shared document people are editing at the same time, in a browser. Read it first, plan small, targeted edits, pass the revision of your read, and keep to what you were asked. Use ${tools.map((t) => t.name).join(', ')}.`
+// The tools check their own input and explain what is wrong in terms the model
+// can act on, so the SDK passes input through rather than refusing it first
+const passThrough: jsonSchemaValidator = {
+  getValidator<T>(): JsonSchemaValidator<T> {
+    return (input) => ({ valid: true, data: input as T, errorMessage: undefined })
   }
-)
+}
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: tools.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    inputSchema: tool.inputSchema as { type: 'object' }
-  }))
-}))
-
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const tool = tools.find((t) => t.name === request.params.name)
-  if (!tool) {
-    return { isError: true, content: [{ type: 'text' as const, text: `No tool ${request.params.name}` }] }
-  }
+function call(tool: AgentTool, input: Record<string, unknown>): CallToolResult {
   touchRun()
   try {
-    const result = tool.handler(request.params.arguments ?? {})
+    const result = tool.handler(input)
     const failed = typeof result === 'object' && result !== null && 'ok' in result && result.ok === false
-    log(request.params.name, failed ? 'failed' : 'ok')
-    return { isError: failed, content: [{ type: 'text' as const, text: tool.toText(result) }] }
+    log(tool.name, failed ? 'failed' : 'ok')
+    return { isError: failed, content: [{ type: 'text', text: tool.toText(result) }] }
   } catch (error) {
-    log(request.params.name, 'threw', error)
-    return { isError: true, content: [{ type: 'text' as const, text: String(error) }] }
+    log(tool.name, 'threw', error)
+    return { isError: true, content: [{ type: 'text', text: String(error) }] }
   }
-})
+}
 
-await server.connect(new StdioServerTransport())
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+let server: McpServer | undefined
+const registered = new Map<string, RegisteredTool>()
+
+// Registers the current tools, or updates those the review mode changed; the
+// SDK tells the client the list changed
+function registerTools() {
+  if (!server) {
+    return
+  }
+  for (const [name, entry] of registered) {
+    if (!tools.some((tool) => tool.name === name)) {
+      entry.remove()
+      registered.delete(name)
+    }
+  }
+  for (const tool of tools) {
+    const existing = registered.get(tool.name)
+    if (existing) {
+      if (existing.description !== tool.description) {
+        existing.update({ description: tool.description })
+      }
+      continue
+    }
+    // Calls the tool as it is now: the review mode replaces the descriptors
+    const callback = (input: unknown) => {
+      const current = tools.find((t) => t.name === tool.name) ?? tool
+      return call(current, isRecord(input) ? input : {})
+    }
+    registered.set(tool.name, server.registerTool(tool.name, {
+      description: tool.description,
+      inputSchema: fromJsonSchema<Record<string, unknown>>(tool.inputSchema as JsonSchemaType, passThrough)
+    }, callback))
+  }
+}
+
+serveStdio(() => {
+  server = new McpServer(
+    { name: 'textbit-lab', version: '0.0.0' },
+    {
+      capabilities: { tools: { listChanged: true } },
+      instructions: `A shared document people are editing at the same time, in a browser. Read it first, plan small, targeted edits, pass the revision of your read, and keep to what you were asked. Use ${tools.map((t) => t.name).join(', ')}.`
+    }
+  )
+  registered.clear()
+  registerTools()
+  return server
+})
 log('MCP server ready')
 
 const quit = () => {

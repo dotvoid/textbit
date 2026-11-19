@@ -19,14 +19,19 @@ them. How the joining works is explained in [Agents on a server](./agents-server
 
 ```bash
 npm install @dotvoid/textbit @dotvoid/textbit-plugins @dotvoid/textbit-agent \
-  @modelcontextprotocol/sdk @hocuspocus/provider @slate-yjs/core slate yjs
+  @modelcontextprotocol/server @hocuspocus/provider @slate-yjs/core slate yjs
 ```
 
 ```ts
 // agent-server.ts
-import { Server } from '@modelcontextprotocol/sdk/server/index.js'
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
-import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js'
+import {
+  McpServer,
+  fromJsonSchema,
+  type JsonSchemaType,
+  type JsonSchemaValidator,
+  type jsonSchemaValidator
+} from '@modelcontextprotocol/server'
+import { serveStdio } from '@modelcontextprotocol/server/stdio'
 import { HocuspocusProvider } from '@hocuspocus/provider'
 import * as Y from 'yjs'
 import { YjsEditor } from '@slate-yjs/core'
@@ -59,34 +64,35 @@ const presence = createAgentPresence(provider.awareness!, { name: 'Writing assis
 const agent = createDocumentAgent(editor, { plugins, presence })
 const tools = createAgentTools(agent)
 
-const server = new Server(
-  { name: 'textbit-document', version: '1.0.0' },
-  {
-    capabilities: { tools: {} },
-    instructions: 'A shared document people are editing at the same time. Read it first, make small, targeted edits, and pass the revision of your read.'
+// The tools check their own input and explain mistakes in terms a model can act
+// on, so the SDK passes the input through rather than refusing it first
+const passThrough: jsonSchemaValidator = {
+  getValidator<T>(): JsonSchemaValidator<T> {
+    return (input) => ({ valid: true, data: input as T, errorMessage: undefined })
   }
-)
+}
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: tools.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    inputSchema: tool.inputSchema as { type: 'object' }
-  }))
-}))
-
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const tool = tools.find((t) => t.name === request.params.name)
-  if (!tool) {
-    return { isError: true, content: [{ type: 'text' as const, text: `No tool ${request.params.name}` }] }
+serveStdio(() => {
+  const server = new McpServer(
+    { name: 'textbit-document', version: '1.0.0' },
+    {
+      capabilities: { tools: {} },
+      instructions: 'A shared document people are editing at the same time. Read it first, make small, targeted edits, and pass the revision of your read.'
+    }
+  )
+  for (const tool of tools) {
+    server.registerTool(tool.name, {
+      description: tool.description,
+      inputSchema: fromJsonSchema<Record<string, unknown>>(tool.inputSchema as JsonSchemaType, passThrough)
+    }, (input) => {
+      const result = tool.handler(input)
+      const failed = typeof result === 'object' && result !== null && 'ok' in result && result.ok === false
+      log(tool.name, failed ? 'failed' : 'ok')
+      return { isError: failed, content: [{ type: 'text', text: tool.toText(result) }] }
+    })
   }
-  const result = tool.handler(request.params.arguments ?? {})
-  const failed = typeof result === 'object' && result !== null && 'ok' in result && result.ok === false
-  log(request.params.name, failed ? 'failed' : 'ok')
-  return { isError: failed, content: [{ type: 'text' as const, text: tool.toText(result) }] }
+  return server
 })
-
-await server.connect(new StdioServerTransport())
 log('ready')
 
 const quit = () => {
@@ -104,16 +110,22 @@ Notes:
 - **Results as text.** `toText` writes the document's lines as they are, rather than escaped
   inside JSON, which models read far better. Failed edits are returned with `isError`, so the
   model sees them as errors and can correct itself.
-- **The low-level `Server`.** The SDK's higher-level server takes input schemas in another
-  form. The tools already have JSON Schema, which the low-level server passes on as it is.
+- **SDK v2.** The example uses version 2 of the MCP TypeScript SDK (`@modelcontextprotocol/server`),
+  which implements the 2026-07-28 revision of the protocol; `serveStdio` also serves clients
+  that still speak the 2025 revisions. `fromJsonSchema` hands the tools' JSON Schema to the
+  SDK as it is.
+- **The tools validate their own input.** The pass-through validator lets a malformed call
+  reach the tool, whose error says what is wrong and what would be right. The SDK's own
+  validation would answer with a generic schema error instead.
 - **Runs.** This server makes no runs. To let people undo an agent's task as one, start a run
   when a task begins and finish it when it ends; see [Runs](./agents-server.md#runs). An MCP
   server does not know where a task ends, so a pause between tool calls is a practical end,
   as the agent lab in this repository does.
 - **Suggesting.** Pass `review: 'suggest'` to `createDocumentAgent` to make every edit a
-  suggestion. If the option changes while the server runs, rebuild the tools, declare
-  `capabilities: { tools: { listChanged: true } }` and call `server.sendToolListChanged()`, so
-  clients fetch the new edit tool description.
+  suggestion. If the option changes while the server runs, rebuild the tools and update the
+  edit tool's description with `update({ description })` on what `registerTool` returned.
+  Declare `capabilities: { tools: { listChanged: true } }`: the SDK then tells clients to fetch
+  the new description. The agent lab's `apps/agent-lab/src/mcp.ts` does this.
 
 ### Connecting a client
 
