@@ -1,8 +1,9 @@
+import { useMemo } from 'react'
 import { Editor, Element, Node, Transforms } from 'slate'
 import { ReactEditor, useSlateStatic } from 'slate-react'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
 import { useTextbit } from '../../hooks/useTextbit'
-import { convertUnregistered } from '../../utils/clipboard'
+import { convertUnregistered, isTextContent } from '../../utils/clipboard'
 import type { ComponentProps } from '../../types'
 
 /**
@@ -18,12 +19,18 @@ export function UnknownContent({ element, children }: ComponentProps) {
   const topLevel = editor.children.includes(element)
   const texts = textsOf(element)
 
+  // What converting gives, and so whether to offer it: text in a void, for
+  // one, is dropped
+  const paragraphs = useMemo(
+    () => convertUnregistered([element], new Set(components.keys()), null),
+    [element, components]
+  )
+
   const replace = (convert: boolean) => {
     const at = ReactEditor.findPath(editor, element)
-    const paragraphs = convert ? convertUnregistered([element], new Set(components.keys()), null) : []
     Editor.withoutNormalizing(editor, () => {
       Transforms.removeNodes(editor, { at })
-      if (paragraphs.length) {
+      if (convert && paragraphs.length) {
         Transforms.insertNodes(editor, paragraphs, { at })
       }
     })
@@ -36,7 +43,7 @@ export function UnknownContent({ element, children }: ComponentProps) {
 
       {topLevel && !readOnly && (
         <div data-tb='unknown-actions'>
-          {texts.length > 0 && (
+          {paragraphs.length > 0 && (
             <button type='button' data-tb='unknown-action' onMouseDown={(e) => e.preventDefault()} onClick={() => replace(true)}>
               {labels.unknownToText}
             </button>
@@ -60,7 +67,7 @@ function textsOf(element: Element): string[] {
       if (!Element.isElement(child)) {
         continue
       }
-      if (child.class === 'text') {
+      if (child.class === 'text' && child.children.every(isTextContent)) {
         const text = Node.string(child)
         if (text) {
           texts.push(text)
