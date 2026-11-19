@@ -1,8 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { Editor, type Descendant } from 'slate'
-import * as Y from 'yjs'
-import { YjsEditor, relativePositionToSlatePoint, slateNodesToInsertDelta } from '@slate-yjs/core'
-import { createTextbitEditor, AGENT_PRESENCE_FIELD, type TBAgentChange as AgentChange, type TBAgentPresence as AgentPresenceState } from '@dotvoid/textbit/headless'
+import * as Y from '@y/y'
+import { createTextbitEditor, AGENT_PRESENCE_FIELD, type TBAgentChange as AgentChange, type TBAgentPresence as AgentPresenceState, seedField, relativePositionToPoint } from '@dotvoid/textbit/headless'
 import { Text, Bold } from '@dotvoid/textbit-plugins/definitions'
 import { createDocumentAgent, createAgentPresence } from '../lib'
 
@@ -10,19 +9,18 @@ const PLUGINS = [Text(), Bold()]
 
 function setup() {
   const base = new Y.Doc()
-  base.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta([
+  seedField(base.get('content'), [
     { id: '11111111-a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'Spelling: teh mistake and ' }, { text: 'alot', 'base/bold': true }, { text: ' more.' }] },
     { id: '22222222-b', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'Untouched' }] }
-  ] as Descendant[]))
+  ] as Descendant[])
   const agentDoc = new Y.Doc()
   const personDoc = new Y.Doc()
   Y.applyUpdate(agentDoc, Y.encodeStateAsUpdate(base))
   Y.applyUpdate(personDoc, Y.encodeStateAsUpdate(base))
 
   const connect = (doc: Y.Doc) => {
-    const editor = createTextbitEditor({ plugins: PLUGINS, shared: doc.get('content', Y.XmlText) })
-    YjsEditor.connect(editor as YjsEditor & Editor)
-    return editor as YjsEditor & Editor
+    const editor = createTextbitEditor({ plugins: PLUGINS, shared: doc.get('content') })
+    return editor
   }
   const server = connect(agentDoc)
   const person = connect(personDoc)
@@ -42,8 +40,8 @@ function setup() {
 }
 
 /** Where a change is in a peer's copy */
-function textAt(editor: YjsEditor & Editor, change: AgentChange): string {
-  const point = (bytes: number[]) => relativePositionToSlatePoint(editor.sharedRoot, editor, Y.decodeRelativePosition(Uint8Array.from(bytes)))!
+function textAt(editor: Editor, change: AgentChange): string {
+  const point = (bytes: number[]) => relativePositionToPoint(editor, Y.decodeRelativePosition(Uint8Array.from(bytes)))!
   return Editor.string(editor, { anchor: point(change.from), focus: point(change.to) })
 }
 

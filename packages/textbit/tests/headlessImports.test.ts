@@ -9,7 +9,7 @@ import { dirname, resolve } from 'node:path'
  * imports a React package.
  */
 
-const REACT = /^(react|react-dom|slate-react|@slate-yjs\/react)(\/|$)/
+const REACT = /^(react|react-dom|slate-react)(\/|$)/
 // Type-only imports are followed too: they load nothing, but a component file
 // among them makes a type check of the headless source need JSX
 const IMPORT = /^\s*(import|export)\s+(type\s)?[^'"]*?from\s+['"]([^'"]+)['"]|^\s*import\s+['"]([^'"]+)['"]/gm
@@ -24,7 +24,7 @@ function resolveModule(from: string, specifier: string): string | null {
   return null
 }
 
-function reactImports(entry: string): string[] {
+function walk(entry: string): { seen: Set<string>, offenders: string[] } {
   const seen = new Set<string>()
   const offenders: string[] = []
   const queue = [entry]
@@ -55,11 +55,28 @@ function reactImports(entry: string): string[] {
     }
   }
 
-  return offenders.map((o) => o.replace(`${resolve(__dirname, '..')}/`, ''))
+  return { seen, offenders }
+}
+
+const relative = (file: string) => file.replace(`${resolve(__dirname, '..')}/`, '')
+
+function reactImports(entry: string): string[] {
+  return walk(entry).offenders.map(relative)
+}
+
+function reachable(entry: string): string[] {
+  return [...walk(entry).seen].map(relative)
 }
 
 describe('the headless entry', () => {
   test('imports nothing that needs React', () => {
     expect(reactImports(resolve(__dirname, '../lib/headless.ts'))).toEqual([])
+  })
+
+  test('the walk reaches the shared document binding', () => {
+    const reached = reachable(resolve(__dirname, '../lib/headless.ts'))
+    for (const module of ['index', 'binding', 'model', 'positions', 'cursors']) {
+      expect(reached).toContain(`lib/yjs/${module}.ts`)
+    }
   })
 })

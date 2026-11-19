@@ -5,7 +5,7 @@ import { getDecorationRanges } from '../../utils/getDecorationRanges'
 import { useAgentChanges } from '../../hooks/useAgentChanges'
 import { useSuggestionPlacement } from '../../hooks/useSuggestions'
 import { AgentAnnouncer } from './AgentAnnouncer'
-import { YjsEditor } from '@slate-yjs/core'
+import { sharedOf } from '../../yjs/binding'
 import { ElementComponent } from '../Element/Element'
 import { LeafElement } from '../Element/LeafElement'
 import { usePluginRegistry } from '../../hooks/usePluginRegistry'
@@ -621,7 +621,7 @@ export function TextbitEditable(props: TextbitEditableProps) {
                   aria-label={props['aria-label']}
                 />
                 {props.children}
-                {(YjsEditor.isYjsEditor(editor) || suggestionsOnBlock.size > 0) && <AgentAnnouncer />}
+                {(sharedOf(editor) !== undefined || suggestionsOnBlock.size > 0) && <AgentAnnouncer />}
               </PresenceOverlay>
             </PendingDropsProvider>
           </DragStateProvider>

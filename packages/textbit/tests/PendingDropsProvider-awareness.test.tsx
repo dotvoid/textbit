@@ -1,31 +1,52 @@
 import { describe, test, expect } from 'vitest'
 import { render, act } from '@testing-library/react'
-import { Editor, createEditor, type Descendant } from 'slate'
+import type { ReactNode } from 'react'
+import { Editor, createEditor, type Element } from 'slate'
 import { Slate, withReact } from 'slate-react'
-import * as Y from 'yjs'
-import { Awareness } from 'y-protocols/awareness'
-import { withYjs, withCursors, slateNodesToInsertDelta, slatePointToRelativePosition, YjsEditor } from '@slate-yjs/core'
+import * as Y from '@y/y'
+import { Awareness } from '@y/protocols/awareness'
+import { bindField, pointToRelativePosition, seedField } from '../lib/yjs'
 import { PendingDropsProvider } from '../lib/contexts/PendingDropsProvider'
+import { SharedAwarenessContext } from '../lib/contexts/SharedAwarenessContext'
 import { usePendingDrops } from '../lib/hooks/usePendingDrops'
 
-function seed(): Descendant[] {
+function seed(): Element[] {
   return [
-    { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'aaa' }] } as Descendant,
-    { id: 'b', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'bbb' }] } as Descendant,
-    { id: 'c', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'ccc' }] } as Descendant
+    { id: 'a', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'aaa' }] } as Element,
+    { id: 'b', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'bbb' }] } as Element,
+    { id: 'c', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'ccc' }] } as Element
   ]
 }
 
-function makeCollaborativeEditor(children: Descendant[], awareness: Awareness): Editor {
-  const doc = new Y.Doc()
-  const sharedType = doc.get('content', Y.XmlText) as Y.XmlText
-  sharedType.applyDelta(slateNodesToInsertDelta(children))
-  const editor = withCursors(
-    withYjs(withReact(createEditor()), sharedType, { autoConnect: false }),
-    awareness
-  )
-  YjsEditor.connect(editor as YjsEditor)
+function makeCollaborativeEditor(children: Element[]): Editor {
+  const field = new Y.Doc().get('body')
+  seedField(field, children)
+  const editor = withReact(createEditor())
+  bindField(editor, field)
   return editor
+}
+
+/** The editor and its provider, with the awareness SlateContainer would give them */
+function Shared({ editor, awareness, children }: {
+  editor: Editor
+  awareness: Awareness | null
+  children: ReactNode
+}) {
+  return (
+    <Slate editor={editor} initialValue={editor.children}>
+      <SharedAwarenessContext.Provider value={{ awareness }}>
+        <PendingDropsProvider editor={editor}>{children}</PendingDropsProvider>
+      </SharedAwarenessContext.Provider>
+    </Slate>
+  )
+}
+
+function startOf(editor: Editor, path: number[]): Y.RelativePosition {
+  const position = pointToRelativePosition(editor, Editor.start(editor, path))
+  if (!position) {
+    throw new Error(`no position at ${JSON.stringify(path)}`)
+  }
+  return position
 }
 
 function Reader({ onDrops }: { onDrops: (drops: ReturnType<typeof usePendingDrops>) => void }) {
@@ -42,8 +63,8 @@ async function tickMicrotasks() {
 describe('PendingDropsProvider — awareness broadcast (own → peers)', () => {
   test('mirrors local drops onto awareness.pendingDrops', async () => {
     const awareness = new Awareness(new Y.Doc())
-    const editor = makeCollaborativeEditor(seed(), awareness)
-    render(<Slate editor={editor} initialValue={editor.children}><PendingDropsProvider editor={editor}><span /></PendingDropsProvider></Slate>)
+    const editor = makeCollaborativeEditor(seed())
+    render(<Shared editor={editor} awareness={awareness}><span /></Shared>)
 
     await act(async () => {
       editor.pendingDrops!.start({ pathRef: Editor.pathRef(editor, [1]), kind: 'image' })
@@ -60,8 +81,8 @@ describe('PendingDropsProvider — awareness broadcast (own → peers)', () => {
 
   test('clears awareness.pendingDrops when the last local drop ends', async () => {
     const awareness = new Awareness(new Y.Doc())
-    const editor = makeCollaborativeEditor(seed(), awareness)
-    render(<Slate editor={editor} initialValue={editor.children}><PendingDropsProvider editor={editor}><span /></PendingDropsProvider></Slate>)
+    const editor = makeCollaborativeEditor(seed())
+    render(<Shared editor={editor} awareness={awareness}><span /></Shared>)
 
     let id = ''
     await act(async () => {
@@ -78,7 +99,7 @@ describe('PendingDropsProvider — awareness broadcast (own → peers)', () => {
   })
 
   test('does not broadcast when the editor is not collaborative', async () => {
-    // No CursorEditor → no awareness → no broadcast attempt.
+    // No awareness → no broadcast attempt.
     const editor = withReact(createEditor())
     editor.children = seed()
     render(<Slate editor={editor} initialValue={editor.children}><PendingDropsProvider editor={editor}><span /></PendingDropsProvider></Slate>)
@@ -92,8 +113,8 @@ describe('PendingDropsProvider — awareness broadcast (own → peers)', () => {
 
   test('clears our field on Provider unmount so peers see us vanish', async () => {
     const awareness = new Awareness(new Y.Doc())
-    const editor = makeCollaborativeEditor(seed(), awareness)
-    const { unmount } = render(<Slate editor={editor} initialValue={editor.children}><PendingDropsProvider editor={editor}><span /></PendingDropsProvider></Slate>)
+    const editor = makeCollaborativeEditor(seed())
+    const { unmount } = render(<Shared editor={editor} awareness={awareness}><span /></Shared>)
 
     await act(async () => {
       editor.pendingDrops!.start({ pathRef: Editor.pathRef(editor, [0]), kind: 'image' })
@@ -112,19 +133,18 @@ describe('PendingDropsProvider — awareness subscribe (peers → local)', () =>
     // message with a distinct clientID and inject it into B's awareness map
     // to simulate a state that just arrived over the network.
     const bAwareness = new Awareness(new Y.Doc())
-    const editorB = makeCollaborativeEditor(seed(), bAwareness)
+    const editorB = makeCollaborativeEditor(seed())
 
     let latest: ReturnType<typeof usePendingDrops> = []
     render(
-      <Slate editor={editorB} initialValue={editorB.children}><PendingDropsProvider editor={editorB}>
+      <Shared editor={editorB} awareness={bAwareness}>
         <Reader onDrops={(d) => { latest = d }} />
-      </PendingDropsProvider></Slate>
+      </Shared>
     )
 
-    // Encode a RelativePosition for [1] using B's own sharedRoot — the same
-    // content lives in both peers' shared roots in a real session.
-    const sharedRoot = (editorB as unknown as YjsEditor).sharedRoot
-    const relPos = slatePointToRelativePosition(sharedRoot, editorB, Editor.start(editorB, [1]))
+    // Encode a RelativePosition for [1] using B's own field — the same
+    // content lives in both peers' fields in a real session.
+    const relPos = startOf(editorB, [1])
     const fakePeerId = bAwareness.clientID + 1
 
     await act(async () => {
@@ -153,17 +173,16 @@ describe('PendingDropsProvider — awareness subscribe (peers → local)', () =>
 
   test('peer drop vanishes when their awareness state is removed', async () => {
     const bAwareness = new Awareness(new Y.Doc())
-    const editorB = makeCollaborativeEditor(seed(), bAwareness)
+    const editorB = makeCollaborativeEditor(seed())
 
     let latest: ReturnType<typeof usePendingDrops> = []
     render(
-      <Slate editor={editorB} initialValue={editorB.children}><PendingDropsProvider editor={editorB}>
+      <Shared editor={editorB} awareness={bAwareness}>
         <Reader onDrops={(d) => { latest = d }} />
-      </PendingDropsProvider></Slate>
+      </Shared>
     )
 
-    const sharedRoot = (editorB as unknown as YjsEditor).sharedRoot
-    const relPos = slatePointToRelativePosition(sharedRoot, editorB, Editor.start(editorB, [1]))
+    const relPos = startOf(editorB, [1])
     const fakePeerId = bAwareness.clientID + 1
 
     await act(async () => {
@@ -203,7 +222,7 @@ describe('PendingDropsProvider — awareness subscribe (peers → local)', () =>
     // with only cursor data updates and verifies the peer drop list doesn't
     // churn.
     const bAwareness = new Awareness(new Y.Doc())
-    const editorB = makeCollaborativeEditor(seed(), bAwareness)
+    const editorB = makeCollaborativeEditor(seed())
 
     let renderCount = 0
     function Counter() {
@@ -215,9 +234,9 @@ describe('PendingDropsProvider — awareness subscribe (peers → local)', () =>
     }
 
     render(
-      <Slate editor={editorB} initialValue={editorB.children}><PendingDropsProvider editor={editorB}>
+      <Shared editor={editorB} awareness={bAwareness}>
         <Counter />
-      </PendingDropsProvider></Slate>
+      </Shared>
     )
 
     const rendersBefore = renderCount

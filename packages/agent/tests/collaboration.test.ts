@@ -1,8 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { Editor, Node, Transforms, type Descendant } from 'slate'
-import * as Y from 'yjs'
-import { YjsEditor, slateNodesToInsertDelta, yTextToSlateElement } from '@slate-yjs/core'
-import { createTextbitEditor } from '@dotvoid/textbit/headless'
+import * as Y from '@y/y'
+import { createTextbitEditor, seedField, fieldToValue } from '@dotvoid/textbit/headless'
 import { Text, Bold, Image } from '@dotvoid/textbit-plugins/definitions'
 import { createDocumentAgent } from '../lib'
 import { parseElements } from '../lib/format'
@@ -14,8 +13,7 @@ const paragraph = (id: string, text: string) =>
   ({ id, type: 'base/text', class: 'text', properties: {}, children: [{ text }] }) as Descendant
 
 function peer(doc: Y.Doc) {
-  const editor = createTextbitEditor({ plugins: PLUGINS, shared: doc.get('content', Y.XmlText) })
-  YjsEditor.connect(editor as YjsEditor & Editor)
+  const editor = createTextbitEditor({ plugins: PLUGINS, shared: doc.get('content') })
   return editor
 }
 
@@ -27,10 +25,10 @@ function sync(a: Y.Doc, b: Y.Doc) {
 describe('an agent in a shared document', () => {
   test('edits while a person types elsewhere, and both copies agree', () => {
     const base = new Y.Doc()
-    base.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta([
+    seedField(base.get('content'), [
       paragraph('11111111-a', 'Written by a person'),
       paragraph('22222222-b', 'To be rewritten')
-    ]))
+    ])
     const personDoc = new Y.Doc()
     const agentDoc = new Y.Doc()
     sync(base, personDoc)
@@ -43,7 +41,6 @@ describe('an agent in a shared document', () => {
 
     // The person types in the first paragraph while the agent works on the second
     Transforms.insertText(person, ', still typing', { at: Editor.end(person, [0]) })
-    YjsEditor.flushLocalChanges(person as YjsEditor & Editor)
     sync(personDoc, agentDoc)
 
     const result = agent.edit({ revision, operations: [
@@ -51,10 +48,9 @@ describe('an agent in a shared document', () => {
       { op: 'insert', content: '[image src="https://example.com/a.png"]\n  [caption] Added by the agent' }
     ] })
     expect(result.ok).toBe(true)
-    YjsEditor.flushLocalChanges(server as YjsEditor & Editor)
     sync(agentDoc, personDoc)
 
-    const shared = (doc: Y.Doc) => yTextToSlateElement(doc.get('content', Y.XmlText)).children
+    const shared = (doc: Y.Doc) => fieldToValue(doc.get('content'))
     expect(shared(personDoc)).toEqual(shared(agentDoc))
     expect(person.children.map((n) => Node.string(n))).toEqual([
       'Written by a person, still typing',
@@ -65,7 +61,7 @@ describe('an agent in a shared document', () => {
 
   test('refuses when the person changed the element it was about to change', () => {
     const base = new Y.Doc()
-    base.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta([paragraph('33333333-c', 'Shared words')]))
+    seedField(base.get('content'), [paragraph('33333333-c', 'Shared words')])
     const personDoc = new Y.Doc()
     const agentDoc = new Y.Doc()
     sync(base, personDoc)
@@ -75,7 +71,6 @@ describe('an agent in a shared document', () => {
 
     const { revision } = agent.read()
     Transforms.insertText(person, ' and more', { at: Editor.end(person, [0]) })
-    YjsEditor.flushLocalChanges(person as YjsEditor & Editor)
     sync(personDoc, agentDoc)
 
     const result = agent.edit({ revision, operations: [{ op: 'replaceText', id: '33333333', find: 'Shared', replace: 'Common' }] })

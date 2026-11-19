@@ -245,6 +245,26 @@ export {
 
 // An editor without a user interface, to read, change or check documents
 export { createTextbitEditor, type TextbitEditorOptions as TBEditorOptions } from './editor/createTextbitEditor'
+
+// Shared documents: text fields of Y.js 14 documents
+export {
+  bindField,
+  sharedOf,
+  fieldToValue,
+  seedField,
+  SUGGESTED_MARK,
+  pointToRelativePosition,
+  relativePositionToPoint,
+  rangeToRelativePositions,
+  relativePositionsToRange,
+  withSharedCursor,
+  remoteCursors,
+  type TBBindOptions,
+  type TBSharedField,
+  type TBRenderer,
+  type TBCursorOptions,
+  type TBRemoteCursor
+} from './yjs'
 export { getSchema, type DocumentSchema as TBDocumentSchema, type ElementTypeSchema as TBElementTypeSchema } from './schema/getSchema'
 export { validate, type ValidationIssue as TBValidationIssue, type ValidationCode as TBValidationCode } from './schema/validate'
 export { toJsonSchema, type JsonSchema as TBJsonSchema } from './schema/toJsonSchema'

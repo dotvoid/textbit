@@ -1,6 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import type { Editor } from 'slate'
-import { CursorEditor } from '@slate-yjs/core'
+import { useSharedAwareness } from './SharedAwarenessContext'
 import { AgentPresenceContext, type PresentAgent } from './AgentPresenceContext'
 import { AGENT_PRESENCE_FIELD, type AgentPresenceState } from '../types/agentPresence'
 
@@ -8,14 +7,15 @@ import { AGENT_PRESENCE_FIELD, type AgentPresenceState } from '../types/agentPre
  * The agents in the shared document, from the other peers' awareness states.
  * Without collaboration there are none.
  */
-export function AgentPresenceProvider({ editor, children }: { editor: Editor, children: ReactNode }) {
+export function AgentPresenceProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<PresentAgent[]>([])
+  const { awareness } = useSharedAwareness()
 
   useEffect(() => {
-    if (!CursorEditor.isCursorEditor(editor)) {
+    if (!awareness) {
+      setAgents([])
       return
     }
-    const { awareness } = editor
 
     const update = () => {
       const present: PresentAgent[] = []
@@ -33,7 +33,7 @@ export function AgentPresenceProvider({ editor, children }: { editor: Editor, ch
     return () => {
       awareness.off('change', update)
     }
-  }, [editor])
+  }, [awareness])
 
   return <AgentPresenceContext.Provider value={agents}>{children}</AgentPresenceContext.Provider>
 }

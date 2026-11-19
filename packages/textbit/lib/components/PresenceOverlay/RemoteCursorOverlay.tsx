@@ -1,24 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { CSSProperties, PropsWithChildren } from 'react'
 
-import { useRemoteCursorOverlayPositions } from '@slate-yjs/react'
-import type { CursorOverlayData } from '@slate-yjs/react'
+import { useRemoteCursorPositions, type RemoteCursorPosition } from './useRemoteCursorPositions'
 
 
 interface CursorData {
-  [key: string]: string
-  color: string
-  initials: string
-  name: string
-  avatar: string
+  color?: string
+  name?: string
 }
 
-type CaretProps = Pick<CursorOverlayData<CursorData>, 'caretPosition' | 'data'>
+interface CaretProps {
+  caretPosition: NonNullable<RemoteCursorPosition['caret']>
+  data: CursorData
+}
 
 
 export function RemoteCursorOverlay({ children }: PropsWithChildren): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null) as React.RefObject<HTMLDivElement>
-  const [cursors] = useRemoteCursorOverlayPositions<CursorData>({ containerRef })
+  const cursors = useRemoteCursorPositions(containerRef)
 
   const overlayStyle: CSSProperties = {
     height: '100%',
@@ -29,17 +28,20 @@ export function RemoteCursorOverlay({ children }: PropsWithChildren): React.Reac
     <div style={overlayStyle} className='textbit-y-overlay' ref={containerRef}>
       {children}
       {cursors.map((cursor) => (
-        <RemoteSelection key={cursor.clientId} {...cursor} />
+        <RemoteSelection key={cursor.clientId} cursor={cursor} />
       ))}
     </div>
   )
 }
 
 
-function RemoteSelection({ data, selectionRects, caretPosition }: CursorOverlayData<CursorData>): React.ReactElement | null {
+function RemoteSelection({ cursor }: { cursor: RemoteCursorPosition }): React.ReactElement | null {
+  const data = cursor.data as CursorData | undefined
   if (!data) {
     return null
   }
+  const selectionRects = cursor.selection
+  const caretPosition = cursor.caret
 
   const selectionStyle: CSSProperties = {
     position: 'absolute',

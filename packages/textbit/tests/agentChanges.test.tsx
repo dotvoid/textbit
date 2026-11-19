@@ -1,9 +1,9 @@
 import { describe, test, expect, vi, afterEach } from 'vitest'
 import { render, act } from '@testing-library/react'
-import * as Y from 'yjs'
-import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from 'y-protocols/awareness'
-import { YjsEditor, slateNodesToInsertDelta, slatePointToRelativePosition } from '@slate-yjs/core'
-import { Editor, Transforms, type Descendant, type Point } from 'slate'
+import * as Y from '@y/y'
+import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from '@y/protocols/awareness'
+import { Transforms, type Element, type Point } from 'slate'
+import { pointToRelativePosition, seedField, sharedOf } from '../lib/yjs'
 import { TextbitRoot } from '../lib/components/TextbitRoot'
 import { TextbitEditable } from '../lib/components/TextbitEditable/TextbitEditable'
 import { createTextbitEditor } from '../lib/editor/createTextbitEditor'
@@ -12,20 +12,25 @@ import { AGENT_PRESENCE_FIELD, type AgentChange } from '../lib/types/agentPresen
 
 function shared() {
   const doc = new Y.Doc()
-  const content = doc.get('content', Y.XmlText)
-  content.applyDelta(slateNodesToInsertDelta([
+  const content = doc.get('body')
+  seedField(content, [
     { id: 'p1', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'Spelling: the mistake.' }] }
-  ] as Descendant[]))
+  ] as Element[])
   return { doc, content }
 }
 
 /** A change as an agent publishes it, from a peer on the same document */
 function change(doc: Y.Doc, from: Point, to: Point, added: string, removed: string): AgentChange {
-  const peer = createTextbitEditor({ shared: doc.get('content', Y.XmlText) }) as YjsEditor & Editor
-  YjsEditor.connect(peer)
-  const encode = (point: Point) => Array.from(Y.encodeRelativePosition(slatePointToRelativePosition(peer.sharedRoot, peer, point)))
+  const peer = createTextbitEditor({ shared: doc.get('body') })
+  const encode = (point: Point) => {
+    const position = pointToRelativePosition(peer, point)
+    if (!position) {
+      throw new Error(`no position at ${JSON.stringify(point)}`)
+    }
+    return Array.from(Y.encodeRelativePosition(position))
+  }
   const result = { id: crypto.randomUUID(), block: 'p1', from: encode(from), to: encode(to), added, removed }
-  YjsEditor.disconnect(peer)
+  sharedOf(peer)?.release()
   return result
 }
 
@@ -102,10 +107,9 @@ describe('what an agent changed, in the text', () => {
 
     // Another person changes the word
     await act(async () => {
-      const other = createTextbitEditor({ shared: doc.get('content', Y.XmlText) }) as YjsEditor & Editor
-      YjsEditor.connect(other)
+      const other = createTextbitEditor({ shared: doc.get('body') })
       Transforms.insertText(other, 'ir', { at: { path: [0, 0], offset: 13 } })
-      YjsEditor.flushLocalChanges(other)
+      sharedOf(other)?.release()
     })
     await settle()
     expect(container.querySelector('.tb-agent-change')).toBeNull()

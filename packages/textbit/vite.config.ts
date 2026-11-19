@@ -8,7 +8,7 @@ import dts from 'vite-plugin-dts'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // Everything the package depends on is left for the host to install, never
-// copied into dist: a bundled copy of a peer like @slate-yjs/core would sit
+// copied into dist: a bundled copy of a peer like @y/y would sit
 // next to the host's own and the two would not know about each other.
 const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
 const packages = Object.keys({ ...pkg.dependencies, ...pkg.peerDependencies })
@@ -32,9 +32,9 @@ export default defineConfig({
       'slate',
       'slate-react',
       'slate-history',
-      '@slate-yjs/core',
-      '@slate-yjs/react',
-      'yjs'
+      '@y/y',
+      '@y/protocols',
+      'lib0'
     ]
   },
   publicDir: false,

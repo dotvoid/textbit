@@ -1,8 +1,7 @@
 import { describe, test, expect } from 'vitest'
-import { Editor, Node, type Descendant } from 'slate'
-import * as Y from 'yjs'
-import { YjsEditor, slateNodesToInsertDelta } from '@slate-yjs/core'
-import { createTextbitEditor, suggestionStore, acceptSuggestedBlock } from '@dotvoid/textbit/headless'
+import { Node, type Descendant } from 'slate'
+import * as Y from '@y/y'
+import { createTextbitEditor, suggestionStore, acceptSuggestedBlock, seedField } from '@dotvoid/textbit/headless'
 import { Text, Bold } from '@dotvoid/textbit-plugins/definitions'
 import { createDocumentAgent, createAgentTools } from '../lib'
 
@@ -52,13 +51,11 @@ describe('an agent that suggests', () => {
 
   test('in a shared document, a person elsewhere accepts it', () => {
     const doc = new Y.Doc()
-    doc.get('content', Y.XmlText).applyDelta(slateNodesToInsertDelta([paragraph('aaaaaaaa-1', 'Spelling: teh mistake.')]))
+    seedField(doc.get('content'), [paragraph('aaaaaaaa-1', 'Spelling: teh mistake.')])
     const personDoc = new Y.Doc()
     Y.applyUpdate(personDoc, Y.encodeStateAsUpdate(doc))
-    const server = createTextbitEditor({ plugins: PLUGINS, shared: doc.get('content', Y.XmlText) })
-    const person = createTextbitEditor({ plugins: PLUGINS, shared: personDoc.get('content', Y.XmlText) })
-    YjsEditor.connect(server as YjsEditor & Editor)
-    YjsEditor.connect(person as YjsEditor & Editor)
+    const server = createTextbitEditor({ plugins: PLUGINS, shared: doc.get('content') })
+    const person = createTextbitEditor({ plugins: PLUGINS, shared: personDoc.get('content') })
 
     const agent = createDocumentAgent(server, { plugins: PLUGINS, review: 'suggest' })
     agent.edit({ operations: [{ op: 'replaceText', id: 'aaaaaa', find: 'teh', replace: 'the' }] })
@@ -66,7 +63,6 @@ describe('an agent that suggests', () => {
 
     const [suggestion] = suggestionStore(person).list()
     expect(acceptSuggestedBlock(person, suggestion.id, 'aaaaaaaa-1')).toEqual({ ok: true })
-    YjsEditor.flushLocalChanges(person as YjsEditor & Editor)
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(personDoc, Y.encodeStateVector(doc)))
     expect(Node.string(server.children[0])).toBe('Spelling: the mistake.')
     expect(suggestionStore(server).list()).toEqual([])

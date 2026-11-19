@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
-import { Transforms, createEditor, type Descendant, type Editor } from 'slate'
-import * as Y from 'yjs'
-import { YjsEditor, slateNodesToInsertDelta, withYjs, yTextToSlateElement } from '@slate-yjs/core'
+import { Transforms, createEditor, type Descendant, type Editor, type Element } from 'slate'
+import * as Y from '@y/y'
+import { bindField, fieldToValue, seedField } from '../lib/yjs'
 import { withUniqueIds } from '../lib/with/withUniqueIds'
 
 function makeEditor(initial: Descendant[]): Editor {
@@ -322,37 +322,40 @@ describe('withUniqueIds — remote changes', () => {
     return { id, type: 'base/text', class: 'text', properties: {}, children: [{ text }] } as Descendant
   }
 
-  test('keeps the ids of a remote insertion, so this copy matches the shared one', async () => {
-    const doc = new Y.Doc()
-    const root = doc.get('content', Y.XmlText)
-    root.applyDelta(slateNodesToInsertDelta([paragraph('dup', 'a')]))
+  /** An editor bound to a field, with withUniqueIds outside the binding as in createTextbitEditor */
+  function boundEditor(field: Y.Node): Editor {
+    const editor = createEditor()
+    bindField(editor, field)
+    return withUniqueIds(editor)
+  }
 
-    const editor = withUniqueIds(withYjs(createEditor(), root, { localOrigin: Symbol('local') }))
-    YjsEditor.connect(editor)
+  test('keeps the ids of a remote insertion, so this copy matches the shared one', () => {
+    const doc = new Y.Doc()
+    const field = doc.get('body')
+    seedField(field, [paragraph('dup', 'a')] as Element[])
+    const editor = boundEditor(field)
 
     // Another peer writes a block whose id collides
     const replica = new Y.Doc()
     Y.applyUpdate(replica, Y.encodeStateAsUpdate(doc))
-    const replicaRoot = replica.get('content', Y.XmlText)
-    replicaRoot.insertEmbed(1, slateNodesToInsertDelta([paragraph('dup', 'b')])[0].insert as Y.XmlText,
-      { id: 'dup', type: 'base/text', class: 'text', properties: {} })
+    const writer = createEditor()
+    bindField(writer, replica.get('body'))
+    writer.apply({ type: 'insert_node', path: [1], node: paragraph('dup', 'b') })
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(replica, Y.encodeStateVector(doc)))
-    await Promise.resolve()
 
-    const shared = yTextToSlateElement(root).children as { id?: string }[]
+    const shared = fieldToValue(field) as { id?: string }[]
+    expect(shared.map((n) => n.id)).toEqual(['dup', 'dup'])
     expect(editor.children.map((n) => (n as { id?: string }).id)).toEqual(shared.map((n) => n.id))
   })
 
   test('still rewrites a colliding id in a local insertion', () => {
-    const doc = new Y.Doc()
-    const root = doc.get('content', Y.XmlText)
-    root.applyDelta(slateNodesToInsertDelta([paragraph('dup', 'a')]))
-
-    const editor = withUniqueIds(withYjs(createEditor(), root, { localOrigin: Symbol('local') }))
-    YjsEditor.connect(editor)
+    const field = new Y.Doc().get('body')
+    seedField(field, [paragraph('dup', 'a')] as Element[])
+    const editor = boundEditor(field)
     Transforms.insertNodes(editor, paragraph('dup', 'b'), { at: [1] })
 
     const [first, second] = editor.children as { id?: string }[]
     expect(second.id).not.toBe(first.id)
+    expect((fieldToValue(field)[1] as { id?: string }).id).toBe(second.id)
   })
 })

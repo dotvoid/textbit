@@ -1,6 +1,6 @@
 import { Editor, Operation } from 'slate'
-import { YjsEditor } from '@slate-yjs/core'
-import * as Y from 'yjs'
+import * as Y from '@y/y'
+import { sharedOf } from '@dotvoid/textbit/headless'
 
 /**
  * Agents' edits as their own: in a shared document they reach Y.js under an
@@ -14,17 +14,12 @@ const AGENT_ORIGINS = new WeakMap<Editor, symbol>()
 
 /** The origin of agent edits on a shared editor, set up on first use */
 export function agentOrigin(editor: Editor): symbol | undefined {
-  if (!YjsEditor.isYjsEditor(editor)) {
+  if (!sharedOf(editor)) {
     return undefined
   }
   let origin = AGENT_ORIGINS.get(editor)
   if (!origin) {
     origin = Symbol('textbit-agent')
-    const own = origin
-    // Its own changes are local: written to Y.js, not applied back when they
-    // come round again
-    const isLocalOrigin = editor.isLocalOrigin
-    editor.isLocalOrigin = (value) => value === own || isLocalOrigin(value)
     AGENT_ORIGINS.set(editor, origin)
   }
   return origin
@@ -41,9 +36,10 @@ export function asAgent(editor: Editor, change: () => void, record?: (operation:
     }
   }
   try {
-    if (origin && YjsEditor.isYjsEditor(editor)) {
-      YjsEditor.withOrigin(editor, origin, change)
-      YjsEditor.flushLocalChanges(editor)
+    const shared = sharedOf(editor)
+    if (origin && shared) {
+      // The binding writes to Y.js as each operation is applied: nothing to flush
+      shared.withOrigin(origin, change)
     } else {
       change()
     }
@@ -82,8 +78,9 @@ export interface RunRecorder {
 
 export function startRun(editor: Editor, onEnd: () => void): { run: AgentRun, recorder: RunRecorder } {
   const origin = agentOrigin(editor)
-  const manager = origin && YjsEditor.isYjsEditor(editor)
-    ? new Y.UndoManager(editor.sharedRoot, { trackedOrigins: new Set([origin]), captureTimeout: Number.MAX_SAFE_INTEGER })
+  const shared = sharedOf(editor)
+  const manager = origin && shared
+    ? new Y.UndoManager(shared.field, { trackedOrigins: new Set([origin]), captureTimeout: Number.MAX_SAFE_INTEGER })
     : undefined
   const operations: Operation[] = []
   let edits = 0

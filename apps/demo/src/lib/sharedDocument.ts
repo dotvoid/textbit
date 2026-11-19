@@ -1,10 +1,10 @@
-import * as Y from 'yjs'
-import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from 'y-protocols/awareness'
-import { slateNodesToInsertDelta } from '@slate-yjs/core'
+import * as Y from '@y/y'
+import { Awareness, applyAwarenessUpdate, encodeAwarenessUpdate } from '@y/protocols/awareness'
+import { seedField } from '@dotvoid/textbit'
 import type { Descendant } from 'slate'
 
 export type Peer = {
-  value: Y.XmlText
+  value: Y.Node
   awareness: Awareness
 }
 
@@ -26,8 +26,8 @@ export function sharedDocument(content: Descendant[]): [Peer, Peer] {
   relay(awareness[0], awareness[1])
   relay(awareness[1], awareness[0])
 
-  const values = docs.map((doc) => doc.get('content', Y.XmlText))
-  values[0].applyDelta(slateNodesToInsertDelta(content))
+  const values = docs.map((doc) => doc.get('content'))
+  seedField(values[0], content)
 
   return [
     { value: values[0], awareness: awareness[0] },

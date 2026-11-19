@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { describe, test, expect } from 'vitest'
-import { Editor, Node, Transforms, type Descendant } from 'slate'
-import * as Y from 'yjs'
-import { YjsEditor, slateNodesToInsertDelta, yTextToSlateElement } from '@slate-yjs/core'
+import { Editor, Node, Transforms, type Descendant, type Element } from 'slate'
+import * as Y from '@y/y'
 import { createTextbitEditor } from '../lib/editor/createTextbitEditor'
+import { fieldToValue, seedField, sharedOf } from '../lib/yjs'
 
 function paragraph(id: string, text: string): Descendant {
   return { id, type: 'base/text', class: 'text', properties: {}, children: [{ text }] } as Descendant
@@ -37,17 +37,14 @@ describe('createTextbitEditor', () => {
   })
 
   test('collaborates through a shared document', () => {
-    const doc = new Y.Doc()
-    const shared = doc.get('content', Y.XmlText)
-    shared.applyDelta(slateNodesToInsertDelta([paragraph('a', 'Hello')]))
+    const shared = new Y.Doc().get('body')
+    seedField(shared, [paragraph('a', 'Hello')] as Element[])
 
     const editor = createTextbitEditor({ shared })
-    YjsEditor.connect(editor as YjsEditor & Editor)
     Transforms.insertText(editor, '!', { at: Editor.end(editor, [0]) })
     expect(Editor.string(editor, [0])).toBe('Hello!')
-    YjsEditor.flushLocalChanges(editor as YjsEditor & Editor)
 
-    expect(Node.string(yTextToSlateElement(shared))).toBe('Hello!')
-    YjsEditor.disconnect(editor as YjsEditor & Editor)
+    expect(Node.string(fieldToValue(shared)[0])).toBe('Hello!')
+    sharedOf(editor)?.release()
   })
 })
