@@ -1,5 +1,6 @@
 import type { DocumentRecord, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
 import type { Checkpoint, LogEntry, Storage, StoredMeta } from '../types'
+import type { HistoryEntry } from '../history'
 
 interface Kept {
   meta: StoredMeta
@@ -7,6 +8,7 @@ interface Kept {
   entries: LogEntry[]
   records: DocumentRecord[]
   versions: Array<{ version: VersionInfo, state: Uint8Array }>
+  history: HistoryEntry[]
   claims: Map<number, string>
 }
 
@@ -30,7 +32,8 @@ export function memory(): Storage {
         checkpoint: kept.checkpoint,
         entries: kept.entries.filter((entry) => entry.seq > kept.checkpoint.seq),
         records: [...kept.records],
-        versions: kept.versions.map(({ version }) => version)
+        versions: kept.versions.map(({ version }) => version),
+        ...(kept.history.length ? { historyHead: { seq: kept.history.at(-1)!.seq, hash: kept.history.at(-1)!.hash } } : {})
       }
     },
     create: async (namespace, id, meta, checkpoint) => {
@@ -38,7 +41,7 @@ export function memory(): Storage {
       if (documents.has(key)) {
         throw new Error(`y-quorum: ${namespace}/${id} exists`)
       }
-      documents.set(key, { meta, checkpoint: { ...checkpoint, seq: 0 }, entries: [], records: [], versions: [], claims: new Map() })
+      documents.set(key, { meta, checkpoint: { ...checkpoint, seq: 0 }, entries: [], records: [], versions: [], history: [], claims: new Map() })
     },
     append: async (namespace, id, entries) => {
       get(namespace, id).entries.push(...entries)
@@ -50,6 +53,10 @@ export function memory(): Storage {
       get(namespace, id).records.push(record)
     },
     log: async (namespace, id, from = 0) => get(namespace, id).entries.filter((entry) => entry.seq > from),
+    appendHistory: async (namespace, id, entries) => {
+      get(namespace, id).history.push(...entries)
+    },
+    history: async (namespace, id, from = 0) => get(namespace, id).history.filter((entry) => entry.seq > from),
     addVersion: async (namespace, id, version, state) => {
       get(namespace, id).versions.push({ version, state })
     },

@@ -36,6 +36,53 @@ export function attributionsOf(inserts: Y.IdSet, deletes: Y.IdSet, change: Attri
   return Y.createContentMapFromContentIds(Y.createContentIds(inserts, deletes), attributes('insert'), attributes('delete'))
 }
 
+/** Text agents wrote that is still there and no person has reviewed since, by agent, person and run */
+export interface Unreviewed {
+  /** The agent's key, e.g. `agent:copy` */
+  agent: string
+  /** The person it wrote for */
+  onBehalfOf?: string
+  run?: string
+  /** How much of it there is: characters, and one for each element */
+  length: number
+}
+
+/** The content agents inserted, all of it or one run's: what a person reviews */
+export function agentContent(attributions: Y.ContentMap, scope: { run?: string } = {}): Y.IdSet {
+  const value = (attrs: Array<Y.ContentAttribute<unknown>>, name: string) => attrs.find((attr) => attr.name === name)?.val
+  return Y.createIdSetFromIdMap(Y.filterIdMap(attributions.inserts, (attrs) =>
+    String(value(attrs, 'insert') ?? '').startsWith('agent:') &&
+    (scope.run === undefined || value(attrs, 'insert:run') === scope.run)))
+}
+
+/** What agents wrote that is still in the text and outside `reviewed`, oldest first */
+export function unreviewed(attributions: Y.ContentMap, reviewed: Y.IdSet): Unreviewed[] {
+  const open = Y.diffIdMap(Y.diffIdMap(attributions.inserts, attributions.deletes), reviewed)
+  const groups = new Map<string, Unreviewed>()
+  const first = new Map<string, number>()
+  open.forEach((range) => {
+    const value = (name: string) => range.attrs.find((attr) => attr.name === name)?.val
+    const agent = String(value('insert') ?? '')
+    if (!agent.startsWith('agent:')) {
+      return
+    }
+    const onBehalfOf = value('insert:onBehalfOf')
+    const run = value('insert:run')
+    const key = JSON.stringify([agent, onBehalfOf ?? null, run ?? null])
+    const group = groups.get(key) ?? {
+      agent,
+      ...(typeof onBehalfOf === 'string' ? { onBehalfOf } : {}),
+      ...(typeof run === 'string' ? { run } : {}),
+      length: 0
+    }
+    group.length += range.len
+    groups.set(key, group)
+    const at = Number(value('insertAt') ?? 0)
+    first.set(key, Math.min(first.get(key) ?? at, at))
+  })
+  return [...groups.entries()].sort(([a], [b]) => first.get(a)! - first.get(b)!).map(([, group]) => group)
+}
+
 /** No attributions */
 export function emptyAttributions(): Y.ContentMap {
   return Y.createContentMap()

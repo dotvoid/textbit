@@ -2,6 +2,7 @@ export { createServer } from './server'
 export { memory } from './storage/memory'
 export { sqlite } from './storage/sqlite'
 export { host, type HostDocument, type HostStore } from './storage/host'
+export { verifyHistory, GENESIS, type HistoryEntry, type HistoryKind, type Verification } from './history'
 export type {
   Actor,
   Authenticated,

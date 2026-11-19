@@ -29,6 +29,7 @@ import {
 import { DocumentOwner, type Opening, type Peer } from './document'
 import type { Actor, Authenticated, QuorumServer, ServerOptions, ServerType, StoredDocument } from './types'
 import type { HostStore } from './storage/host'
+import { toJSONLine } from './history'
 
 const DEFAULT_LIMITS: Limits = { open: 500, watch: 2000, frame: 4 * 1024 * 1024 }
 
@@ -136,6 +137,14 @@ export function createServer(options: ServerOptions): QuorumServer {
       states: { content: Y.encodeStateAsUpdate(doc), comments: Y.encodeStateAsUpdate(commentsDoc) },
       ...history
     })
+    // With history, the first version is the document as it was made: going
+    // back through time starts there
+    if (type.history) {
+      await options.storage.addVersion(namespace, id, {
+        id: randomUUID(), seq: 0, at: createdAt, kind: 'created', label: 'Created',
+        by: { kind: by.kind, id: by.id, name: by.name }
+      }, Y.encodeStateAsUpdate(doc))
+    }
   }
 
   // Something changed about who has a document open: presence, and maybe unload
@@ -187,6 +196,7 @@ export function createServer(options: ServerOptions): QuorumServer {
 
   function connect(socket: WebSocket, request?: IncomingMessage) {
     const connection: Connection = {
+      id: randomUUID(),
       socket,
       request,
       principal: { kind: 'person', id: '', name: '' },
@@ -278,6 +288,14 @@ export function createServer(options: ServerOptions): QuorumServer {
       await held?.owner.restore(held.opening, frame.header)
       if (held) {
         changed(held.owner)
+      }
+    } else if (isFrame(frame, ToServer.REVIEW)) {
+      const held = connection.openings.get(frame.header.ref)
+      await held?.owner.review(held.opening, frame.header)
+    } else if (isFrame(frame, ToServer.UNREVIEWED)) {
+      const held = connection.openings.get(frame.header.ref)
+      if (held) {
+        connection.send(encodeFrame(ToClient.RESULT, { call: frame.header.call, ok: true, value: held.owner.unreviewed() }))
       }
     } else if (isFrame(frame, ToServer.MODE)) {
       const held = connection.openings.get(frame.header.ref)
@@ -466,6 +484,21 @@ export function createServer(options: ServerOptions): QuorumServer {
       const json = owner.json()
       changed(owner)
       return json
+    },
+    exportHistory: async (namespace, id) => {
+      // What is being folded goes into the chain first
+      const loaded = await owners.get(keyOf(namespace, id))
+      await loaded?.flushHistoryNow()
+      return (await options.storage.history(namespace, id)).map(toJSONLine).join('\n')
+    },
+    unreviewed: async (namespace, id) => {
+      const owner = await ownerOf(namespace, id)
+      if (!owner) {
+        return undefined
+      }
+      const found = owner.unreviewed()
+      changed(owner)
+      return found
     },
     comments: async (namespace, id) => {
       const owner = await ownerOf(namespace, id)
