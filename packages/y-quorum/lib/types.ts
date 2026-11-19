@@ -1,6 +1,6 @@
 import type * as Y from '@y/y'
 import type { IncomingMessage } from 'node:http'
-import type { Capabilities, DocumentRecord, Layer, Limits, Principal } from '@dotvoid/y-quorum-client/protocol'
+import type { Capabilities, DocumentRecord, Layer, Limits, Person, Principal } from '@dotvoid/y-quorum-client/protocol'
 import type { CommentThread, Path, TypeDefinition } from '@dotvoid/y-quorum-client/model'
 
 /** Who made a change: the principal, and whom it acted for */
@@ -65,11 +65,21 @@ export interface StoredMeta {
   createdAt: number
 }
 
+/** What a checkpoint keeps: the whole of a document at a log position */
+export interface Checkpoint {
+  /** The state of each layer */
+  states: Partial<Record<Layer, Uint8Array>>
+  /** For a type with history: who wrote what in each layer, Y.js ContentMaps encoded */
+  attributions?: Partial<Record<Layer, Uint8Array>>
+  /** The people the attributions name, by their key */
+  people?: Record<string, Person>
+}
+
 /** A document as storage gives it back */
 export interface StoredDocument {
   meta: StoredMeta
-  /** The latest checkpoint: the whole state of each layer at a log position */
-  checkpoint?: { states: Partial<Record<Layer, Uint8Array>>, seq: number }
+  /** The latest checkpoint, and the log position it is at */
+  checkpoint?: Checkpoint & { seq: number }
   /** The log after the checkpoint */
   entries: LogEntry[]
   records: DocumentRecord[]
@@ -81,11 +91,11 @@ export interface StoredDocument {
  */
 export interface Storage {
   load(namespace: string, id: string): Promise<StoredDocument | undefined>
-  /** Creates a document with the state of each layer; fails when it exists */
-  create(namespace: string, id: string, meta: StoredMeta, states: Partial<Record<Layer, Uint8Array>>): Promise<void>
+  /** Creates a document from its first checkpoint; fails when it exists */
+  create(namespace: string, id: string, meta: StoredMeta, checkpoint: Checkpoint): Promise<void>
   append(namespace: string, id: string, entries: LogEntry[]): Promise<void>
-  /** Keeps the whole state of each layer at a log position */
-  checkpoint(namespace: string, id: string, states: Partial<Record<Layer, Uint8Array>>, seq: number): Promise<void>
+  /** Keeps the whole of a document at a log position */
+  checkpoint(namespace: string, id: string, checkpoint: Checkpoint, seq: number): Promise<void>
   appendRecord(namespace: string, id: string, record: DocumentRecord): Promise<void>
   /** The log, from a position on: who changed what, kept whole whatever was checkpointed */
   log(namespace: string, id: string, from?: number): Promise<LogEntry[]>

@@ -21,11 +21,14 @@ import {
   type DocumentRecord,
   type Headers,
   type Layer,
+  type Person,
   type Principal,
   type ReasonCode
 } from '@dotvoid/y-quorum-client/protocol'
 import {
   COMMENTS,
+  actorKey,
+  attributionsOf,
   pathOf,
   projection,
   readThreads,
@@ -88,6 +91,10 @@ export class DocumentOwner {
   private readonly layers: Map<Layer, Y.Doc>
   /** Copies the next write of each layer is tried on first */
   private shadows = new Map<Layer, Y.Doc>()
+  /** For a type with history: who wrote what in each layer, as Y.js 14 keeps it */
+  private attributions = new Map<Layer, Y.ContentMap>()
+  /** The people the attributions name, by their key */
+  private people: Record<string, Person> = {}
   private seq: number
   private recordSeq: number
   private sinceCheckpoint = 0
@@ -111,11 +118,16 @@ export class DocumentOwner {
       if (state) {
         Y.applyUpdate(doc, state)
       }
+      const attributions = stored.checkpoint?.attributions?.[layer]
+      if (attributions && type.history) {
+        this.attributions.set(layer, Y.decodeContentMap(attributions))
+      }
     }
+    this.people = { ...stored.checkpoint?.people }
+    // The log after the checkpoint, attributed again as it is applied
     for (const entry of stored.entries) {
-      const doc = this.layers.get(entry.layer)
-      if (doc) {
-        Y.applyUpdate(doc, entry.update)
+      if (this.layers.has(entry.layer)) {
+        this.apply(entry.layer, entry.update, entry.actor, entry.at)
       }
     }
     this.seq = stored.entries.length ? stored.entries[stored.entries.length - 1].seq : stored.checkpoint?.seq ?? 0
@@ -146,6 +158,48 @@ export class DocumentOwner {
 
   private layer(layer: Layer): Y.Doc {
     return this.layers.get(layer)!
+  }
+
+  /**
+   * Applies a write to a layer and, for a type with history, attributes what
+   * it inserted and deleted to its actor: the attributions of the change
+   */
+  private apply(layer: Layer, update: Uint8Array, actor: Actor, at: number, origin?: unknown): Y.ContentMap | undefined {
+    const doc = this.layer(layer)
+    let sets: { inserts: Y.IdSet, deletes: Y.IdSet } | undefined
+    const capture = (transaction: { insertSet: Y.IdSet, deleteSet: Y.IdSet }) => {
+      sets = { inserts: transaction.insertSet, deletes: transaction.deleteSet }
+    }
+    doc.on('afterTransaction', capture)
+    try {
+      Y.applyUpdate(doc, update, origin)
+    } finally {
+      doc.off('afterTransaction', capture)
+    }
+    if (!this.type.history || !sets) {
+      return undefined
+    }
+    const by = personOf(actor.principal)
+    const onBehalfOf = actor.onBehalfOf ? personOf(actor.onBehalfOf) : undefined
+    const change = attributionsOf(sets.inserts, sets.deletes, {
+      by, at, ...(onBehalfOf ? { onBehalfOf } : {}), ...(actor.run ? { run: actor.run } : {})
+    })
+    this.attributions.set(layer, Y.mergeContentMaps([this.attributions.get(layer) ?? Y.createContentMap(), change]))
+    for (const person of [by, onBehalfOf]) {
+      if (person) {
+        this.people[actorKey(person)] = person
+      }
+    }
+    return change
+  }
+
+  /** Who wrote what in each layer, encoded */
+  private encodedAttributions<T>(as: (bytes: Uint8Array) => T): Partial<Record<Layer, T>> {
+    const out: Partial<Record<Layer, T>> = {}
+    for (const [layer, attributions] of this.attributions) {
+      out[layer] = as(Y.encodeContentMap(attributions))
+    }
+    return out
   }
 
   /** The layers a client of this type keeps beside the content */
@@ -219,7 +273,8 @@ export class DocumentOwner {
           capabilities: opening.capabilities, seq: this.seq,
           stateVector: toBase64(Y.encodeStateVector(this.doc)),
           records: this.records,
-          ...(this.extraLayers.length ? { layers } : {})
+          ...(this.extraLayers.length ? { layers } : {}),
+          ...(this.type.history ? { attributions: this.encodedAttributions(toBase64), people: this.people } : {})
         }, missing)
         const present = [...this.awareness.getStates().keys()]
         if (present.length) {
@@ -441,10 +496,22 @@ export class DocumentOwner {
     const entry: LogEntry = { seq: this.seq + 1, at: Date.now(), layer, actor, update }
     await this.storage.append(this.namespace, this.id, [entry])
     this.seq = entry.seq
-    Y.applyUpdate(this.layer(layer), update, from ?? this)
+    const attributed = this.apply(layer, update, actor, entry.at, from ?? this)
     for (const opening of this.openings) {
       if (opening !== from && opening.mode === 'open') {
         this.sendTo(opening, ToClient.UPDATE, { ref: opening.ref, layer }, update)
+      }
+    }
+    // Who wrote it, to everyone with it open, the writer too
+    if (attributed) {
+      const payload = Y.encodeContentMap(attributed)
+      const people = Object.fromEntries([actor.principal, actor.onBehalfOf]
+        .filter((who) => who !== undefined)
+        .map((who) => [actorKey(who), personOf(who)]))
+      for (const opening of this.openings) {
+        if (opening.mode === 'open') {
+          this.sendTo(opening, ToClient.ATTRIBUTIONS, { ref: opening.ref, layer, people }, payload)
+        }
       }
     }
     // Only the content decides what people may do, and what watchers see
@@ -490,7 +557,10 @@ export class DocumentOwner {
     for (const [layer, doc] of this.layers) {
       states[layer] = Y.encodeStateAsUpdate(doc)
     }
-    await this.storage.checkpoint(this.namespace, this.id, states, this.seq)
+    await this.storage.checkpoint(this.namespace, this.id, {
+      states,
+      ...(this.type.history ? { attributions: this.encodedAttributions((bytes) => bytes), people: this.people } : {})
+    }, this.seq)
   }
 
   // Who an update is from: the connection's principal, or an agent claiming to act for it
@@ -622,6 +692,11 @@ export class DocumentOwner {
   private sendTo<T extends keyof Headers>(opening: Opening, type: T, header: Headers[T], payload?: Uint8Array) {
     opening.peer.send(encodeFrame(type, header, payload))
   }
+}
+
+/** Who someone is in attributions: no more than their kind, id and name */
+function personOf(principal: Principal): Person {
+  return { kind: principal.kind, id: principal.id, name: principal.name }
 }
 
 function toBase64(bytes: Uint8Array): string {

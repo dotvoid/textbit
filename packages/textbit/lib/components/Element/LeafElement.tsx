@@ -82,6 +82,14 @@ export function LeafElement(props: RenderLeafProps) {
     className += leaf.tbCommentActive ? ' tb-comment tb-comment-active' : ' tb-comment'
   }
 
+  // Text shown through a renderer with attributions: who wrote or deleted it,
+  // and whether it is inserted or deleted there, so a host can colour it
+  const data = {
+    'data-tb-comment': comment,
+    'data-tb-by': typeof leaf._by === 'string' ? leaf._by : undefined,
+    'data-tb-change': leaf._suggested === 'insert' || leaf._suggested === 'delete' ? leaf._suggested : undefined
+  }
+
   // What an agent changed: its new text tinted in its colour, and the text
   // it removed struck through beside it
   // Once its time is up a change fades: the tint goes, then the change
@@ -133,26 +141,26 @@ export function LeafElement(props: RenderLeafProps) {
   }
 
   if (leaf.spellingError) {
-    return <MisspelledLeaf {...props} className={className} style={style} mark={mark} comment={comment} />
+    return <MisspelledLeaf {...props} className={className} style={style} mark={mark} data={data} />
   } else if (leaf.placeholder) {
     return <EmptyLeaf {...props} className={className} style={style} />
   } else {
-    return <OrdinaryLeaf {...props} className={className} style={style} mark={mark} comment={comment} />
+    return <OrdinaryLeaf {...props} className={className} style={style} mark={mark} data={data} />
   }
 }
 
 type LeafProps = RenderLeafProps & { className: string, style: CSSProperties }
-type MarkableLeafProps = LeafProps & { mark?: string, comment?: string }
+type MarkableLeafProps = LeafProps & { mark?: string, data?: Record<string, string | undefined> }
 
 function OrdinaryLeaf(props: MarkableLeafProps) {
-  const { attributes, style, className, mark, comment } = props
+  const { attributes, style, className, mark, data } = props
 
   return (
     <span
       style={style}
       className={className}
       data-tb-mark={mark}
-      data-tb-comment={comment}
+      {...data}
       {...attributes}
     >
       {props.children}
@@ -189,7 +197,7 @@ function EmptyLeaf(props: LeafProps) {
 }
 
 function MisspelledLeaf(props: MarkableLeafProps) {
-  const { leaf, attributes, style, className, mark, comment } = props
+  const { leaf, attributes, style, className, mark, data } = props
   const spellingError = leaf.spellingError as unknown as SpellingError | undefined
 
   return (
@@ -200,7 +208,7 @@ function MisspelledLeaf(props: MarkableLeafProps) {
       data-spelling-level={spellingError?.level || undefined}
       data-spelling-accepted={leaf.spellingAccepted ? '' : undefined}
       data-tb-mark={mark}
-      data-tb-comment={comment}
+      {...data}
       {...attributes}
     >
       {props.children}

@@ -28,11 +28,13 @@ import {
   type Headers,
   type Layer,
   type Limits,
+  type Person,
   type PresenceEntry,
   type Principal,
   type ReasonCode
 } from './protocol'
 import { CommentsOfHandle, type Comments } from './commentsHandle'
+import { LiveAttributionsRenderer } from './attributions'
 
 export type Status = 'connecting' | 'connected' | 'disconnected' | 'closed'
 export type Welcome = Headers[typeof ToClient.WELCOME]
@@ -89,6 +91,8 @@ export interface DocumentEvents {
   rebuilt: { doc: Y.Doc, layer: Layer }
   /** Every local change is stored; `log` is the position of the last one, when known */
   saved: { log?: number }
+  /** For a type with history: who wrote what in a change just stored */
+  attributions: { layer: Layer, attributions: Y.ContentMap }
   /** The server closed the document, or the client was closed for good */
   closed: Refusal
 }
@@ -126,6 +130,16 @@ export interface DocumentHandle {
   readonly awareness: Awareness
   readonly capabilities: Capabilities
   readonly records: DocumentRecord[]
+  /** For a type with history: who wrote what in a layer, as Y.js 14 keeps it */
+  attributions(layer?: Layer): Y.ContentMap
+  /** The people the attributions name, by their key, e.g. `person:alice` */
+  readonly people: Readonly<Record<string, Person>>
+  /**
+   * A renderer showing who wrote what in the content, kept current: give it
+   * to `Textbit.Root` as `renderer`. Text carries `_by` and `_at`, and with
+   * `withDeleted` deleted text shows too.
+   */
+  attributionsRenderer(options?: { withDeleted?: boolean }): Y.AttributionsRenderer
   readonly hasUnsavedChanges: boolean
   /** The comment threads beside the content, for a type with comments */
   readonly comments: Comments
@@ -234,6 +248,10 @@ interface DocState extends Opening {
   incarnation: string
   capabilities: Capabilities
   records: DocumentRecord[]
+  attributions: Map<Layer, Y.ContentMap>
+  people: Record<string, Person>
+  /** Renderers handed out, to keep current */
+  renderers: Set<LiveAttributionsRenderer>
   seq: number
   /** Local changes not yet acknowledged */
   local: LocalUpdate[]
@@ -711,6 +729,8 @@ class QuorumClient implements Client {
       emitAll(state.handles, 'records', frame.header.records)
     } else if (isFrame(frame, ToClient.MESSAGE)) {
       emitAll(state.handles, 'message', frame.header.message)
+    } else if (isFrame(frame, ToClient.ATTRIBUTIONS)) {
+      this.attributed(state, frame.header.layer, Y.decodeContentMap(frame.payload), frame.header.people)
     }
   }
 
@@ -736,6 +756,9 @@ class QuorumClient implements Client {
       incarnation: '',
       capabilities: { read: false, write: false },
       records: [],
+      attributions: new Map(),
+      people: {},
+      renderers: new Set(),
       seq: 0,
       local: [],
       pendingRecords: [],
@@ -870,6 +893,11 @@ class QuorumClient implements Client {
     state.incarnation = header.incarnation
     state.capabilities = header.capabilities
     state.records = header.records ?? state.records
+    // The whole of who wrote what, again after every opening
+    for (const [layer, encoded] of Object.entries(header.attributions ?? {}) as Array<[Layer, string]>) {
+      state.attributions.set(layer, Y.createContentMap())
+      this.attributed(state, layer, Y.decodeContentMap(fromBase64(encoded)), header.people ?? {})
+    }
     state.phase = 'open'
     // Everything the server lacks, offline changes and unacknowledged ones
     // alike, in one update
@@ -918,6 +946,18 @@ class QuorumClient implements Client {
     for (const waiter of state.waiters.splice(0)) {
       waiter.resolve()
     }
+  }
+
+  /** Who wrote what in a change, or in all of a layer: kept, and shown by the renderers */
+  private attributed(state: DocState, layer: Layer, attributions: Y.ContentMap, people: Record<string, Person>): void {
+    Object.assign(state.people, people)
+    state.attributions.set(layer, Y.mergeContentMaps([state.attributions.get(layer) ?? Y.createContentMap(), attributions]))
+    if (layer === 'content') {
+      for (const renderer of state.renderers) {
+        renderer.add(attributions)
+      }
+    }
+    emitAll(state.handles, 'attributions', { layer, attributions })
   }
 
   private sendRecord(state: DocState, record: PendingRecord): void {
@@ -1103,6 +1143,7 @@ class Listeners<E extends object> {
 class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   private released = false
   private commentsOfHandle: CommentsOfHandle | undefined
+  private renderers = new Set<LiveAttributionsRenderer>()
 
   constructor(private readonly client: QuorumClient, private readonly state: DocState) {
     super()
@@ -1118,6 +1159,18 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   get awareness() { return this.state.awareness }
   get capabilities() { return this.state.capabilities }
   get records() { return this.state.records }
+  get people() { return this.state.people }
+
+  attributions(layer: Layer = 'content'): Y.ContentMap {
+    return this.state.attributions.get(layer) ?? Y.createContentMap()
+  }
+
+  attributionsRenderer(options?: { withDeleted?: boolean }): Y.AttributionsRenderer {
+    const renderer = new LiveAttributionsRenderer(this.attributions('content'), options)
+    this.state.renderers.add(renderer)
+    this.renderers.add(renderer)
+    return renderer
+  }
   get hasUnsavedChanges() { return this.state.local.length > 0 }
 
   get comments(): Comments {
@@ -1153,6 +1206,9 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
     }
     this.released = true
     this.commentsOfHandle?.destroy()
+    for (const renderer of this.renderers) {
+      this.state.renderers.delete(renderer)
+    }
     this.state.handles.delete(this)
     this.client.release(this.state)
   }

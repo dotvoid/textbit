@@ -16,6 +16,8 @@ export {
   fieldToValue,
   seedField,
   SUGGESTED_MARK,
+  BY_MARK,
+  AT_MARK,
   pointToRelativePosition,
   relativePositionToPoint,
   rangeToRelativePositions,

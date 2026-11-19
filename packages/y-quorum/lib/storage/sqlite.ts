@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite'
-import type { DocumentRecord, Layer } from '@dotvoid/y-quorum-client/protocol'
-import type { Actor, LogEntry, Storage } from '../types'
+import type { DocumentRecord, Layer, Person } from '@dotvoid/y-quorum-client/protocol'
+import type { Actor, Checkpoint, LogEntry, Storage } from '../types'
 
 /**
  * Storage in one SQLite file, through Node's built-in `node:sqlite`: the
@@ -39,7 +39,8 @@ export function sqlite(file: string): Storage {
   const loadLog = db.prepare('SELECT seq, at, layer, actor, update_ FROM log WHERE namespace = ? AND id = ? AND seq > ? ORDER BY seq')
   const loadRecords = db.prepare('SELECT seq, kind, at, actor, on_behalf_of, data FROM records WHERE namespace = ? AND id = ? ORDER BY seq')
   const insertDocument = db.prepare('INSERT INTO documents VALUES (?, ?, ?, ?, ?, ?, 0)')
-  // The content's checkpoint is in documents; the other layers' beside it
+  // The content's state is in documents; the rest of a checkpoint beside it,
+  // by key: another layer's state, `attributions:<layer>`, or `people`
   const loadLayers = db.prepare('SELECT layer, state FROM layer_checkpoints WHERE namespace = ? AND id = ?')
   const putLayer = db.prepare('INSERT OR REPLACE INTO layer_checkpoints VALUES (?, ?, ?, ?)')
   const insertEntry = db.prepare('INSERT INTO log VALUES (?, ?, ?, ?, ?, ?, ?)')
@@ -59,11 +60,19 @@ export function sqlite(file: string): Storage {
     }
   }
 
-  function putLayers(namespace: string, id: string, states: Partial<Record<Layer, Uint8Array>>) {
-    for (const [layer, state] of Object.entries(states)) {
+  function putParts(namespace: string, id: string, checkpoint: Checkpoint) {
+    for (const [layer, state] of Object.entries(checkpoint.states)) {
       if (layer !== 'content' && state) {
         putLayer.run(namespace, id, layer, state)
       }
+    }
+    for (const [layer, map] of Object.entries(checkpoint.attributions ?? {})) {
+      if (map) {
+        putLayer.run(namespace, id, `attributions:${layer}`, map)
+      }
+    }
+    if (checkpoint.people) {
+      putLayer.run(namespace, id, 'people', new TextEncoder().encode(JSON.stringify(checkpoint.people)))
     }
   }
 
@@ -84,9 +93,16 @@ export function sqlite(file: string): Storage {
         actor: JSON.parse(entry.actor) as Actor,
         update: new Uint8Array(entry.update_)
       }))
-      const states: Partial<Record<Layer, Uint8Array>> = { content: new Uint8Array(row.checkpoint) }
-      for (const layer of loadLayers.all(namespace, id) as Array<{ layer: Layer, state: Uint8Array }>) {
-        states[layer.layer] = new Uint8Array(layer.state)
+      const checkpoint: Checkpoint = { states: { content: new Uint8Array(row.checkpoint) } }
+      for (const part of loadLayers.all(namespace, id) as Array<{ layer: string, state: Uint8Array }>) {
+        const bytes = new Uint8Array(part.state)
+        if (part.layer === 'people') {
+          checkpoint.people = JSON.parse(new TextDecoder().decode(bytes)) as Record<string, Person>
+        } else if (part.layer.startsWith('attributions:')) {
+          checkpoint.attributions = { ...checkpoint.attributions, [part.layer.slice('attributions:'.length)]: bytes }
+        } else {
+          checkpoint.states[part.layer as Layer] = bytes
+        }
       }
       const records = (loadRecords.all(namespace, id) as Array<{
         seq: number, kind: string, at: number, actor: string, on_behalf_of: string | null, data: string
@@ -100,15 +116,15 @@ export function sqlite(file: string): Storage {
       }))
       return {
         meta: { type: row.type, incarnation: row.incarnation, createdAt: row.created_at },
-        checkpoint: { states, seq: row.checkpoint_seq },
+        checkpoint: { ...checkpoint, seq: row.checkpoint_seq },
         entries,
         records
       }
     },
-    create: async (namespace, id, meta, states) => {
+    create: async (namespace, id, meta, checkpoint) => {
       transaction(() => {
-        insertDocument.run(namespace, id, meta.type, meta.incarnation, meta.createdAt, states.content ?? new Uint8Array())
-        putLayers(namespace, id, states)
+        insertDocument.run(namespace, id, meta.type, meta.incarnation, meta.createdAt, checkpoint.states.content ?? new Uint8Array())
+        putParts(namespace, id, checkpoint)
       })
     },
     append: async (namespace, id, entries) => {
@@ -118,10 +134,10 @@ export function sqlite(file: string): Storage {
         }
       })
     },
-    checkpoint: async (namespace, id, states, seq) => {
+    checkpoint: async (namespace, id, checkpoint, seq) => {
       transaction(() => {
-        updateCheckpoint.run(states.content ?? new Uint8Array(), seq, namespace, id)
-        putLayers(namespace, id, states)
+        updateCheckpoint.run(checkpoint.states.content ?? new Uint8Array(), seq, namespace, id)
+        putParts(namespace, id, checkpoint)
       })
     },
     log: async (namespace, id, from = 0) =>

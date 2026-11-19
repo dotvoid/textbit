@@ -14,6 +14,7 @@ import { fieldToValue, seedField } from '@dotvoid/textbit/headless'
 import type { Descendant } from 'slate'
 
 export * from './comments'
+export * from './attributions'
 
 export type ScalarKind = 'string' | 'number' | 'boolean' | 'date' | 'id'
 

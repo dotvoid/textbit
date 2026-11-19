@@ -649,7 +649,13 @@ through MCP is an agent action: people edit over the socket.
    comment events for hosts (webhooks), mentions, and agents' comment tools in the MCP module
    (step 6).
 4. **History:** attribution, the log and checkpoints, versions, scrubbing, differences,
-   restore, review evidence.
+   restore, review evidence. Attribution done 19 November 2026, on Y.js 14's own pieces: the
+   owner builds a `ContentMap` per layer from what each accepted write's transaction inserted
+   and deleted (`insert`, `insertAt`, `insert:onBehalfOf`, `insert:run` and the `delete:`
+   twins, people named `kind:id`), keeps it in checkpoints, rebuilds it from the log after
+   them, and sends it to clients. `handle.attributionsRenderer()` is an `AttributionsRenderer`
+   kept current; through it the editor marks text `_by` and `_at`. To come: versions,
+   differences (`createDiffRenderer`), restore, the hash chain, review evidence, export.
 5. **Suggestions in the fork,** people's suggesting mode, agents suggesting, run revert.
 6. **The MCP module.**
 7. **Production:** Postgres and S3, leases and forwarding, audit export, retention and
