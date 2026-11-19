@@ -1,10 +1,10 @@
-// Comments: threads beside the content, never in it. They live in a root of
-// their own, `comments`, in the document's Y.Doc, so the server can tell a
-// comment from a change to the content and judge each by its own rules: a
-// person who may only comment can, and nobody can write or resolve as someone
-// else.
+// Comments: threads beside the content, never in it. They are a layer of the
+// document, a Y.Doc of their own, as Y.js 14 keeps suggestions in a fork: the
+// content holds only content, a fork of it never carries comments, and the
+// server judges comments by their own rules: a person who may only comment
+// can, and nobody writes or resolves as someone else.
 //
-// The root holds a node per thread, keyed by the thread's id. A thread's
+// The comments Y.Doc's root, `comments`, holds a node per thread, keyed by the thread's id. A thread's
 // attributes say who opened it, where it is anchored and whether it is
 // resolved; its children are its comments, the first one opening it. A
 // comment's attributes are its author, its text and whether it was edited or

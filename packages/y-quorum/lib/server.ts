@@ -105,10 +105,15 @@ export function createServer(options: ServerOptions): QuorumServer {
     }
     const doc = new Y.Doc()
     createContent(doc.get('content'), type.content, initial)
+    // Comments are a Y.Doc of their own beside the content
+    const commentsDoc = new Y.Doc()
     if (type.comments && comments.length) {
-      seedComments(doc.get(COMMENTS), comments)
+      seedComments(commentsDoc.get(COMMENTS), comments)
     }
-    await options.storage.create(namespace, id, { type: typeName, incarnation: randomUUID(), createdAt: Date.now() }, Y.encodeStateAsUpdate(doc))
+    await options.storage.create(namespace, id, { type: typeName, incarnation: randomUUID(), createdAt: Date.now() }, {
+      content: Y.encodeStateAsUpdate(doc),
+      comments: Y.encodeStateAsUpdate(commentsDoc)
+    })
   }
 
   // Something changed about who has a document open: presence, and maybe unload

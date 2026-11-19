@@ -50,9 +50,12 @@ handle.on('closed', () => {
   log('the lab document is gone; reconnect the MCP server to join the new one')
   process.exit(1)
 })
-handle.on('rebuilt', () => {
-  log('the server refused a change and the document was rebuilt; reconnect the MCP server')
-  process.exit(1)
+// Its comments rebuilt are followed by themselves; only the content is bound here
+handle.on('rebuilt', ({ layer }) => {
+  if (layer === 'content') {
+    log('the server refused a change and the document was rebuilt; reconnect the MCP server')
+    process.exit(1)
+  }
 })
 log(`joined lab/article at ${URL}`)
 

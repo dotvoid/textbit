@@ -20,6 +20,7 @@ import {
   type Capabilities,
   type DocumentRecord,
   type Headers,
+  type Layer,
   type Principal,
   type ReasonCode
 } from '@dotvoid/y-quorum-client/protocol'
@@ -69,17 +70,24 @@ const HELD_BYTES = 4 * 1024 * 1024
  * What judging a write found: refused, waiting, or allowed into a layer of
  * the log; `null` when it changes nothing, so there is nothing to store
  */
-type Judgement = { code: ReasonCode, reason: string } | 'pending' | { layer: string | null }
+type Judgement = { code: ReasonCode, reason: string } | 'pending' | { layer: Layer | null }
 
 const CONTENT = 'content'
 
+/** The root each layer's Y.Doc keeps its data in */
+const ROOTS: Record<Layer, string> = { content: CONTENT, comments: COMMENTS }
+
 export class DocumentOwner {
   readonly openings = new Set<Opening>()
+  /** The content */
   readonly doc: Y.Doc
   readonly awareness: awarenessProtocol.Awareness
   readonly records: DocumentRecord[]
   readonly incarnation: string
-  private shadow: Y.Doc
+  /** Each layer a Y.Doc of its own, the content's being `doc` */
+  private readonly layers: Map<Layer, Y.Doc>
+  /** Copies the next write of each layer is tried on first */
+  private shadows = new Map<Layer, Y.Doc>()
   private seq: number
   private recordSeq: number
   private sinceCheckpoint = 0
@@ -97,17 +105,26 @@ export class DocumentOwner {
     private readonly changed: (owner: DocumentOwner) => void
   ) {
     this.doc = new Y.Doc()
-    if (stored.checkpoint) {
-      Y.applyUpdate(this.doc, stored.checkpoint.state)
+    this.layers = new Map<Layer, Y.Doc>([['content', this.doc], ['comments', new Y.Doc()]])
+    for (const [layer, doc] of this.layers) {
+      const state = stored.checkpoint?.states[layer]
+      if (state) {
+        Y.applyUpdate(doc, state)
+      }
     }
     for (const entry of stored.entries) {
-      Y.applyUpdate(this.doc, entry.update)
+      const doc = this.layers.get(entry.layer)
+      if (doc) {
+        Y.applyUpdate(doc, entry.update)
+      }
     }
     this.seq = stored.entries.length ? stored.entries[stored.entries.length - 1].seq : stored.checkpoint?.seq ?? 0
     this.records = stored.records
     this.recordSeq = stored.records.length ? stored.records[stored.records.length - 1].seq : 0
     this.incarnation = stored.meta.incarnation
-    this.shadow = this.copy()
+    for (const layer of this.layers.keys()) {
+      this.shadows.set(layer, this.copy(layer))
+    }
     this.awareness = new awarenessProtocol.Awareness(this.doc)
     this.awareness.setLocalState(null)
     this.awareness.on('update', this.relayAwareness)
@@ -124,7 +141,16 @@ export class DocumentOwner {
 
   /** The comment threads, oldest first */
   comments(): CommentThread[] {
-    return readThreads(this.doc.get(COMMENTS))
+    return readThreads(this.layer('comments').get(COMMENTS))
+  }
+
+  private layer(layer: Layer): Y.Doc {
+    return this.layers.get(layer)!
+  }
+
+  /** The layers a client of this type keeps beside the content */
+  private get extraLayers(): Layer[] {
+    return this.type.comments ? ['comments'] : []
   }
 
   get isIdle(): boolean {
@@ -138,9 +164,9 @@ export class DocumentOwner {
     return run
   }
 
-  private copy(): Y.Doc {
+  private copy(layer: Layer = 'content'): Y.Doc {
     const copy = new Y.Doc()
-    Y.applyUpdate(copy, Y.encodeStateAsUpdate(this.doc))
+    Y.applyUpdate(copy, Y.encodeStateAsUpdate(this.layer(layer)))
     return copy
   }
 
@@ -178,11 +204,22 @@ export class DocumentOwner {
       } else {
         const known = header.incarnation === undefined || header.incarnation === this.incarnation
         const missing = Y.encodeStateAsUpdate(this.doc, known && vector.length ? vector : undefined)
+        // The other layers in the header: their state vectors, and what the client lacks
+        const layers: Headers[typeof ToClient.OPENED]['layers'] = {}
+        for (const layer of this.extraLayers) {
+          const doc = this.layer(layer)
+          const theirs = known ? header.layers?.[layer] : undefined
+          layers[layer] = {
+            stateVector: toBase64(Y.encodeStateVector(doc)),
+            missing: toBase64(Y.encodeStateAsUpdate(doc, theirs ? fromBase64(theirs) : undefined))
+          }
+        }
         this.sendTo(opening, ToClient.OPENED, {
           ref: opening.ref, type: this.type.name, incarnation: this.incarnation,
           capabilities: opening.capabilities, seq: this.seq,
-          stateVector: Buffer.from(Y.encodeStateVector(this.doc)).toString('base64'),
-          records: this.records
+          stateVector: toBase64(Y.encodeStateVector(this.doc)),
+          records: this.records,
+          ...(this.extraLayers.length ? { layers } : {})
         }, missing)
         const present = [...this.awareness.getStates().keys()]
         if (present.length) {
@@ -227,9 +264,11 @@ export class DocumentOwner {
     update: Uint8Array
   ): Promise<'committed' | 'unchanged' | 'refused' | 'pending'> {
     const actor = this.actorOf(opening, header.claim)
-    const judgement: Judgement = actor
-      ? await this.judge(opening.peer.principal.id, actor, opening.roles, update)
-      : { code: 'not-allowed', reason: 'Agents may not act for this principal' }
+    const judgement: Judgement = !actor
+      ? { code: 'not-allowed', reason: 'Agents may not act for this principal' }
+      : header.layer !== 'content' && !this.extraLayers.includes(header.layer)
+        ? { code: 'invalid', reason: `This document has no layer ${String(header.layer)}` }
+        : await this.judge(opening.peer.principal.id, actor, opening.roles, header.layer, update)
     if (judgement === 'pending') {
       return 'pending'
     }
@@ -294,7 +333,7 @@ export class DocumentOwner {
       if (!(await this.storage.claimClient(this.namespace, this.id, copy.clientID, actor.principal.id))) {
         return false
       }
-      const judgement = await this.judge(actor.principal.id, actor, roles, update)
+      const judgement = await this.judge(actor.principal.id, actor, roles, 'content', update)
       if (judgement === 'pending' || 'code' in judgement) {
         return false
       }
@@ -307,10 +346,11 @@ export class DocumentOwner {
     })
   }
 
-  // Whether a write may be applied: nothing when it may, the reason when not
-  private async judge(principalId: string, actor: Actor, roles: string[], update: Uint8Array): Promise<Judgement> {
+  // Whether a write to a layer may be applied, judged on that layer alone
+  private async judge(principalId: string, actor: Actor, roles: string[], layer: Layer, update: Uint8Array): Promise<Judgement> {
+    const doc = this.layer(layer)
     // 1. New content only under the writer's own client ids
-    const known = Y.decodeStateVector(Y.encodeStateVector(this.doc))
+    const known = Y.decodeStateVector(Y.encodeStateVector(doc))
     const clients = new Set<number>()
     for (const struct of Y.decodeUpdate(update).structs) {
       const { client, clock } = struct.id
@@ -324,27 +364,27 @@ export class DocumentOwner {
       }
     }
     // 2. On the shadow first: what it changes, and whether it fits at all
+    const shadow = this.shadows.get(layer)!
     let changed: Map<Y.Node, Set<string | null>> | undefined
     const capture = (transaction: { changed: Map<Y.Node, Set<string | null>> }) => {
       changed = transaction.changed
     }
-    this.shadow.on('afterTransaction', capture)
+    shadow.on('afterTransaction', capture)
     try {
-      Y.applyUpdate(this.shadow, update)
+      Y.applyUpdate(shadow, update)
     } finally {
-      this.shadow.off('afterTransaction', capture)
+      shadow.off('afterTransaction', capture)
     }
+    const reset = () => this.shadows.set(layer, this.copy(layer))
     // Y.js keeps what it cannot integrate yet: structs whose dependencies are
     // missing, and deletions of content it does not have
-    const store = (this.shadow as unknown as { store: { pendingStructs: unknown, pendingDs: unknown } }).store
+    const store = (shadow as unknown as { store: { pendingStructs: unknown, pendingDs: unknown } }).store
     if (store.pendingStructs || store.pendingDs) {
-      this.shadow = this.copy()
+      reset()
       return 'pending'
     }
-    // 3. Each part by its own rules: comments by who wrote what, the content
-    //    by the policy on the paths it changes
     const refuse = (reason: string): Judgement => {
-      this.shadow = this.copy()
+      reset()
       return { code: 'not-allowed', reason }
     }
     // A client that reopens sends what the server may lack, and Y.js always
@@ -352,55 +392,35 @@ export class DocumentOwner {
     if (!changed?.size) {
       return { layer: null }
     }
-    const { content, comments, elsewhere } = this.split(changed)
-    if (elsewhere) {
-      return refuse('Changes only the content and the comments')
-    }
-    if (comments.size) {
-      const rights = this.capabilitiesFor(actor.principal, roles).comments ?? 'none'
-      const reason = judgeComments(this.doc.get(COMMENTS), this.shadow.get(COMMENTS), comments, actor, rights)
-      if (reason) {
-        return refuse(reason)
-      }
-      if (!content.size) {
-        return { layer: COMMENTS }
-      }
-    }
-    const paths = this.pathsOf(content)
-    const allowed = this.type.policy
-      ? this.type.policy({ actor, roles, layer: CONTENT, content: this.root, next: this.shadow.get(CONTENT), paths }).write
-      : roles.some((role) => role === 'editor' || role === 'owner')
-    if (!allowed) {
-      return refuse(paths.length ? `Not allowed to change ${paths.map((p) => p.join('.')).join(', ')}` : 'Not allowed to write here')
-    }
-    return { layer: CONTENT }
-  }
-
-  // What a change touched, by the root it is in
-  private split(changed: Map<Y.Node, Set<string | null>> | undefined) {
-    const contentRoot = this.shadow.get(CONTENT)
-    const commentsRoot = this.shadow.get(COMMENTS)
-    const content = new Map<Y.Node, Set<string | null>>()
-    const comments = new Map<Y.Node, Set<string | null>>()
-    let elsewhere = false
-    for (const [node, keys] of changed ?? []) {
+    // 3. Only the layer's own root, judged by the layer's rules: comments by
+    //    who wrote what, the content by the policy on the paths it changes
+    const root = shadow.get(ROOTS[layer])
+    for (const node of changed.keys()) {
       let top = node
       while (top.parent) {
         top = top.parent
       }
-      if (top === contentRoot) {
-        content.set(node, keys)
-      } else if (top === commentsRoot) {
-        comments.set(node, keys)
-      } else {
-        elsewhere = true
+      if (top !== root) {
+        return refuse(`Changes only the ${layer}`)
       }
     }
-    return { content, comments, elsewhere }
+    if (layer === 'comments') {
+      const rights = this.capabilitiesFor(actor.principal, roles).comments ?? 'none'
+      const reason = judgeComments(doc.get(COMMENTS), root, changed, actor, rights)
+      return reason ? refuse(reason) : { layer }
+    }
+    const paths = this.pathsOf(changed)
+    const allowed = this.type.policy
+      ? this.type.policy({ actor, roles, layer: CONTENT, content: this.root, next: root, paths }).write
+      : roles.some((role) => role === 'editor' || role === 'owner')
+    if (!allowed) {
+      return refuse(paths.length ? `Not allowed to change ${paths.map((p) => p.join('.')).join(', ')}` : 'Not allowed to write here')
+    }
+    return { layer }
   }
 
   private pathsOf(changed: Map<Y.Node, Set<string | null>>): Path[] {
-    const root = this.shadow.get(CONTENT)
+    const root = this.shadows.get('content')!.get(CONTENT)
     const found = new Map<string, Path>()
     for (const [node, keys] of changed) {
       const base = node === root ? [] : pathOf(node, root, this.type.content)
@@ -417,17 +437,20 @@ export class DocumentOwner {
   }
 
   // Accepted: logged, applied, passed on
-  private async commit(actor: Actor, layer: string, update: Uint8Array, from?: Opening): Promise<number> {
+  private async commit(actor: Actor, layer: Layer, update: Uint8Array, from?: Opening): Promise<number> {
     const entry: LogEntry = { seq: this.seq + 1, at: Date.now(), layer, actor, update }
     await this.storage.append(this.namespace, this.id, [entry])
     this.seq = entry.seq
-    Y.applyUpdate(this.doc, update, from ?? this)
+    Y.applyUpdate(this.layer(layer), update, from ?? this)
     for (const opening of this.openings) {
       if (opening !== from && opening.mode === 'open') {
         this.sendTo(opening, ToClient.UPDATE, { ref: opening.ref, layer }, update)
       }
     }
-    this.afterChange()
+    // Only the content decides what people may do, and what watchers see
+    if (layer === 'content') {
+      this.afterChange()
+    }
     if (++this.sinceCheckpoint >= (this.options.checkpointEvery ?? 200)) {
       await this.checkpoint()
     }
@@ -463,7 +486,11 @@ export class DocumentOwner {
 
   async checkpoint(): Promise<void> {
     this.sinceCheckpoint = 0
-    await this.storage.checkpoint(this.namespace, this.id, Y.encodeStateAsUpdate(this.doc), this.seq)
+    const states: Partial<Record<Layer, Uint8Array>> = {}
+    for (const [layer, doc] of this.layers) {
+      states[layer] = Y.encodeStateAsUpdate(doc)
+    }
+    await this.storage.checkpoint(this.namespace, this.id, states, this.seq)
   }
 
   // Who an update is from: the connection's principal, or an agent claiming to act for it
@@ -595,4 +622,12 @@ export class DocumentOwner {
   private sendTo<T extends keyof Headers>(opening: Opening, type: T, header: Headers[T], payload?: Uint8Array) {
     opening.peer.send(encodeFrame(type, header, payload))
   }
+}
+
+function toBase64(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString('base64')
+}
+
+function fromBase64(text: string): Uint8Array {
+  return new Uint8Array(Buffer.from(text, 'base64'))
 }

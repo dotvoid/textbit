@@ -10,11 +10,18 @@
 // Documents are addressed by `ref`, a number the client chooses when it opens
 // one, so frames stay short. A client can open the same document only once at a
 // time: every view of it in the page shares that one opening.
+//
+// A document is a Y.Doc per layer: `content`, and beside it `comments` for a
+// type that has them. Only the content travels in payloads of OPEN and OPENED;
+// the other layers' state vectors and missing updates go in the header, base64.
 import * as encoding from 'lib0/encoding'
 import * as decoding from 'lib0/decoding'
 
 /** The version of this protocol. A client speaking another is told to reload. */
 export const PROTOCOL_VERSION = 1
+
+/** A document's layers, each a Y.Doc of its own */
+export type Layer = 'content' | 'comments'
 
 /** Frames a client sends */
 export const ToServer = {
@@ -170,9 +177,11 @@ export interface Headers {
     clientId?: number
     /** The incarnation of a copy the client kept, if any */
     incarnation?: string
+    /** The client's state vector of each layer besides the content, base64 */
+    layers?: Partial<Record<Layer, string>>
   }
   [ToServer.CLOSE]: { ref: number }
-  [ToServer.UPDATE]: { ref: number, layer: string, seq: number, claim?: ActorClaim }
+  [ToServer.UPDATE]: { ref: number, layer: Layer, seq: number, claim?: ActorClaim }
   [ToServer.AWARENESS]: { ref: number }
   [ToServer.RECORD]: { ref: number, seq: number, kind: string, data: unknown, claim?: ActorClaim }
   [ToServer.RPC]: { call: number, name: string, args: unknown }
@@ -197,9 +206,11 @@ export interface Headers {
     projection?: unknown
     /** The records so far */
     records?: DocumentRecord[]
+    /** The layers besides the content the type has: the server's state vector and what the client lacks, base64 */
+    layers?: Partial<Record<Layer, { stateVector: string, missing: string }>>
   }
   [ToClient.CLOSED]: { ref: number, code: ReasonCode, reason: string }
-  [ToClient.UPDATE]: { ref: number, layer: string }
+  [ToClient.UPDATE]: { ref: number, layer: Layer }
   [ToClient.ACK]: { ref: number, seq: number, log: number }
   [ToClient.REJECTED]: { ref: number, seq: number, code: ReasonCode, reason: string }
   [ToClient.AWARENESS]: { ref: number }

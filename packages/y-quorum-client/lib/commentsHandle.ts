@@ -15,15 +15,15 @@ import {
   type CommentThread
 } from './comments'
 import type { TBComments } from '@dotvoid/textbit/headless'
-import type { ActorClaim, CommentRights, Principal } from './protocol'
+import type { ActorClaim, CommentRights, Layer, Principal } from './protocol'
 
 /** What a handle needs to give for its comments */
 export interface CommentsHost {
-  readonly doc: Y.Doc
+  readonly commentsDoc: Y.Doc
   readonly capabilities: { comments?: CommentRights }
   claimOrigin(claim: ActorClaim): object
-  on(event: 'rebuilt', fn: (arg: { doc: Y.Doc }) => void): void
-  off(event: 'rebuilt', fn: (arg: { doc: Y.Doc }) => void): void
+  on(event: 'rebuilt', fn: (arg: { doc: Y.Doc, layer: Layer }) => void): void
+  off(event: 'rebuilt', fn: (arg: { doc: Y.Doc, layer: Layer }) => void): void
 }
 
 /** A document's comments, as one handle sees them */
@@ -61,9 +61,9 @@ export class CommentsOfHandle implements Comments {
     host.on('rebuilt', this.rebuilt)
   }
 
-  // Always the handle's current document: after a refusal it is replaced at once
+  // Always the handle's current comments: after a refusal they are replaced at once
   private get root(): Y.Node {
-    return this.host.doc.get(COMMENTS)
+    return this.host.commentsDoc.get(COMMENTS)
   }
 
   get threads(): CommentThread[] {
@@ -178,7 +178,10 @@ export class CommentsOfHandle implements Comments {
   }
 
   // The handle's document was replaced: follow the new one
-  private rebuilt = () => {
+  private rebuilt = ({ layer }: { layer: Layer }) => {
+    if (layer !== 'comments') {
+      return
+    }
     const following = this.listeners.size > 0
     this.stop()
     this.cached = undefined

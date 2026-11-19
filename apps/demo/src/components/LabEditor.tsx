@@ -24,7 +24,7 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
   const plugins = useMemo(() => demoPlugins(), [])
   const [handle, setHandle] = useState<DocumentHandle | null>(null)
   const [status, setStatus] = useState('connecting')
-  // A rebuilt document is another Y.Doc: the editor binds to the new one
+  // A rebuilt content is another Y.Doc: the editor binds to the new one
   const [generation, setGeneration] = useState(0)
   const [composing, setComposing] = useState(false)
   // The latest callback, without making a new connection when it changes
@@ -50,7 +50,12 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
         }
         opened = document
         document.on('closed', () => gone.current('The lab document was reset. Join again.'))
-        document.on('rebuilt', () => setGeneration((n) => n + 1))
+        // A rebuilt content is another Y.Doc; rebuilt comments follow by themselves
+        document.on('rebuilt', ({ layer }) => {
+          if (layer === 'content') {
+            setGeneration((n) => n + 1)
+          }
+        })
         setHandle(document)
       })
       .catch(() => {

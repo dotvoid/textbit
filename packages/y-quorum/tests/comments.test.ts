@@ -3,6 +3,9 @@ import { afterEach, describe, expect, it } from 'vitest'
 import * as Y from '@y/y'
 import { Transforms } from 'slate'
 import type { AddressInfo } from 'node:net'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { createClient, type Client, type DocumentHandle, type Rejection } from '@dotvoid/y-quorum-client'
 import {
   COMMENTS,
@@ -22,7 +25,7 @@ import {
   relativePositionToPoint,
   resolveAnchor
 } from '@dotvoid/textbit/headless'
-import { createServer, host, memory, type HostDocument, type QuorumServer, type ServerType, type Storage } from '../lib'
+import { createServer, host, memory, sqlite, type HostDocument, type QuorumServer, type ServerType, type Storage } from '../lib'
 
 const paragraph = (id: string, words: string) => ({ id, type: 'base/text', class: 'text', children: [{ text: words }] })
 
@@ -136,7 +139,7 @@ describe('comments', () => {
     const carol = await open('carol', 'c-3')
     const refused = rejection(carol)
 
-    addThread(carol.doc.get(COMMENTS), {
+    addThread(carol.commentsDoc.get(COMMENTS), {
       id: 'forged', author: people.alice, at: Date.now(), anchor: anchor('c-3'), comment: { id: 'x', body: 'Delete this paragraph' }
     })
 
@@ -180,6 +183,60 @@ describe('comments', () => {
     expect(stored.comments[0]).toMatchObject({ body: '', deleted: expect.any(Number), edited: expect.any(Number) })
   })
 
+  it('keeps the comments out of the content’s Y.Doc', async () => {
+    await start()
+    await seed('c-9')
+    const carol = await open('carol', 'c-9')
+    carol.comments.create(anchor('c-9'), 'Which harbour?')
+    await saved(carol)
+
+    // The content's Y.Doc has no comments root, and the comments' none of the content
+    expect([...carol.doc.share.keys()]).toEqual(['content'])
+    expect([...carol.commentsDoc.share.keys()]).toEqual([COMMENTS])
+    // A comment in the content's Y.Doc is refused as a change to the content
+    const refused = rejection(carol)
+    addThread(carol.doc.get(COMMENTS), {
+      id: 'misplaced', author: people.carol, at: Date.now(), anchor: anchor('c-9'), comment: { id: 'x', body: 'Hm' }
+    })
+    expect((await refused).reason).toBe('Changes only the content')
+  })
+
+  it('a refused comment rebuilds the comments only, never the content', async () => {
+    await start()
+    await seed('c-10')
+    const alice = await open('alice', 'c-10')
+    const carol = await open('carol', 'c-10')
+    const thread = alice.comments.create(anchor('c-10'), 'Mine')
+    await until(() => carol.comments.threads.length === 1)
+    const content = carol.doc
+    const rebuilt = new Promise<string>((resolve) => carol.on('rebuilt', ({ layer }) => resolve(layer)))
+
+    carol.comments.edit(thread, carol.comments.threads[0].comments[0].id, 'Hers now')
+
+    expect(await rebuilt).toBe('comments')
+    expect(carol.doc).toBe(content)
+    await until(() => carol.comments.threads[0]?.comments[0].body === 'Mine')
+  })
+
+  it('keeps the comments through a restart, in their own checkpoint', async () => {
+    const folder = mkdtempSync(join(tmpdir(), 'y-quorum-comments-'))
+    try {
+      await start(sqlite(join(folder, 'db.sqlite')))
+      await seed('c-11')
+      const carol = await open('carol', 'c-11')
+      carol.comments.create(anchor('c-11'), 'Which harbour?')
+      await saved(carol)
+      clients.splice(0).forEach((client) => client.close())
+      await server.close()
+
+      await start(sqlite(join(folder, 'db.sqlite')))
+      const alice = await open('alice', 'c-11')
+      expect(bodies(alice.comments.threads)).toEqual([['Which harbour?']])
+    } finally {
+      rmSync(folder, { recursive: true, force: true })
+    }
+  })
+
   it('a type without comments takes none', async () => {
     await start()
     await seed('c-5', 'example/note')
@@ -189,7 +246,8 @@ describe('comments', () => {
     expect(alice.comments.rights).toBe('none')
     alice.comments.create(anchor('c-5'), 'Hm')
 
-    expect((await refused).code).toBe('not-allowed')
+    // The document has no comments layer at all
+    expect((await refused).code).toBe('invalid')
   })
 
   it('an agent comments as itself, for the person it works for', async () => {
@@ -243,7 +301,7 @@ describe('comments', () => {
     await until(() => alice.comments.threads.length === 2)
 
     expect(body.threads.map((thread) => thread.comments[0].body)).toEqual(['Which harbour?'])
-    expect(alice.comments.threads.map((thread) => thread.anchor.path)).toEqual([['body'], ['title']])
+    expect(alice.comments.threads.map((thread) => thread.anchor.path[0]).sort()).toEqual(['body', 'title'])
     Transforms.insertText(aliceEditor, 'Cold. ', { at: { path: [0, 0], offset: 0 } })
     const range = resolveAnchor(aliceEditor, alice.comments.field(['body']).threads[0].anchor)!
     expect(range).toEqual({ anchor: { path: [0, 0], offset: 10 }, focus: { path: [0, 0], offset: 17 } })
