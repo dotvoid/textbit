@@ -654,8 +654,14 @@ through MCP is an agent action: people edit over the socket.
    and deleted (`insert`, `insertAt`, `insert:onBehalfOf`, `insert:run` and the `delete:`
    twins, people named `kind:id`), keeps it in checkpoints, rebuilds it from the log after
    them, and sends it to clients. `handle.attributionsRenderer()` is an `AttributionsRenderer`
-   kept current; through it the editor marks text `_by` and `_at`. To come: versions,
-   differences (`createDiffRenderer`), restore, the hash chain, review evidence, export.
+   kept current; through it the editor marks text `_by` and `_at`. Versions followed the same
+   day: a save by whoever may make versions (editors; owners restore) is a version at a log
+   position, kept with the content's state; `handle.compare(from, to?)` shows the difference
+   through `createDiffRenderer` on two copies, with who changed what; restore is Y.js 14's
+   `undoContentIds` on what changed since, a new change in the restorer's name, after an
+   automatic version of the content as it was. The content of a type with history keeps its
+   deleted items (`gc: false`), which restoring needs. To come: scrubbing, the log batches and
+   hash chain, review evidence, export.
 5. **Suggestions in the fork,** people's suggesting mode, agents suggesting, run revert.
 6. **The MCP module.**
 7. **Production:** Postgres and S3, leases and forwarding, audit export, retention and

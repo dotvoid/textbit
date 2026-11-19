@@ -42,7 +42,9 @@ const server = createServer({
       principal: { kind: agent ? 'agent' : 'person', id: shown.toLowerCase(), name: shown },
       namespaces: ['lab']
     }
-  }
+  },
+  // Everyone in the lab owns the document: they may restore versions too
+  authorize: () => ['owner']
 })
 
 if (!(await server.read('lab', 'article'))) {

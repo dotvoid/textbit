@@ -1,4 +1,4 @@
-import type { DocumentRecord } from '@dotvoid/y-quorum-client/protocol'
+import type { DocumentRecord, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
 import type { Checkpoint, LogEntry, Storage, StoredMeta } from '../types'
 
 interface Kept {
@@ -6,6 +6,7 @@ interface Kept {
   checkpoint: Checkpoint & { seq: number }
   entries: LogEntry[]
   records: DocumentRecord[]
+  versions: Array<{ version: VersionInfo, state: Uint8Array }>
   claims: Map<number, string>
 }
 
@@ -28,7 +29,8 @@ export function memory(): Storage {
         meta: kept.meta,
         checkpoint: kept.checkpoint,
         entries: kept.entries.filter((entry) => entry.seq > kept.checkpoint.seq),
-        records: [...kept.records]
+        records: [...kept.records],
+        versions: kept.versions.map(({ version }) => version)
       }
     },
     create: async (namespace, id, meta, checkpoint) => {
@@ -36,7 +38,7 @@ export function memory(): Storage {
       if (documents.has(key)) {
         throw new Error(`y-quorum: ${namespace}/${id} exists`)
       }
-      documents.set(key, { meta, checkpoint: { ...checkpoint, seq: 0 }, entries: [], records: [], claims: new Map() })
+      documents.set(key, { meta, checkpoint: { ...checkpoint, seq: 0 }, entries: [], records: [], versions: [], claims: new Map() })
     },
     append: async (namespace, id, entries) => {
       get(namespace, id).entries.push(...entries)
@@ -48,6 +50,11 @@ export function memory(): Storage {
       get(namespace, id).records.push(record)
     },
     log: async (namespace, id, from = 0) => get(namespace, id).entries.filter((entry) => entry.seq > from),
+    addVersion: async (namespace, id, version, state) => {
+      get(namespace, id).versions.push({ version, state })
+    },
+    versionState: async (namespace, id, versionId) =>
+      get(namespace, id).versions.find(({ version }) => version.id === versionId)?.state,
     claimClient: async (namespace, id, client, principal) => {
       const claims = get(namespace, id).claims
       const holder = claims.get(client)

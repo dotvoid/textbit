@@ -7,6 +7,7 @@ import { GutterMenu } from './GutterMenu'
 import { SelectionToolbar } from './SelectionToolbar'
 import { EditorContextMenu } from './EditorContextMenu'
 import { CommentsPanel } from './CommentsPanel'
+import { VersionsPanel } from './VersionsPanel'
 
 export const LAB_URL = 'ws://localhost:1234'
 
@@ -121,6 +122,7 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
             </Textbit.Editable>
           </div>
           <Textbit.Suggestions className='demo-lab-suggestions' aria-label='Suggestions from the agent' />
+          {!compact && <VersionsPanel handle={handle} plugins={plugins} />}
         </div>
         {!compact && (
           // The lab's principal ids are people's names, in lower case

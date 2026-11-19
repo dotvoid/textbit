@@ -11,6 +11,7 @@
 //      rebuilt from the document and the writer told, with the update, so its
 //      app can keep what was written.
 import * as Y from '@y/y'
+import { randomUUID } from 'node:crypto'
 import * as awarenessProtocol from '@y/protocols/awareness'
 import {
   ToClient,
@@ -22,6 +23,7 @@ import {
   type Headers,
   type Layer,
   type Person,
+  type VersionInfo,
   type Principal,
   type ReasonCode
 } from '@dotvoid/y-quorum-client/protocol'
@@ -95,6 +97,8 @@ export class DocumentOwner {
   private attributions = new Map<Layer, Y.ContentMap>()
   /** The people the attributions name, by their key */
   private people: Record<string, Person> = {}
+  /** For a type with history: its versions, oldest first */
+  private versions: VersionInfo[]
   private seq: number
   private recordSeq: number
   private sinceCheckpoint = 0
@@ -111,8 +115,10 @@ export class DocumentOwner {
     private readonly options: ServerOptions,
     private readonly changed: (owner: DocumentOwner) => void
   ) {
-    this.doc = new Y.Doc()
+    // With history, deleted content is kept: restoring a version brings it back
+    this.doc = new Y.Doc({ gc: !type.history })
     this.layers = new Map<Layer, Y.Doc>([['content', this.doc], ['comments', new Y.Doc()]])
+    this.versions = stored.versions ?? []
     for (const [layer, doc] of this.layers) {
       const state = stored.checkpoint?.states[layer]
       if (state) {
@@ -233,7 +239,11 @@ export class DocumentOwner {
     const comments = !this.type.comments
       ? 'none'
       : capabilities.comments ?? (write ? 'all' : roles.some((role) => role === 'commenter' || role === 'suggester') ? 'own' : 'none')
-    return { ...capabilities, comments }
+    // Versions by role unless the policy says: owners restore, editors make them
+    const versions = !this.type.history || !capabilities.read
+      ? undefined
+      : capabilities.versions ?? (roles.includes('owner') ? 'restore' : capabilities.write ? 'create' : 'read')
+    return { ...capabilities, comments, ...(versions ? { versions } : {}) }
   }
 
   // ---- Opening and closing ------------------------------------------------
@@ -274,7 +284,7 @@ export class DocumentOwner {
           stateVector: toBase64(Y.encodeStateVector(this.doc)),
           records: this.records,
           ...(this.extraLayers.length ? { layers } : {}),
-          ...(this.type.history ? { attributions: this.encodedAttributions(toBase64), people: this.people } : {})
+          ...(this.type.history ? { attributions: this.encodedAttributions(toBase64), people: this.people, versions: this.versions } : {})
         }, missing)
         const present = [...this.awareness.getStates().keys()]
         if (present.length) {
@@ -636,8 +646,15 @@ export class DocumentOwner {
     return record
   }
 
-  /** A save: answered once the document holds everything the client had */
+  /**
+   * A save: answered once the document holds everything the client had.
+   * With history it is a version, made by whoever may make them.
+   */
   save(opening: Opening, header: Headers[typeof ToServer.SAVE], vector: Uint8Array): void {
+    if (this.type.history && !['create', 'restore'].includes(opening.capabilities.versions ?? '')) {
+      this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: false, code: 'not-allowed', reason: 'Not allowed to make versions' })
+      return
+    }
     this.saves.push({ opening, call: header.call, vector: Y.decodeStateVector(vector), actor: { principal: opening.peer.principal }, ...(header.label ? { label: header.label } : {}) })
     void this.serial(() => this.settleSaves())
   }
@@ -652,13 +669,96 @@ export class DocumentOwner {
         this.saves.push(save)
         continue
       }
-      void Promise.resolve(this.options.onSave?.({
-        namespace: this.namespace, id: this.id, seq: this.seq, actor: save.actor, json: this.json(),
-        ...(save.label ? { label: save.label } : {})
-      })).then(() => {
-        this.sendTo(save.opening, ToClient.SAVED, { ref: save.opening.ref, call: save.call, log: this.seq })
-      })
+      // The state now, at this log position, whatever arrives while it is stored
+      const seq = this.seq
+      const json = this.json()
+      const state = this.type.history ? Y.encodeStateAsUpdate(this.doc) : undefined
+      void (async () => {
+        const version = state
+          ? await this.addVersion({ kind: 'saved', by: personOf(save.actor.principal), ...(save.label ? { label: save.label } : {}) }, seq, state)
+          : undefined
+        await this.options.onSave?.({
+          namespace: this.namespace, id: this.id, seq, actor: save.actor, json,
+          ...(save.label ? { label: save.label } : {}),
+          ...(version ? { version } : {})
+        })
+        this.sendTo(save.opening, ToClient.SAVED, { ref: save.opening.ref, call: save.call, log: seq })
+      })()
     }
+  }
+
+  /** Keeps a version of the content at a log position, and tells everyone */
+  private async addVersion(what: Pick<VersionInfo, 'kind' | 'by' | 'label'>, seq: number, state: Uint8Array): Promise<VersionInfo> {
+    const version: VersionInfo = { id: randomUUID(), seq, at: Date.now(), ...what }
+    await this.storage.addVersion(this.namespace, this.id, version, state)
+    this.versions.push(version)
+    for (const opening of this.openings) {
+      if (opening.mode === 'open') {
+        this.sendTo(opening, ToClient.VERSIONS, { ref: opening.ref, versions: [version] })
+      }
+    }
+    return version
+  }
+
+  /** A version's content, for showing or comparing: its state as the payload */
+  version(opening: Opening, header: Headers[typeof ToServer.VERSION]): Promise<void> {
+    return this.serial(async () => {
+      const version = this.versions.find((candidate) => candidate.id === header.id)
+      const state = version && opening.capabilities.versions
+        ? await this.storage.versionState(this.namespace, this.id, version.id)
+        : undefined
+      if (!version || !state) {
+        this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: false, code: 'not-found', reason: `No version ${header.id}` })
+        return
+      }
+      this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: true, value: version }, state)
+    })
+  }
+
+  /**
+   * Restores a version as a new change, the way Y.js 14 reverts: what was
+   * inserted since is deleted and what was deleted since comes back, in the
+   * name of whoever restores it. A version is made first, so the restore can
+   * be undone by restoring that.
+   */
+  restore(opening: Opening, header: Headers[typeof ToServer.RESTORE]): Promise<void> {
+    return this.serial(async () => {
+      const fail = (code: ReasonCode, reason: string) => {
+        this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: false, code, reason })
+      }
+      if (opening.capabilities.versions !== 'restore') {
+        return fail('not-allowed', 'Not allowed to restore versions')
+      }
+      const version = this.versions.find((candidate) => candidate.id === header.id)
+      const state = version && await this.storage.versionState(this.namespace, this.id, version.id)
+      if (!version || !state) {
+        return fail('not-found', `No version ${header.id}`)
+      }
+      const then = new Y.Doc({ gc: false })
+      Y.applyUpdate(then, state)
+      const now = new Y.Doc({ gc: false })
+      Y.applyUpdate(now, Y.encodeStateAsUpdate(this.doc))
+      const before = Y.encodeStateVector(now)
+      Y.undoContentIds(now, Y.createContentIdsFromDocDiff(now, then))
+      const update = Y.encodeStateAsUpdate(now, before)
+
+      const actor: Actor = { principal: opening.peer.principal }
+      if (!(await this.storage.claimClient(this.namespace, this.id, now.clientID, actor.principal.id))) {
+        return fail('conflict', 'Could not write the restore')
+      }
+      const judgement = await this.judge(actor.principal.id, actor, opening.roles, 'content', update)
+      if (judgement === 'pending' || 'code' in judgement) {
+        return fail(judgement === 'pending' ? 'conflict' : judgement.code, judgement === 'pending' ? 'Could not write the restore' : judgement.reason)
+      }
+      const backup = await this.addVersion({
+        kind: 'before-restore',
+        by: personOf(actor.principal),
+        label: `Before restoring ${version.label ?? 'a version'}`
+      }, this.seq, Y.encodeStateAsUpdate(this.doc))
+      const log = judgement.layer ? await this.commit(actor, judgement.layer, update) : this.seq
+      await this.retryHeld()
+      this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: true, value: { log, backup } })
+    })
   }
 
   setMode(opening: Opening, mode: 'reading' | 'editing', visible: boolean): void {

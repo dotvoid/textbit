@@ -1,6 +1,6 @@
 import type * as Y from '@y/y'
 import type { IncomingMessage } from 'node:http'
-import type { Capabilities, DocumentRecord, Layer, Limits, Person, Principal } from '@dotvoid/y-quorum-client/protocol'
+import type { Capabilities, DocumentRecord, Layer, Limits, Person, Principal, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
 import type { CommentThread, Path, TypeDefinition } from '@dotvoid/y-quorum-client/model'
 
 /** Who made a change: the principal, and whom it acted for */
@@ -83,6 +83,8 @@ export interface StoredDocument {
   /** The log after the checkpoint */
   entries: LogEntry[]
   records: DocumentRecord[]
+  /** For a type with history: its versions, oldest first, without their content */
+  versions?: VersionInfo[]
 }
 
 /**
@@ -99,6 +101,10 @@ export interface Storage {
   appendRecord(namespace: string, id: string, record: DocumentRecord): Promise<void>
   /** The log, from a position on: who changed what, kept whole whatever was checkpointed */
   log(namespace: string, id: string, from?: number): Promise<LogEntry[]>
+  /** Keeps a version: what it is, and the content's state at it */
+  addVersion(namespace: string, id: string, version: VersionInfo, state: Uint8Array): Promise<void>
+  /** The content's state at a version */
+  versionState(namespace: string, id: string, versionId: string): Promise<Uint8Array | undefined>
   /** Claims a Y.js client id for a principal; false when another principal holds it */
   claimClient(namespace: string, id: string, client: number, principal: string): Promise<boolean>
   /** Deletes a document, or a whole namespace */
@@ -130,7 +136,16 @@ export interface ServerOptions {
   /** Typed functions clients call */
   rpc?: Record<string, (args: unknown, context: { principal: Principal, server: QuorumServer }) => unknown>
   /** Called when a client saves: the content at a log position the client named */
-  onSave?(event: { namespace: string, id: string, seq: number, label?: string, actor: Actor, json: Record<string, unknown> }): void | Promise<void>
+  onSave?(event: {
+    namespace: string
+    id: string
+    seq: number
+    label?: string
+    actor: Actor
+    json: Record<string, unknown>
+    /** For a type with history: the version the save made */
+    version?: VersionInfo
+  }): void | Promise<void>
   limits?: Partial<Limits>
   /** Milliseconds a document stays loaded after the last connection leaves. Default: 5000. */
   idle?: number

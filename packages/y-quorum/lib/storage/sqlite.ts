@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite'
-import type { DocumentRecord, Layer, Person } from '@dotvoid/y-quorum-client/protocol'
+import type { DocumentRecord, Layer, Person, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
 import type { Actor, Checkpoint, LogEntry, Storage } from '../types'
 
 /**
@@ -30,6 +30,11 @@ export function sqlite(file: string): Storage {
       kind TEXT NOT NULL, at INTEGER NOT NULL, actor TEXT NOT NULL, on_behalf_of TEXT, data TEXT NOT NULL,
       PRIMARY KEY (namespace, id, seq)
     );
+    CREATE TABLE IF NOT EXISTS versions (
+      namespace TEXT NOT NULL, id TEXT NOT NULL, version_id TEXT NOT NULL, seq INTEGER NOT NULL,
+      info TEXT NOT NULL, state BLOB NOT NULL,
+      PRIMARY KEY (namespace, id, version_id)
+    );
     CREATE TABLE IF NOT EXISTS claims (
       namespace TEXT NOT NULL, id TEXT NOT NULL, client INTEGER NOT NULL, principal TEXT NOT NULL,
       PRIMARY KEY (namespace, id, client)
@@ -46,6 +51,9 @@ export function sqlite(file: string): Storage {
   const insertEntry = db.prepare('INSERT INTO log VALUES (?, ?, ?, ?, ?, ?, ?)')
   const updateCheckpoint = db.prepare('UPDATE documents SET checkpoint = ?, checkpoint_seq = ? WHERE namespace = ? AND id = ?')
   const insertRecord = db.prepare('INSERT INTO records VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+  const insertVersion = db.prepare('INSERT INTO versions VALUES (?, ?, ?, ?, ?, ?)')
+  const loadVersions = db.prepare('SELECT info FROM versions WHERE namespace = ? AND id = ? ORDER BY seq, rowid')
+  const loadVersionState = db.prepare('SELECT state FROM versions WHERE namespace = ? AND id = ? AND version_id = ?')
   const findClaim = db.prepare('SELECT principal FROM claims WHERE namespace = ? AND id = ? AND client = ?')
   const insertClaim = db.prepare('INSERT INTO claims VALUES (?, ?, ?, ?)')
 
@@ -114,8 +122,11 @@ export function sqlite(file: string): Storage {
         ...(record.on_behalf_of ? { onBehalfOf: JSON.parse(record.on_behalf_of) as DocumentRecord['actor'] } : {}),
         data: JSON.parse(record.data) as unknown
       }))
+      const versions = (loadVersions.all(namespace, id) as Array<{ info: string }>)
+        .map((version) => JSON.parse(version.info) as VersionInfo)
       return {
         meta: { type: row.type, incarnation: row.incarnation, createdAt: row.created_at },
+        versions,
         checkpoint: { ...checkpoint, seq: row.checkpoint_seq },
         entries,
         records
@@ -149,6 +160,13 @@ export function sqlite(file: string): Storage {
           actor: JSON.parse(entry.actor) as Actor,
           update: new Uint8Array(entry.update_)
         })),
+    addVersion: async (namespace, id, version, state) => {
+      insertVersion.run(namespace, id, version.id, version.seq, JSON.stringify(version), state)
+    },
+    versionState: async (namespace, id, versionId) => {
+      const row = loadVersionState.get(namespace, id, versionId) as { state: Uint8Array } | undefined
+      return row ? new Uint8Array(row.state) : undefined
+    },
     appendRecord: async (namespace, id, record) => {
       insertRecord.run(
         namespace, id, record.seq, record.kind, record.at, JSON.stringify(record.actor),
@@ -164,7 +182,7 @@ export function sqlite(file: string): Storage {
       return true
     },
     delete: async (namespace, id) => {
-      for (const table of ['documents', 'layer_checkpoints', 'log', 'records', 'claims']) {
+      for (const table of ['documents', 'layer_checkpoints', 'log', 'records', 'versions', 'claims']) {
         if (id !== undefined) {
           db.prepare(`DELETE FROM ${table} WHERE namespace = ? AND id = ?`).run(namespace, id)
         } else {

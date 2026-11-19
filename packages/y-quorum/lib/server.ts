@@ -270,6 +270,15 @@ export function createServer(options: ServerOptions): QuorumServer {
     } else if (isFrame(frame, ToServer.SAVE)) {
       const held = connection.openings.get(frame.header.ref)
       held?.owner.save(held.opening, frame.header, frame.payload)
+    } else if (isFrame(frame, ToServer.VERSION)) {
+      const held = connection.openings.get(frame.header.ref)
+      await held?.owner.version(held.opening, frame.header)
+    } else if (isFrame(frame, ToServer.RESTORE)) {
+      const held = connection.openings.get(frame.header.ref)
+      await held?.owner.restore(held.opening, frame.header)
+      if (held) {
+        changed(held.owner)
+      }
     } else if (isFrame(frame, ToServer.MODE)) {
       const held = connection.openings.get(frame.header.ref)
       held?.owner.setMode(held.opening, frame.header.mode, frame.header.visible)

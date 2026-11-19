@@ -29,6 +29,7 @@ import {
   type Layer,
   type Limits,
   type Person,
+  type VersionInfo,
   type PresenceEntry,
   type Principal,
   type ReasonCode
@@ -93,6 +94,8 @@ export interface DocumentEvents {
   saved: { log?: number }
   /** For a type with history: who wrote what in a change just stored */
   attributions: { layer: Layer, attributions: Y.ContentMap }
+  /** For a type with history: versions just made */
+  versions: VersionInfo[]
   /** The server closed the document, or the client was closed for good */
   closed: Refusal
 }
@@ -140,6 +143,18 @@ export interface DocumentHandle {
    * `withDeleted` deleted text shows too.
    */
   attributionsRenderer(options?: { withDeleted?: boolean }): Y.AttributionsRenderer
+  /** For a type with history: the versions of the content, oldest first */
+  readonly versions: readonly VersionInfo[]
+  /** A version's content, as a Y.Doc of its own: to show it, never to edit */
+  version(id: string): Promise<Y.Doc>
+  /**
+   * The difference between a version and a later one, or the content as it is
+   * now: show `content`'s fields through `renderer`, read only. Who changed
+   * what comes from the attributions. Both sides are copies, so it holds still.
+   */
+  compare(from: string, to?: string): Promise<{ doc: Y.Doc, content: Y.Node, renderer: Y.DiffRenderer }>
+  /** Restores a version as a new change, after a version of the content as it was; resolves with its log position */
+  restore(id: string): Promise<number>
   readonly hasUnsavedChanges: boolean
   /** The comment threads beside the content, for a type with comments */
   readonly comments: Comments
@@ -250,6 +265,7 @@ interface DocState extends Opening {
   records: DocumentRecord[]
   attributions: Map<Layer, Y.ContentMap>
   people: Record<string, Person>
+  versions: VersionInfo[]
   /** Renderers handed out, to keep current */
   renderers: Set<LiveAttributionsRenderer>
   seq: number
@@ -276,7 +292,7 @@ interface WatchState extends Opening {
 }
 
 interface Call {
-  resolve: (value: unknown) => void
+  resolve: (value: unknown, payload: Uint8Array) => void
   reject: (error: Error) => void
   send: () => void
   sent: boolean
@@ -483,6 +499,21 @@ class QuorumClient implements Client {
     }).then((log) => Number(log))
   }
 
+  /** A version's content, as an update */
+  versionState(state: DocState, id: string): Promise<Uint8Array> {
+    const call = this.nextCall++
+    return this.request(call, () => {
+      this.send(encodeFrame(ToServer.VERSION, { ref: state.ref, call, id }))
+    }).then(({ payload }) => payload)
+  }
+
+  restore(state: DocState, id: string): Promise<number> {
+    const call = this.nextCall++
+    return this.request(call, () => {
+      this.send(encodeFrame(ToServer.RESTORE, { ref: state.ref, call, id }))
+    }).then(({ value }) => Number((value as { log: number }).log))
+  }
+
   // The connection
 
   private connect(): void {
@@ -621,11 +652,16 @@ class QuorumClient implements Client {
   }
 
   private call(call: number, send: () => void): Promise<unknown> {
+    return this.request(call, send).then(({ value }) => value)
+  }
+
+  /** A call answered with a value, and with a payload for some */
+  private request(call: number, send: () => void): Promise<{ value: unknown, payload: Uint8Array }> {
     if (this.status === 'closed') {
       return Promise.reject(new QuorumError('unavailable', 'y-quorum: the client is closed'))
     }
     return new Promise((resolve, reject) => {
-      const entry: Call = { resolve, reject, send, sent: false }
+      const entry: Call = { resolve: (value, payload) => resolve({ value, payload }), reject, send, sent: false }
       this.calls.set(call, entry)
       if (this.welcomed) {
         entry.sent = true
@@ -652,12 +688,12 @@ class QuorumClient implements Client {
       const entry = this.calls.get(call)
       this.calls.delete(call)
       if (ok) {
-        entry?.resolve(value)
+        entry?.resolve(value, frame.payload)
       } else {
         entry?.reject(new QuorumError(code ?? 'invalid', reason ?? 'y-quorum: the call failed'))
       }
     } else if (isFrame(frame, ToClient.SAVED)) {
-      this.calls.get(frame.header.call)?.resolve(frame.header.log)
+      this.calls.get(frame.header.call)?.resolve(frame.header.log, frame.payload)
       this.calls.delete(frame.header.call)
     } else if (isFrame(frame, ToClient.PRESENCE)) {
       for (const listener of [...this.presences.get(frame.header.namespace) ?? []]) {
@@ -729,6 +765,10 @@ class QuorumClient implements Client {
       emitAll(state.handles, 'records', frame.header.records)
     } else if (isFrame(frame, ToClient.MESSAGE)) {
       emitAll(state.handles, 'message', frame.header.message)
+    } else if (isFrame(frame, ToClient.VERSIONS)) {
+      const added = frame.header.versions.filter((version) => !state.versions.some((known) => known.id === version.id))
+      state.versions.push(...added)
+      emitAll(state.handles, 'versions', added)
     } else if (isFrame(frame, ToClient.ATTRIBUTIONS)) {
       this.attributed(state, frame.header.layer, Y.decodeContentMap(frame.payload), frame.header.people)
     }
@@ -758,6 +798,7 @@ class QuorumClient implements Client {
       records: [],
       attributions: new Map(),
       people: {},
+      versions: [],
       renderers: new Set(),
       seq: 0,
       local: [],
@@ -893,6 +934,7 @@ class QuorumClient implements Client {
     state.incarnation = header.incarnation
     state.capabilities = header.capabilities
     state.records = header.records ?? state.records
+    state.versions = header.versions ?? state.versions
     // The whole of who wrote what, again after every opening
     for (const [layer, encoded] of Object.entries(header.attributions ?? {}) as Array<[Layer, string]>) {
       state.attributions.set(layer, Y.createContentMap())
@@ -1170,6 +1212,32 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
     this.state.renderers.add(renderer)
     this.renderers.add(renderer)
     return renderer
+  }
+
+  get versions() { return this.state.versions }
+
+  async version(id: string): Promise<Y.Doc> {
+    const doc = new Y.Doc({ gc: false })
+    Y.applyUpdate(doc, await this.client.versionState(this.state, id))
+    return doc
+  }
+
+  async compare(from: string, to?: string) {
+    const prev = await this.version(from)
+    let next: Y.Doc
+    if (to) {
+      next = await this.version(to)
+    } else {
+      // The content as it is now, a copy, so the difference holds still
+      next = new Y.Doc({ gc: false })
+      Y.applyUpdate(next, Y.encodeStateAsUpdate(this.state.doc))
+    }
+    const renderer = Y.createDiffRenderer(prev, next, { attributions: this.attributions('content') })
+    return { doc: next, content: next.get('content'), renderer }
+  }
+
+  restore(id: string): Promise<number> {
+    return this.client.restore(this.state, id)
   }
   get hasUnsavedChanges() { return this.state.local.length > 0 }
 
