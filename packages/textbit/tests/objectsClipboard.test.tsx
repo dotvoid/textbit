@@ -563,7 +563,12 @@ describe('an object whose plugin is missing', () => {
       act(() => Transforms.select(editor, point(editor)))
       const factbox = () => container.querySelector('[data-id="fb"][data-slate-node="element"]')!
       return {
-        press: (key: string) => act(() => { fireEvent.keyDown(container.querySelector('[data-slate-editor]')!, { key }) }),
+        // Whether the browser may act on the key, as fireEvent reports it
+        press: (key: string, modifiers: Record<string, boolean> = {}) => {
+          let allowed = true
+          act(() => { allowed = fireEvent.keyDown(container.querySelector('[data-slate-editor]')!, { key, ...modifiers }) })
+          return allowed
+        },
         state: () => factbox().getAttribute('data-state'),
         caretDrawn: () => [...factbox().children].some((c) => (c.getAttribute('style') ?? '').includes('block-caret-blink'))
       }
@@ -580,6 +585,26 @@ describe('an object whose plugin is missing', () => {
       const { press, state } = at((editor) => Editor.start(editor, [2]))
       press('ArrowUp')
       expect(state()).toBe('after')
+    })
+
+    test.each(['shiftKey', 'altKey', 'metaKey', 'ctrlKey'])('ArrowDown with %s is left to the browser', (modifier) => {
+      const { press, state } = at((editor) => Editor.end(editor, [0]))
+      expect(press('ArrowDown', { [modifier]: true })).toBe(true)
+      expect(state()).not.toBe('before')
+    })
+
+    test('ArrowUp with Alt from the paragraph below is left to the browser', () => {
+      const { press, state } = at((editor) => Editor.start(editor, [2]))
+      expect(press('ArrowUp', { altKey: true })).toBe(true)
+      expect(state()).not.toBe('after')
+    })
+
+    test('Cmd+ArrowDown beside it lets go of the block caret and is left to the browser', () => {
+      const { press, state } = at((editor) => Editor.end(editor, [0]))
+      press('ArrowDown')
+      expect(state()).toBe('before')
+      expect(press('ArrowDown', { metaKey: true })).toBe(true)
+      expect(state()).not.toBe('before')
     })
 
     test('ArrowRight from the paragraph above: before it, then after it', () => {
