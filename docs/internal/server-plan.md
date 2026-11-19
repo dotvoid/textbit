@@ -205,8 +205,12 @@ defineType('example/tag', { content: object({ name: string(), kind: oneOf(tagKin
 ### Rights from state, per field
 
 ```ts
-policy: ({ actor, roles, layer, changedPaths, content }) => Capabilities
+policy: ({ actor, roles, layer, paths, content, next }) => Capabilities
 ```
+
+The policy sees the document as it is (`content`) and, for a write, as it would be after it
+(`next`): a rule like "published documents are read-only" must judge the state before the write,
+or it refuses the very write that publishes.
 
 - A pure, synchronous function. The server computes the paths a write touches from the decoded
   update, without applying it, by resolving each new or deleted item to its place in the tree.
@@ -609,10 +613,25 @@ through MCP is an agent action: people edit over the socket.
    - suggestions in the fork over a mixed tree: text, a plain field, a new list item; accept and
      reject per run; an agent suggesting; a person typing in suggesting mode;
    - the restore-after-revert failure reduced to a report for Y.js upstream.
-1. **The binding and the document model** in core, with the demo on a minimal server.
+1. **The binding** in core, with the demo on a minimal server. Done 19 November 2026: core
+   binds editors to Y.js 14 text fields with its own binding (`packages/textbit/lib/yjs`);
+   slate-yjs and Y.js 13 are gone from its dependencies. The typed document model moved to
+   step 2, as server and client share it.
 2. **Server core:** the handshake, documents and types, namespaces, the client with many
    documents and views, memory, SQLite and `host` storage, policies, the write pipeline,
    awareness and namespace presence, records, writers in other processes. The lab moves to it.
+   Done 19 November 2026: `@dotvoid/y-quorum` and `@dotvoid/y-quorum-client`, the protocol and
+   the model shared by both from the client's `/protocol` and `/model`; the lab and the demo run
+   on them. Carried forward:
+   - repairs by the owner (textbit's normalization on the server), and agent and API writes
+     validated against the schema before they apply;
+   - outside changes to a host's JSON merged into a live document; today a document is seeded
+     from the host only when the cache lacks it;
+   - local copies in IndexedDB keyed by person, and the client's budget demoting documents
+     from open to watch;
+   - an HTTP API for writers in other processes (they use the client from Node with a service
+     token today);
+   - READMEs for both packages, and the guides.
 3. **Comments.**
 4. **History:** attribution, the log and checkpoints, versions, scrubbing, differences,
    restore, review evidence.
