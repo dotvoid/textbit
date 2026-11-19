@@ -5,6 +5,7 @@ import type { DocumentHandle } from '@dotvoid/y-quorum-client'
 import type { TBPlugin } from '@dotvoid/textbit'
 
 type Comparison = Awaited<ReturnType<DocumentHandle['compare']>> & { label: string }
+type Moment = { seq: number, content: Y.Node }
 
 /**
  * The versions of a document on the server: save one, compare one with the
@@ -14,6 +15,8 @@ export const VersionsPanel = ({ handle, plugins }: { handle: DocumentHandle, plu
   const [versions, setVersions] = useState(() => [...handle.versions])
   const [label, setLabel] = useState('')
   const [comparison, setComparison] = useState<Comparison>()
+  const [moment, setMoment] = useState<Moment>()
+  const [log, setLog] = useState(handle.log)
   const [problem, setProblem] = useState('')
   const may = handle.capabilities.versions
 
@@ -21,6 +24,17 @@ export const VersionsPanel = ({ handle, plugins }: { handle: DocumentHandle, plu
     const update = () => setVersions([...handle.versions])
     handle.on('versions', update)
     return () => handle.off('versions', update)
+  }, [handle])
+
+  // How far back there is to go grows as people write
+  useEffect(() => {
+    const update = () => setLog(handle.log)
+    handle.doc.on('update', update)
+    handle.on('saved', update)
+    return () => {
+      handle.doc.off('update', update)
+      handle.off('saved', update)
+    }
   }, [handle])
 
   if (!may) {
@@ -46,6 +60,31 @@ export const VersionsPanel = ({ handle, plugins }: { handle: DocumentHandle, plu
         </form>
       )}
       {problem && <p role='alert'>{problem}</p>}
+      <label className='demo-scrub'>
+        Back in time
+        <input
+          type='range'
+          min={0}
+          max={log}
+          value={moment?.seq ?? log}
+          onChange={(e) => {
+            const seq = Number(e.target.value)
+            if (seq >= log) {
+              setMoment(undefined)
+              return
+            }
+            attempt(handle.version(seq).then((doc) => setMoment({ seq, content: doc.get('content') })))
+          }}
+        />
+        <span>{moment ? `at change ${moment.seq} of ${log}` : 'now'}</span>
+      </label>
+      {moment && (
+        <div className='demo-diff'>
+          <Textbit.Root key={moment.seq} value={moment.content.getAttr('body') as Y.Node} plugins={plugins} readOnly>
+            <Textbit.Editable aria-label={`The text at change ${moment.seq}`} />
+          </Textbit.Root>
+        </div>
+      )}
       <ol>
         {[...versions].reverse().map((version) => (
           <li key={version.id}>

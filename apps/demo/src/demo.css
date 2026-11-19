@@ -56,3 +56,5 @@ body { margin: 0; font-family: system-ui, sans-serif; }
 .demo-diff p { display: flex; justify-content: space-between; align-items: center; margin: 0 0 0.5rem; color: var(--tb-muted); }
 .demo-diff [data-tb-change="insert"] { background: color-mix(in srgb, #2f9e44 22%, transparent); }
 .demo-diff [data-tb-change="delete"] { background: color-mix(in srgb, #e03131 14%, transparent); }
+.demo-scrub { display: flex; align-items: center; gap: 0.5rem; margin: 0.5rem 0; color: var(--tb-muted); }
+.demo-scrub input { flex: 1; }

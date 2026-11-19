@@ -134,8 +134,8 @@ export interface VersionInfo {
   /** Who made it */
   by: Person
   label?: string
-  /** Saved by someone, or made by the server before a restore */
-  kind: 'saved' | 'before-restore'
+  /** Made with the document, saved by someone, or made by the server before a restore */
+  kind: 'created' | 'saved' | 'before-restore'
 }
 
 /** What an agent working through a person's connection says about itself */
@@ -221,7 +221,8 @@ export interface Headers {
   [ToServer.MODE]: { ref: number, mode: 'reading' | 'editing', visible: boolean }
   [ToServer.PRESENCE]: { namespace: string, follow: boolean }
   [ToServer.SAVE]: { ref: number, call: number, label?: string }
-  [ToServer.VERSION]: { ref: number, call: number, id: string }
+  /** A version by its id, or the content at a log position */
+  [ToServer.VERSION]: { ref: number, call: number, id?: string, seq?: number }
   [ToServer.RESTORE]: { ref: number, call: number, id: string }
 
   [ToClient.WELCOME]: { protocol: number, principal: Principal, namespaces: string[] | '*', limits: Limits }
@@ -249,7 +250,7 @@ export interface Headers {
     versions?: VersionInfo[]
   }
   [ToClient.CLOSED]: { ref: number, code: ReasonCode, reason: string }
-  [ToClient.UPDATE]: { ref: number, layer: Layer }
+  [ToClient.UPDATE]: { ref: number, layer: Layer, /** The log position it was stored at */ log?: number }
   [ToClient.ACK]: { ref: number, seq: number, log: number }
   [ToClient.REJECTED]: { ref: number, seq: number, code: ReasonCode, reason: string }
   [ToClient.AWARENESS]: { ref: number }

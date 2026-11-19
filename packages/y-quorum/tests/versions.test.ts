@@ -47,6 +47,7 @@ async function open(token: string, id: string) {
   return client.open('news', id)
 }
 
+const named = (handle: DocumentHandle, label: string) => handle.versions.find((version) => version.label === label)!
 const body = (handle: DocumentHandle) => handle.content.getAttr('body') as Y.Node
 const words = (handle: DocumentHandle) => Node.string(createTextbitEditor({ shared: body(handle) }))
 const editorOf = (handle: DocumentHandle) => createTextbitEditor({ shared: body(handle) })
@@ -84,7 +85,8 @@ describe('versions', () => {
 
     await until(() => told.length === 1)
     expect(told).toEqual(['First draft'])
-    const [version] = alice.versions
+    expect(alice.versions.map((version) => version.kind)).toEqual(['created', 'saved'])
+    const version = alice.versions[1]
     expect(version).toMatchObject({ kind: 'saved', label: 'First draft', by: { id: 'bob', name: 'Bob' } })
     expect(onSave.mock.calls[0][0].version).toEqual(version)
     expect(toJSON((await alice.version(version.id)).get('content'), article.content)).toMatchObject({
@@ -104,7 +106,7 @@ describe('versions', () => {
     await saved(bob)
     await until(() => !Y.createIdSetFromIdMap(bob.attributions().deletes).isEmpty())
 
-    const { content, renderer } = await bob.compare(bob.versions[0].id)
+    const { content, renderer } = await bob.compare(named(bob, 'Before').id)
     const view = createTextbitEditor({ shared: content.getAttr('body') as Y.Node, renderer })
     const pieces = ((view.children[0] as Element).children as Descendant[]).filter(Text.isText)
       .map((leaf) => [leaf.text, (leaf as { _suggested?: string })._suggested, (leaf as { _by?: string })._by])
@@ -129,7 +131,7 @@ describe('versions', () => {
     await saved(bob)
     await until(() => words(alice) === 'Cold. The harbour. Quiet.')
 
-    await alice.restore(alice.versions[0].id)
+    await alice.restore(named(alice, 'Plain').id)
 
     await until(() => words(bob) === 'The harbour.')
     expect(words(alice)).toBe('The harbour.')
@@ -150,8 +152,31 @@ describe('versions', () => {
 
     await expect(carol.save('Mine')).rejects.toMatchObject({ code: 'not-allowed' } satisfies Partial<QuorumError>)
     await bob.save('Draft')
-    await expect(bob.restore(bob.versions[0].id)).rejects.toMatchObject({ code: 'not-allowed' })
-    await expect(carol.version(bob.versions[0].id)).resolves.toBeInstanceOf(Y.Doc)
+    await expect(bob.restore(named(bob, 'Draft').id)).rejects.toMatchObject({ code: 'not-allowed' })
+    await expect(carol.version(named(bob, 'Draft').id)).resolves.toBeInstanceOf(Y.Doc)
+  })
+
+  it('goes back to any log position, and compares two of them', async () => {
+    const server = await start()
+    await server.create('news', 'v-6', 'example/article', { body: [paragraph('p', 'Harbour.')] })
+    const bob = await open('bob', 'v-6')
+    const at = (handle: DocumentHandle) => handle.log
+    const text = async (seq: number) => (toJSON((await bob.version(seq)).get('content'), article.content).body as Array<{ children: Array<{ text: string }> }>)[0].children[0].text
+
+    Transforms.insertText(editorOf(bob), 'Cold. ', { at: { path: [0, 0], offset: 0 } })
+    await saved(bob)
+    const afterCold = at(bob)
+    await bob.save('Middle')
+    Transforms.insertText(editorOf(bob), 'Very. ', { at: { path: [0, 0], offset: 0 } })
+    await saved(bob)
+
+    expect(await text(0)).toBe('Harbour.')
+    expect(await text(afterCold)).toBe('Cold. Harbour.')
+    expect(await text(bob.log)).toBe('Very. Cold. Harbour.')
+    const { content, renderer } = await bob.compare(0, afterCold)
+    const view = createTextbitEditor({ shared: content.getAttr('body') as Y.Node, renderer })
+    expect(((view.children[0] as Element).children as Descendant[]).filter(Text.isText)
+      .map((leaf) => [leaf.text, (leaf as { _suggested?: string })._suggested])).toEqual([['Cold. ', 'insert'], ['Harbour.', undefined]])
   })
 
   it('keeps versions through a restart', async () => {
@@ -167,8 +192,8 @@ describe('versions', () => {
 
       await start(sqlite(join(folder, 'db.sqlite')))
       const alice = await open('alice', 'v-5')
-      expect(alice.versions.map((version) => version.label)).toEqual(['Kept'])
-      expect(toJSON((await alice.version(alice.versions[0].id)).get('content'), article.content)).toMatchObject({
+      expect(alice.versions.map((version) => version.label)).toEqual(['Created', 'Kept'])
+      expect(toJSON((await alice.version(named(alice, 'Kept').id)).get('content'), article.content)).toMatchObject({
         body: [{ children: [{ text: 'The harbour.' }] }]
       })
     } finally {

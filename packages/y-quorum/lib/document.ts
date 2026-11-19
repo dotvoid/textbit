@@ -545,7 +545,7 @@ export class DocumentOwner {
     const attributed = this.apply(layer, update, actor, entry.at, from ?? this)
     for (const opening of this.openings) {
       if (opening !== from && opening.mode === 'open') {
-        this.sendTo(opening, ToClient.UPDATE, { ref: opening.ref, layer }, update)
+        this.sendTo(opening, ToClient.UPDATE, { ref: opening.ref, layer, log: this.seq }, update)
       }
     }
     // Who wrote it, to everyone with it open, the writer too
@@ -795,19 +795,54 @@ export class DocumentOwner {
     return version
   }
 
-  /** A version's content, for showing or comparing: its state as the payload */
+  /**
+   * A version's content, or the content at a log position, for showing or
+   * comparing: its state as the payload
+   */
   version(opening: Opening, header: Headers[typeof ToServer.VERSION]): Promise<void> {
     return this.serial(async () => {
+      const notFound = (reason: string) =>
+        this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: false, code: 'not-found', reason })
+      if (!opening.capabilities.versions) {
+        return notFound('This document keeps no versions')
+      }
+      if (header.seq !== undefined) {
+        const state = await this.contentAt(header.seq)
+        return state
+          ? this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: true, value: { seq: header.seq } }, state)
+          : notFound(`Nothing kept from before log position ${header.seq}`)
+      }
       const version = this.versions.find((candidate) => candidate.id === header.id)
-      const state = version && opening.capabilities.versions
-        ? await this.storage.versionState(this.namespace, this.id, version.id)
-        : undefined
+      const state = version && await this.storage.versionState(this.namespace, this.id, version.id)
       if (!version || !state) {
-        this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: false, code: 'not-found', reason: `No version ${header.id}` })
-        return
+        return notFound(`No version ${header.id}`)
       }
       this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: true, value: version }, state)
     })
+  }
+
+  /**
+   * The content as it was at a log position: the latest version at or before
+   * it, and the content's writes after that up to it
+   */
+  private async contentAt(seq: number): Promise<Uint8Array | undefined> {
+    const target = Math.min(Math.max(0, seq), this.seq)
+    const base = [...this.versions].reverse().find((version) => version.seq <= target)
+    const state = base && await this.storage.versionState(this.namespace, this.id, base.id)
+    if (!base || !state) {
+      return undefined
+    }
+    const doc = new Y.Doc({ gc: false })
+    Y.applyUpdate(doc, state)
+    for (const entry of await this.storage.log(this.namespace, this.id, base.seq)) {
+      if (entry.seq > target) {
+        break
+      }
+      if (entry.layer === 'content') {
+        Y.applyUpdate(doc, entry.update)
+      }
+    }
+    return Y.encodeStateAsUpdate(doc)
   }
 
   /**

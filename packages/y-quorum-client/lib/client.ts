@@ -145,14 +145,20 @@ export interface DocumentHandle {
   attributionsRenderer(options?: { withDeleted?: boolean }): Y.AttributionsRenderer
   /** For a type with history: the versions of the content, oldest first */
   readonly versions: readonly VersionInfo[]
-  /** A version's content, as a Y.Doc of its own: to show it, never to edit */
-  version(id: string): Promise<Y.Doc>
+  /** The latest log position this client knows the document at: how far back there is to go */
+  readonly log: number
   /**
-   * The difference between a version and a later one, or the content as it is
-   * now: show `content`'s fields through `renderer`, read only. Who changed
-   * what comes from the attributions. Both sides are copies, so it holds still.
+   * A version's content, by its id, or the content at a log position, as a
+   * Y.Doc of its own: to show it, never to edit
    */
-  compare(from: string, to?: string): Promise<{ doc: Y.Doc, content: Y.Node, renderer: Y.DiffRenderer }>
+  version(at: string | number): Promise<Y.Doc>
+  /**
+   * The difference between a version, or a log position, and a later one, or
+   * the content as it is now: show `content`'s fields through `renderer`, read
+   * only. Who changed what comes from the attributions. Both sides are copies,
+   * so it holds still.
+   */
+  compare(from: string | number, to?: string | number): Promise<{ doc: Y.Doc, content: Y.Node, renderer: Y.DiffRenderer }>
   /** Restores a version as a new change, after a version of the content as it was; resolves with its log position */
   restore(id: string): Promise<number>
   readonly hasUnsavedChanges: boolean
@@ -266,6 +272,8 @@ interface DocState extends Opening {
   attributions: Map<Layer, Y.ContentMap>
   people: Record<string, Person>
   versions: VersionInfo[]
+  /** The latest log position known */
+  log: number
   /** Renderers handed out, to keep current */
   renderers: Set<LiveAttributionsRenderer>
   seq: number
@@ -499,11 +507,12 @@ class QuorumClient implements Client {
     }).then((log) => Number(log))
   }
 
-  /** A version's content, as an update */
-  versionState(state: DocState, id: string): Promise<Uint8Array> {
+  /** A version's content, or the content at a log position, as an update */
+  versionState(state: DocState, at: string | number): Promise<Uint8Array> {
     const call = this.nextCall++
+    const which = typeof at === 'number' ? { seq: at } : { id: at }
     return this.request(call, () => {
-      this.send(encodeFrame(ToServer.VERSION, { ref: state.ref, call, id }))
+      this.send(encodeFrame(ToServer.VERSION, { ref: state.ref, call, ...which }))
     }).then(({ payload }) => payload)
   }
 
@@ -750,6 +759,7 @@ class QuorumClient implements Client {
     } else if (isFrame(frame, ToClient.OPENED)) {
       this.opened(state, frame.header, frame.payload)
     } else if (isFrame(frame, ToClient.UPDATE)) {
+      state.log = Math.max(state.log, frame.header.log ?? 0)
       Y.applyUpdate(layerDoc(state, frame.header.layer), frame.payload, this.remote)
     } else if (isFrame(frame, ToClient.AWARENESS)) {
       applyAwarenessUpdate(state.awareness, frame.payload, this.remote)
@@ -799,6 +809,7 @@ class QuorumClient implements Client {
       attributions: new Map(),
       people: {},
       versions: [],
+      log: 0,
       renderers: new Set(),
       seq: 0,
       local: [],
@@ -935,6 +946,7 @@ class QuorumClient implements Client {
     state.capabilities = header.capabilities
     state.records = header.records ?? state.records
     state.versions = header.versions ?? state.versions
+    state.log = Math.max(state.log, header.seq)
     // The whole of who wrote what, again after every opening
     for (const [layer, encoded] of Object.entries(header.attributions ?? {}) as Array<[Layer, string]>) {
       state.attributions.set(layer, Y.createContentMap())
@@ -1010,6 +1022,7 @@ class QuorumClient implements Client {
   }
 
   private acked(state: DocState, seq: number, log: number): void {
+    state.log = Math.max(state.log, log)
     state.pendingRecords = state.pendingRecords.filter((record) => record.seq !== seq)
     const before = state.local.length
     state.local = state.local.filter((entry) => entry.seq !== seq)
@@ -1215,17 +1228,18 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   }
 
   get versions() { return this.state.versions }
+  get log() { return this.state.log }
 
-  async version(id: string): Promise<Y.Doc> {
+  async version(at: string | number): Promise<Y.Doc> {
     const doc = new Y.Doc({ gc: false })
-    Y.applyUpdate(doc, await this.client.versionState(this.state, id))
+    Y.applyUpdate(doc, await this.client.versionState(this.state, at))
     return doc
   }
 
-  async compare(from: string, to?: string) {
+  async compare(from: string | number, to?: string | number) {
     const prev = await this.version(from)
     let next: Y.Doc
-    if (to) {
+    if (to !== undefined) {
       next = await this.version(to)
     } else {
       // The content as it is now, a copy, so the difference holds still

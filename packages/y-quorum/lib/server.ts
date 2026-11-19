@@ -137,6 +137,14 @@ export function createServer(options: ServerOptions): QuorumServer {
       states: { content: Y.encodeStateAsUpdate(doc), comments: Y.encodeStateAsUpdate(commentsDoc) },
       ...history
     })
+    // With history, the first version is the document as it was made: going
+    // back through time starts there
+    if (type.history) {
+      await options.storage.addVersion(namespace, id, {
+        id: randomUUID(), seq: 0, at: createdAt, kind: 'created', label: 'Created',
+        by: { kind: by.kind, id: by.id, name: by.name }
+      }, Y.encodeStateAsUpdate(doc))
+    }
   }
 
   // Something changed about who has a document open: presence, and maybe unload
