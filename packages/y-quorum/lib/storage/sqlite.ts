@@ -88,6 +88,16 @@ export function sqlite(file: string): Storage {
     }
   }
 
+  // Writes beside a document only while it is there: what a node that has not
+  // noticed it was deleted writes is not kept
+  function whileThere(namespace: string, id: string, work: () => void) {
+    transaction(() => {
+      if (loadDocument.get(namespace, id)) {
+        work()
+      }
+    })
+  }
+
   function putParts(namespace: string, id: string, checkpoint: Checkpoint) {
     for (const [layer, state] of Object.entries(checkpoint.states)) {
       if (layer !== 'content' && state) {
@@ -177,7 +187,7 @@ export function sqlite(file: string): Storage {
       })
     },
     checkpoint: async (namespace, id, checkpoint, seq) => {
-      transaction(() => {
+      whileThere(namespace, id, () => {
         updateCheckpoint.run(checkpoint.states.content ?? new Uint8Array(), seq, namespace, id)
         putParts(namespace, id, checkpoint)
       })
@@ -192,7 +202,7 @@ export function sqlite(file: string): Storage {
           update: new Uint8Array(entry.update_)
         })),
     appendHistory: async (namespace, id, entries) => {
-      transaction(() => {
+      whileThere(namespace, id, () => {
         for (const entry of entries) {
           const { payload, ...rest } = entry
           insertHistory.run(namespace, id, entry.seq, JSON.stringify(rest), payload ?? null, entry.hash)
@@ -205,17 +215,22 @@ export function sqlite(file: string): Storage {
         ...(row.payload ? { payload: new Uint8Array(row.payload) } : {})
       })),
     addVersion: async (namespace, id, version, state) => {
-      insertVersion.run(namespace, id, version.id, version.seq, JSON.stringify(version), state)
+      whileThere(namespace, id, () => {
+        insertVersion.run(namespace, id, version.id, version.seq, JSON.stringify(version), state)
+      })
     },
     versionState: async (namespace, id, versionId) => {
       const row = loadVersionState.get(namespace, id, versionId) as { state: Uint8Array } | undefined
       return row ? new Uint8Array(row.state) : undefined
     },
     appendRecord: async (namespace, id, record) => {
-      insertRecord.run(
-        namespace, id, record.seq, record.kind, record.at, JSON.stringify(record.actor),
-        record.onBehalfOf ? JSON.stringify(record.onBehalfOf) : null, JSON.stringify(record.data ?? null)
-      )
+      whileThere(namespace, id, () => {
+        insertRecord.run(
+          namespace, id, record.seq, record.kind, record.at, JSON.stringify(record.actor),
+          record.onBehalfOf ? JSON.stringify(record.onBehalfOf) : null,
+          JSON.stringify(record.data ?? null)
+        )
+      })
     },
     lease: async (namespace, id, node, ttl) => {
       let lease: Lease | undefined
@@ -249,7 +264,7 @@ export function sqlite(file: string): Storage {
       })
     },
     addPeople: async (namespace, id, people) => {
-      transaction(() => {
+      whileThere(namespace, id, () => {
         const put = db.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?)')
         for (const [key, person] of Object.entries(people)) {
           put.run(namespace, id, key, JSON.stringify(person))
@@ -267,25 +282,35 @@ export function sqlite(file: string): Storage {
       if (row) {
         return row.principal === principal
       }
-      insertClaim.run(namespace, id, client, principal)
-      return true
+      let claimed = false
+      whileThere(namespace, id, () => {
+        insertClaim.run(namespace, id, client, principal)
+        claimed = true
+      })
+      return claimed
     },
     delete: async (namespace, id) => {
       // The lease ended first, with the next epoch: a node still holding the
       // document writes nothing more to it
+      // All at once: nobody takes the lease and writes between the two
       const fence = "UPDATE leases SET holder = '', address = '', epoch = epoch + 1, until = 0"
-      if (id !== undefined) {
-        db.prepare(`${fence} WHERE namespace = ? AND id = ?`).run(namespace, id)
-      } else {
-        db.prepare(`${fence} WHERE namespace = ?`).run(namespace)
-      }
-      for (const table of ['documents', 'layer_checkpoints', 'log', 'records', 'versions', 'history', 'claims', 'people']) {
+      const tables = [
+        'documents', 'layer_checkpoints', 'log', 'records', 'versions', 'history', 'claims', 'people'
+      ]
+      transaction(() => {
         if (id !== undefined) {
-          db.prepare(`DELETE FROM ${table} WHERE namespace = ? AND id = ?`).run(namespace, id)
+          db.prepare(`${fence} WHERE namespace = ? AND id = ?`).run(namespace, id)
         } else {
-          db.prepare(`DELETE FROM ${table} WHERE namespace = ?`).run(namespace)
+          db.prepare(`${fence} WHERE namespace = ?`).run(namespace)
         }
-      }
+        for (const table of tables) {
+          if (id !== undefined) {
+            db.prepare(`DELETE FROM ${table} WHERE namespace = ? AND id = ?`).run(namespace, id)
+          } else {
+            db.prepare(`DELETE FROM ${table} WHERE namespace = ?`).run(namespace)
+          }
+        }
+      })
     },
     close: async () => {
       db.close()

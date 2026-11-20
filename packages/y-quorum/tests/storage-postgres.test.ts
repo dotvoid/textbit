@@ -158,6 +158,27 @@ describe('postgres storage', () => {
     expect(await lease('n1')).toMatchObject({ holder: 'n2', epoch: 2 })
   })
 
+  it('gives the node that held a lease a new epoch when it takes it again once run out', async () => {
+    await storage.lease!('news', 'a', node('n1'), 20)
+    await new Promise((resolve) => setTimeout(resolve, 40))
+    expect(await lease('n1')).toMatchObject({ holder: 'n1', epoch: 2 })
+  })
+
+  it('keeps nothing written beside a document once it is deleted', async () => {
+    await storage.create('news', 'a', meta, { states: { content: bytes(1) } })
+    await storage.delete('news', 'a')
+    await storage.appendHistory('news', 'a', [historyEntry(1, 1)])
+    await storage.addVersion('news', 'a', version('v', 1), bytes(2))
+    await storage.appendRecord('news', 'a', { seq: 1, kind: 'k', at: 0, actor: alice, data: {} })
+    expect(await storage.claimClient('news', 'a', 7, 'alice')).toBe(false)
+    await storage.addPeople('news', 'a', { 'person:alice': alice })
+    await storage.create('news', 'a', meta, { states: { content: bytes(1) } })
+    const made = await storage.load('news', 'a')
+    expect(made).toMatchObject({ records: [], versions: [] })
+    expect(made?.historyHead).toBeUndefined()
+    expect(await storage.people('news', 'a')).toEqual({})
+  })
+
   it('lets a released lease be taken at once, with a higher epoch', async () => {
     await lease('n1')
     await storage.releaseLease!('news', 'a', 'n2')

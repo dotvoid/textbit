@@ -272,6 +272,8 @@ interface PendingRecord {
   data: unknown
   claim?: ActorClaim
   seq?: number
+  /** The same each time it is sent, so the server stores it once */
+  id?: string
 }
 
 interface Waiter<T> {
@@ -523,6 +525,7 @@ class QuorumClient implements Client {
     if (state.phase === 'closed') {
       return
     }
+    record.id ??= crypto.randomUUID()
     state.pendingRecords.push(record)
     if (this.isOpen(state)) {
       this.sendRecord(state, record)
@@ -1132,8 +1135,10 @@ class QuorumClient implements Client {
 
   private sendRecord(state: DocState, record: PendingRecord): void {
     record.seq = ++state.seq
-    const { kind, data, claim } = record
-    const header = { ref: state.ref, seq: record.seq, kind, data, ...(claim ? { claim } : {}) }
+    const { kind, data, claim, id } = record
+    const header = {
+      ref: state.ref, seq: record.seq, kind, data, id, ...(claim ? { claim } : {})
+    }
     this.send(encodeFrame(ToServer.RECORD, header))
   }
 

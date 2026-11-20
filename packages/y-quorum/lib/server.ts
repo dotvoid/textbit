@@ -45,14 +45,18 @@ interface Connection extends Peer {
   /** Relays to other nodes, by their address, and which openings go through which */
   relays: Map<string, Promise<Relay>>
   remote: Map<number, Relay>
-  /** Another node, by the secret the nodes share */
+  /** Another node, by the secret the nodes share: a relay for a client, or a link */
   fromNode?: boolean
+  /** Another node speaking for itself: the only one whose NODE_MESSAGE counts */
+  link?: boolean
 }
 
 export function createServer(options: ServerOptions): QuorumServer {
   const types = new Map<string, ServerType>(options.types.map((type) => [type.name, type]))
   const limits: Limits = { ...DEFAULT_LIMITS, ...options.limits }
   const owners = new Map<string, Promise<DocumentOwner | undefined>>()
+  // Documents being stored as they go: loaded again only once that is done
+  const unloads = new Map<string, Promise<void>>()
   const unloading = new Map<string, ReturnType<typeof setTimeout>>()
   const connections = new Set<Connection>()
   const presenceTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -61,8 +65,13 @@ export function createServer(options: ServerOptions): QuorumServer {
   let http: HttpServer | undefined
   // More than one node: documents held by lease, renewed while they are here
   const node = options.node && options.storage.lease ? options.node : undefined
+  if (node && !options.nodeSecret) {
+    throw new Error('y-quorum: a node needs `nodeSecret`, the secret the nodes share')
+  }
   const ttl = options.leaseTtl ?? 10000
   const renewals = new Map<string, ReturnType<typeof setInterval>>()
+  // The epoch of a lease just taken here, for the owner loaded under it
+  const taken = new Map<string, number>()
 
   // ---- Documents ------------------------------------------------------------
 
@@ -85,6 +94,7 @@ export function createServer(options: ServerOptions): QuorumServer {
   }
 
   async function load(namespace: string, id: string): Promise<DocumentOwner | undefined> {
+    await unloads.get(keyOf(namespace, id))
     let stored = await options.storage.load(namespace, id)
     if (!stored) {
       stored = await seedFromHost(namespace, id)
@@ -97,7 +107,22 @@ export function createServer(options: ServerOptions): QuorumServer {
       throw new Error(`y-quorum: ${namespace}/${id} is of type ${stored.meta.type}, which this server does not know`)
     }
     const owner = new DocumentOwner(namespace, id, type, stored, options.storage, options, changed)
+    // Let go of, here: passed to another node, or not stored as it should
+    // have been. Whoever comes back loads it afresh.
+    const key = keyOf(namespace, id)
+    owner.onLost = () => {
+      clearInterval(renewals.get(key))
+      renewals.delete(key)
+      void owners.get(key)?.then((current) => {
+        if (current === owner) {
+          owners.delete(key)
+        }
+      })
+    }
     if (node) {
+      // Fenced from the first write, before the first renewal says the epoch
+      owner.epoch = taken.get(key)
+      taken.delete(key)
       hold(owner)
     }
     await owner.recover()
@@ -177,10 +202,24 @@ export function createServer(options: ServerOptions): QuorumServer {
         unloading.delete(key)
         if (owner.isIdle && owners.get(key)) {
           owners.delete(key)
-          void owner.unload().then(() => letGo(owner))
+          unloadOwner(key, owner)
         }
       }, options.idle ?? 5000))
     }
+  }
+
+  // Stores a document as it goes; whoever loads it again waits for that
+  function unloadOwner(key: string, owner: DocumentOwner): Promise<void> {
+    const done = owner.unload().then(() => letGo(owner), (error: unknown) => {
+      console.error('y-quorum: a document failed to unload', error)
+    })
+    unloads.set(key, done)
+    void done.then(() => {
+      if (unloads.get(key) === done) {
+        unloads.delete(key)
+      }
+    })
+    return done
   }
 
   // ---- More than one node -------------------------------------------------
@@ -188,21 +227,16 @@ export function createServer(options: ServerOptions): QuorumServer {
   /** Where a document is held: here, or by the lease of another node */
   async function place(namespace: string, id: string): Promise<'here' | Lease> {
     const lease = await options.storage.lease!(namespace, id, node!, ttl)
-    return lease.holder === node!.id ? 'here' : lease
+    if (lease.holder !== node!.id) {
+      return lease
+    }
+    taken.set(keyOf(namespace, id), lease.epoch)
+    return 'here'
   }
 
   // A document loaded here: held by its lease, renewed while it is here
   function hold(owner: DocumentOwner) {
     const key = keyOf(owner.namespace, owner.id)
-    owner.onLost = () => {
-      clearInterval(renewals.get(key))
-      renewals.delete(key)
-      void owners.get(key)?.then((current) => {
-        if (current === owner) {
-          owners.delete(key)
-        }
-      })
-    }
     const renew = async () => {
       const lease = await options.storage.lease!(owner.namespace, owner.id, node!, ttl)
       if (lease.holder !== node!.id || (owner.epoch !== undefined && lease.epoch !== owner.epoch)) {
@@ -242,6 +276,9 @@ export function createServer(options: ServerOptions): QuorumServer {
     let current: 'here' | Lease = lease
     while (current !== 'here') {
       const relay = await relayTo(connection, current.address).catch(() => undefined)
+      if (!connections.has(connection)) {
+        return // the client left meanwhile; its relays are closed as they come
+      }
       if (relay) {
         connection.remote.set(header.ref, relay)
         relay.send(encodeFrame(ToServer.OPEN, header, vector))
@@ -275,7 +312,12 @@ export function createServer(options: ServerOptions): QuorumServer {
         connection.drop?.()
       })
       connection.relays.set(address, relay)
-      relay.catch(() => connection.relays.delete(address))
+      relay.then((open) => {
+        // Made after the client left: nothing else would close it
+        if (!connections.has(connection)) {
+          open.close()
+        }
+      }, () => connection.relays.delete(address))
     }
     return relay
   }
@@ -325,6 +367,11 @@ export function createServer(options: ServerOptions): QuorumServer {
       remote: new Map(),
       // 1012: the service restarts; the client comes back
       drop: () => socket.close(1012, 'Come back: the document moved'),
+      ended: (opening) => {
+        if (connection.openings.get(opening.ref)?.opening === opening) {
+          connection.openings.delete(opening.ref)
+        }
+      },
       send: (frame) => {
         if (socket.readyState === socket.OPEN) {
           socket.send(frame)
@@ -376,9 +423,12 @@ export function createServer(options: ServerOptions): QuorumServer {
       refuse(connection, 'unauthenticated', 'Say HELLO first', CloseCode.UNAUTHENTICATED)
       return
     }
-    // A document held by another node: its frames go there as they are
+    // A document held by another node: its frames go there as they are, but
+    // a frame only a node may send
     const ref = (frame.header as { ref?: unknown }).ref
-    const relay = typeof ref === 'number' && frame.type !== ToServer.OPEN ? connection.remote.get(ref) : undefined
+    const relayed = typeof ref === 'number' && frame.type !== ToServer.OPEN &&
+      frame.type !== ToServer.NODE_MESSAGE
+    const relay = relayed ? connection.remote.get(ref) : undefined
     if (relay) {
       relay.send(bytes)
       if (frame.type === ToServer.CLOSE) {
@@ -438,7 +488,7 @@ export function createServer(options: ServerOptions): QuorumServer {
       follow(connection, frame.header)
     } else if (isFrame(frame, ToServer.RPC)) {
       await call(connection, frame.header)
-    } else if (isFrame(frame, ToServer.NODE_MESSAGE) && connection.fromNode) {
+    } else if (isFrame(frame, ToServer.NODE_MESSAGE) && connection.link) {
       const { namespace, id, message } = frame.header
       void owners.get(keyOf(namespace, id))?.then((owner) => owner?.message(message))
     }
@@ -453,7 +503,7 @@ export function createServer(options: ServerOptions): QuorumServer {
       const self: Principal = { kind: 'service', id: `node:${node!.id}`, name: `Node ${node!.id}` }
       const auth = { principal: self, namespaces: '*' as const, agents: false }
       link = openRelay(address, options.nodeSecret!, auth,
-        () => undefined, () => nodeLinks.delete(address))
+        () => undefined, () => nodeLinks.delete(address), { link: true })
       nodeLinks.set(address, link)
       link.catch(() => nodeLinks.delete(address))
     }
@@ -483,14 +533,21 @@ export function createServer(options: ServerOptions): QuorumServer {
       refuse(connection, 'stale-protocol', `This server speaks protocol ${PROTOCOL_VERSION}; reload`, CloseCode.STALE_PROTOCOL)
       return
     }
+    // Once only: a fresh token comes as TOKEN, and is for the same principal
+    if (connection.auth) {
+      refuse(connection, 'unauthenticated', 'Already said HELLO; renew with TOKEN',
+        CloseCode.PRINCIPAL_CHANGED)
+      return
+    }
     // Another node speaking for a client is who it says, by the secret they share
     const fromNode = readNodeToken(options.nodeSecret, header.token)
-    const auth = fromNode ?? await options.authenticate(header.token, connection.request)
+    const auth = fromNode?.auth ?? await options.authenticate(header.token, connection.request)
     if (!auth) {
       refuse(connection, 'unauthenticated', 'The token was refused', CloseCode.UNAUTHENTICATED)
       return
     }
     connection.fromNode = Boolean(fromNode)
+    connection.link = fromNode?.link === true
     connection.auth = auth
     connection.principal = auth.principal
     connection.agents = auth.agents ?? auth.principal.kind === 'person'
@@ -500,15 +557,23 @@ export function createServer(options: ServerOptions): QuorumServer {
   // A fresh token: the same principal, maybe other rights
   async function renew(connection: Connection, token: string) {
     // A relay renews with a node's token, as it began with one
-    const auth = readNodeToken(options.nodeSecret, token) ??
-      await options.authenticate(token, connection.request)
-    if (!auth || auth.principal.id !== connection.principal.id) {
+    const node = readNodeToken(options.nodeSecret, token)
+    // A node's token renews a node's connection only, and a client's a client's
+    if (Boolean(node) !== Boolean(connection.fromNode) || (node && node.link !== connection.link)) {
+      refuse(connection, 'unauthenticated', 'The token was refused', CloseCode.UNAUTHENTICATED)
+      return
+    }
+    const auth = node?.auth ?? await options.authenticate(token, connection.request)
+    const same = auth && auth.principal.id === connection.principal.id &&
+      auth.principal.kind === connection.principal.kind
+    if (!auth || !same) {
       refuse(connection, 'unauthenticated', auth ? 'The token is for someone else' : 'The token was refused',
         auth ? CloseCode.PRINCIPAL_CHANGED : CloseCode.UNAUTHENTICATED)
       return
     }
     connection.auth = auth
     connection.principal = auth.principal
+    connection.agents = auth.agents ?? auth.principal.kind === 'person'
     for (const [ref, { owner, opening }] of connection.openings) {
       if (!mayEnter(auth, owner.namespace)) {
         connection.openings.delete(ref)
@@ -554,6 +619,15 @@ export function createServer(options: ServerOptions): QuorumServer {
     for (const { opening } of connection.openings.values()) {
       counts[opening.mode]++
     }
+    // A ref still in use: what it named before is closed first
+    const earlier = connection.openings.get(header.ref)
+    if (earlier) {
+      connection.openings.delete(header.ref)
+      earlier.owner.close(earlier.opening)
+      counts[earlier.opening.mode]--
+    }
+    connection.remote.get(header.ref)?.send(encodeFrame(ToServer.CLOSE, { ref: header.ref }))
+    connection.remote.delete(header.ref)
     if (counts[header.mode] >= limits[header.mode]) {
       closed('over-limit', `At most ${limits[header.mode]} documents may be ${header.mode === 'open' ? 'open' : 'watched'} on one connection`)
       return
@@ -595,9 +669,17 @@ export function createServer(options: ServerOptions): QuorumServer {
       presence: { mode: 'reading', visible: true },
       held: []
     }
+    // The client may have left while this was looked up: nothing would close it
+    if (!connections.has(connection)) {
+      changed(owner)
+      return
+    }
     connection.openings.set(header.ref, { owner, opening })
     await owner.open(opening, header, vector)
-    if (!owner.openings.has(opening)) {
+    if (!connections.has(connection)) {
+      connection.openings.delete(header.ref)
+      owner.close(opening)
+    } else if (!owner.openings.has(opening)) {
       connection.openings.delete(header.ref)
     }
   }
@@ -758,7 +840,11 @@ export function createServer(options: ServerOptions): QuorumServer {
         const owner = await pending
         if (owner && owner.namespace === namespace && (id === undefined || owner.id === id)) {
           owner.closeAll('gone', 'The document was deleted')
+          // Nothing more of it is written: not its history, nor to the host
+          owner.giveUp()
           owners.delete(key)
+          clearTimeout(unloading.get(key))
+          unloading.delete(key)
         }
       }
       await options.storage.delete(namespace, id)
