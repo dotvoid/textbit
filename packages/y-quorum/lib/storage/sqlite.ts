@@ -59,7 +59,7 @@ export function sqlite(file: string): Storage {
   const insertRecord = db.prepare('INSERT INTO records VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
   const insertHistory = db.prepare('INSERT INTO history VALUES (?, ?, ?, ?, ?, ?)')
   const loadHistory = db.prepare('SELECT entry, payload FROM history WHERE namespace = ? AND id = ? AND seq > ? ORDER BY seq')
-  const loadHistoryHead = db.prepare('SELECT seq, hash FROM history WHERE namespace = ? AND id = ? ORDER BY seq DESC LIMIT 1')
+  const loadHistoryHead = db.prepare('SELECT seq, hash, entry FROM history WHERE namespace = ? AND id = ? ORDER BY seq DESC LIMIT 1')
   const insertVersion = db.prepare('INSERT INTO versions VALUES (?, ?, ?, ?, ?, ?)')
   const loadVersions = db.prepare('SELECT info FROM versions WHERE namespace = ? AND id = ? ORDER BY seq, rowid')
   const loadVersionState = db.prepare('SELECT state FROM versions WHERE namespace = ? AND id = ? AND version_id = ?')
@@ -138,11 +138,11 @@ export function sqlite(file: string): Storage {
       }))
       const versions = (loadVersions.all(namespace, id) as Array<{ info: string }>)
         .map((version) => JSON.parse(version.info) as VersionInfo)
-      const head = loadHistoryHead.get(namespace, id) as { seq: number, hash: string } | undefined
+      const head = loadHistoryHead.get(namespace, id) as { seq: number, hash: string, entry: string } | undefined
       return {
         meta: { type: row.type, incarnation: row.incarnation, createdAt: row.created_at },
         versions,
-        ...(head ? { historyHead: { seq: head.seq, hash: head.hash } } : {}),
+        ...(head ? { historyHead: { seq: head.seq, hash: head.hash, to: (JSON.parse(head.entry) as { to: number }).to } } : {}),
         checkpoint: { ...checkpoint, seq: row.checkpoint_seq },
         entries,
         records

@@ -120,11 +120,20 @@ export function emptyAttributions(): Y.ContentMap {
 export class LiveAttributionsRenderer extends Y.AttributionsRenderer {
   private readonly withDeleted: boolean
   private all: Y.ContentMap
+  /** Called once when destroyed, so whoever keeps it current lets it go */
+  onDestroy: (() => void) | undefined
 
   constructor(attributions: Y.ContentMap, { withDeleted = false }: { withDeleted?: boolean } = {}) {
     super(shown(attributions, withDeleted))
     this.withDeleted = withDeleted
     this.all = attributions
+  }
+
+  override destroy(): void {
+    super.destroy()
+    const done = this.onDestroy
+    this.onDestroy = undefined
+    done?.()
   }
 
   /** Adds the attributions of a change, and re-renders what they cover */

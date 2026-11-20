@@ -50,7 +50,8 @@ handle.on('closed', () => {
   log('the lab document is gone; reconnect the MCP server to join the new one')
   process.exit(1)
 })
-// Its comments rebuilt are followed by themselves; the content and its fork are bound here
+// Its comments rebuilt are followed by themselves, and the awareness stays;
+// the content and its fork are bound here
 handle.on('rebuilt', ({ layer }) => {
   if (layer !== 'comments') {
     log('the server refused a change and the document was rebuilt; reconnect the MCP server')

@@ -4,7 +4,7 @@ import * as Y from '@y/y'
 import { Node, Text, Transforms, type Descendant, type Editor, type Element } from 'slate'
 import type { AddressInfo } from 'node:net'
 import { createClient, type Client, type DocumentHandle, type Rejection } from '@dotvoid/y-quorum-client'
-import { defineType, object, text } from '@dotvoid/y-quorum-client/model'
+import { defineType, object, string, text } from '@dotvoid/y-quorum-client/model'
 import type { Principal } from '@dotvoid/y-quorum-client/protocol'
 import { createTextbitEditor } from '@dotvoid/textbit/headless'
 import { createServer, memory, type QuorumServer, type ServerType } from '../lib'
@@ -12,6 +12,7 @@ import { createServer, memory, type QuorumServer, type ServerType } from '../lib
 const paragraph = (id: string, words: string) => ({ id, type: 'base/text', class: 'text', children: [{ text: words }] })
 const article: ServerType = defineType('example/article', { content: object({ body: text() }), suggestions: true, history: true })
 const note: ServerType = defineType('example/note', { content: object({ body: text() }) })
+const story: ServerType = defineType('example/story', { content: object({ body: text(), slug: string() }), suggestions: true, history: true })
 
 const people: Record<string, Principal> = {
   alice: { kind: 'person', id: 'alice', name: 'Alice' },
@@ -27,7 +28,7 @@ const clients: Client[] = []
 
 async function start() {
   server = createServer({
-    types: [article, note],
+    types: [article, note, story],
     storage: memory(),
     authenticate: (token) => (people[token] ? { principal: people[token], namespaces: ['news'] } : null),
     authorize: ({ principal }) => roles[principal.id] ?? null,
@@ -39,7 +40,7 @@ async function start() {
 
 async function open(token: string, id: string, type = 'example/article') {
   if (!(await server.read('news', id))) {
-    await server.create('news', id, type, { body: [paragraph('p', 'Write 600 words.')] })
+    await server.create('news', id, type, { body: [paragraph('p', 'Write 600 words.')], ...(type === 'example/story' ? { slug: 'winter' } : {}) })
   }
   const client = createClient({ url, token, grace: 20 })
   clients.push(client)
@@ -189,9 +190,11 @@ describe('suggestions', () => {
     await saved(alice)
     await until(() => content(sam) === 'Kindly Write 600 words.')
 
-    const kinds = (await server.exportHistory('news', 's-7')).split('\n').map((line) => JSON.parse(line) as { kind: string, actor: { principal: { id: string } } })
-      .filter((entry) => entry.kind !== 'edit').map((entry) => [entry.kind, entry.actor.principal.id])
-    expect(kinds).toEqual([['reject', 'sam'], ['accept', 'alice']])
+    const kinds = (await server.exportHistory('news', 's-7')).split('\n')
+      .map((line) => JSON.parse(line) as { kind: string, actor: { principal: { id: string } }, refs?: { suggestedBy?: string } })
+      .filter((entry) => entry.kind !== 'edit').map((entry) => [entry.kind, entry.actor.principal.id, entry.refs?.suggestedBy])
+    // Both on record: who decided, and whose suggestion it was
+    expect(kinds).toEqual([['reject', 'sam', 'person:sam'], ['accept', 'alice', 'person:sam']])
   })
 
   it('names who suggested in a view open before the suggestion came, and in the suggester’s own', async () => {
@@ -234,5 +237,120 @@ describe('suggestions', () => {
     review.renderer.acceptAllChanges()
     await saved(alice)
     expect(content(alice)).toBe('Write 600 words.')
+  })
+})
+
+describe('suggestion acts that are not what was suggested', () => {
+  // A suggestion made under a client id the suggester picked, then something
+  // written into the content under that id
+  async function suggestedUnder(sam: DocumentHandle, client: number) {
+    const forger = new Y.Doc()
+    forger.clientID = client
+    Y.applyUpdate(forger, Y.encodeStateAsUpdate(sam.suggestionsDoc))
+    const before = Y.encodeStateVector(forger)
+    ;(field(forger).get(0) as Y.Node).insert(0, 'Please ')
+    Y.applyUpdate(sam.suggestionsDoc, Y.encodeStateAsUpdate(forger, before), 'forger')
+    await saved(sam)
+  }
+
+  it('refuses a “rejection” that is really a new value for a field', async () => {
+    await start()
+    const sam = await open('sam', 'f-1')
+    const client = 2 ** 52
+    await suggestedUnder(sam, client)
+    // Under the suggestion's first id: a value for `body`, written deleted
+    const forged = new Y.Doc()
+    forged.clientID = client
+    Y.applyUpdate(forged, Y.encodeStateAsUpdate(sam.doc))
+    const before = Y.encodeStateVector(forged)
+    forged.transact(() => {
+      forged.get('content').setAttr('body', 'gone')
+      forged.get('content').deleteAttr('body')
+    })
+    const refused = new Promise<Rejection>((resolve) => sam.on('rejected', resolve))
+    Y.applyUpdate(sam.doc, Y.encodeStateAsUpdate(forged, before), 'forger')
+    expect((await refused).reason).toMatch(/^Not a suggestion as it was made/)
+    expect(await server.read('news', 'f-1')).toMatchObject({ body: [{ children: [{ text: 'Write 600 words.' }] }] })
+  })
+
+  it('refuses an “accept” that writes other text under the suggester’s ids', async () => {
+    await start()
+    const sam = await open('sam', 'f-2')
+    const alice = await open('alice', 'f-2')
+    const client = 2 ** 52 + 7
+    await suggestedUnder(sam, client)
+    await until(() => Y.encodeStateVector(alice.suggestionsDoc).length === Y.encodeStateVector(sam.suggestionsDoc).length)
+    const forged = new Y.Doc()
+    forged.clientID = client
+    Y.applyUpdate(forged, Y.encodeStateAsUpdate(alice.doc))
+    const before = Y.encodeStateVector(forged)
+    ;(field(forged).get(0) as Y.Node).insert(0, 'Hacked ')
+    const refused = new Promise<Rejection>((resolve) => alice.on('rejected', resolve))
+    Y.applyUpdate(alice.doc, Y.encodeStateAsUpdate(forged, before), 'forger')
+    expect((await refused).reason).toMatch(/^Not a suggestion as it was made/)
+    expect(await server.read('news', 'f-2')).toMatchObject({ body: [{ children: [{ text: 'Write 600 words.' }] }] })
+  })
+
+  it('rejecting a suggested value for a plain field keeps the field as it was', async () => {
+    await start()
+    const sam = await open('sam', 'f-3', 'example/story')
+    const alice = await open('alice', 'f-3', 'example/story')
+    sam.suggestionsDoc.get('content').setAttr('slug', 'summer')
+    await saved(sam)
+    const review = suggesting(alice)
+    await until(() => alice.suggestionsDoc.get('content').getAttr('slug') === 'summer')
+    let rejection: Rejection | undefined
+    alice.on('rejected', (r) => {
+      rejection = r
+    })
+    review.renderer.rejectAllChanges()
+    await saved(alice)
+    expect(rejection).toBeUndefined()
+    expect(await server.read('news', 'f-3')).toMatchObject({ slug: 'winter' })
+  })
+
+  it('accepting a suggested value for a plain field sets it', async () => {
+    await start()
+    const sam = await open('sam', 'f-4', 'example/story')
+    const alice = await open('alice', 'f-4', 'example/story')
+    sam.suggestionsDoc.get('content').setAttr('slug', 'summer')
+    await saved(sam)
+    const review = suggesting(alice)
+    await until(() => alice.suggestionsDoc.get('content').getAttr('slug') === 'summer')
+    review.renderer.acceptAllChanges()
+    await saved(alice)
+    expect(await server.read('news', 'f-4')).toMatchObject({ slug: 'summer' })
+  })
+
+  it('refuses a “rejection” of a suggested value that would still replace the field', async () => {
+    await start()
+    const sam = await open('sam', 'f-5', 'example/story')
+    const client = 2 ** 52 + 11
+    // Sam suggests a slug under a client id of his choosing
+    const forger = new Y.Doc()
+    forger.clientID = client
+    Y.applyUpdate(forger, Y.encodeStateAsUpdate(sam.suggestionsDoc))
+    const before = Y.encodeStateVector(forger)
+    forger.get('content').setAttr('slug', 'summer')
+    const suggestion = Y.encodeStateAsUpdate(forger, before)
+    Y.applyUpdate(sam.suggestionsDoc, suggestion, 'forger')
+    await saved(sam)
+    // The very same item, written into the content deleted: a “rejection”
+    const content = new Y.Doc()
+    Y.applyUpdate(content, Y.encodeStateAsUpdate(sam.doc))
+    const contentBefore = Y.encodeStateVector(content)
+    Y.applyUpdate(content, suggestion)
+    content.transact(() => {
+      const ids = Y.createContentIdsFromUpdate(suggestion).inserts
+      Y.undoContentIds(content, { inserts: ids, deletes: Y.createIdSet() })
+    })
+    const forged = Y.encodeStateAsUpdate(content, contentBefore)
+    const refused = new Promise<Rejection>((resolve) => sam.on('rejected', resolve))
+    Y.applyUpdate(sam.doc, forged, 'forger')
+    // Y.js carries the old value's deletion along, so this is no pure
+    // rejection but an accept, which a suggester may not make; were it pure,
+    // the content check would refuse it. Either way, refused and kept.
+    expect((await refused).reason).toMatch(/^(A rejection may not change the content|Only an editor accepts a suggestion)$/)
+    expect(await server.read('news', 'f-5')).toMatchObject({ slug: 'winter' })
   })
 })

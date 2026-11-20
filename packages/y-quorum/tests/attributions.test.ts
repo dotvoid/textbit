@@ -107,14 +107,27 @@ describe('attributions', () => {
   it('come back after a restart, from the checkpoint and from the log after it', async () => {
     const folder = mkdtempSync(join(tmpdir(), 'y-quorum-attributions-'))
     try {
-      const first = await start(sqlite(join(folder, 'db.sqlite')))
+      // A store that stops writing, as a process does when it crashes
+      let crashed = false
+      const store = sqlite(join(folder, 'db.sqlite'))
+      const crashable = new Proxy(store, {
+        get: (target, key: keyof Storage) => {
+          const value = target[key]
+          const reads = ['load', 'log', 'history', 'version', 'versions']
+          return typeof value === 'function' && !reads.includes(key)
+            ? (...args: unknown[]) => (crashed ? Promise.resolve() : (value as (...a: unknown[]) => unknown).apply(target, args))
+            : value
+        }
+      })
+      const first = await start(crashable)
       await first.create('news', 'a-2', 'example/article', { body: [paragraph('p', 'The harbour.')] })
       const bob = await open('bob', 'a-2')
       ;(body(bob).get(0) as Y.Node).insert(0, 'Cold. ')
       await saved(bob)
 
-      // A second server on the same file, as after a crash: nothing was
-      // checkpointed since the document was made, so Bob's change comes from the log
+      // The first server crashes; a second starts on the same file: nothing
+      // was checkpointed since the document was made, so Bob's change comes from the log
+      crashed = true
       await start(sqlite(join(folder, 'db.sqlite')))
       const alice = await open('alice', 'a-2')
       const view = createTextbitEditor({ shared: body(alice), renderer: alice.attributionsRenderer() })

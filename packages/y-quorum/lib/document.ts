@@ -43,6 +43,7 @@ import {
   type Path
 } from '@dotvoid/y-quorum-client/model'
 import type { Actor, LogEntry, ServerOptions, ServerType, Storage, StoredDocument } from './types'
+import { differsFromFork } from './suggestionActs'
 import { judgeComments } from './judgeComments'
 import { GENESIS, seal, type HistoryKind } from './history'
 
@@ -100,9 +101,13 @@ const HELD_BYTES = 4 * 1024 * 1024
  * What judging a write found: refused, waiting, or allowed into a layer of
  * the log; `null` when it changes nothing, so there is nothing to store
  */
-type Judgement = { code: ReasonCode, reason: string } | 'pending' | { layer: Layer | null, kind?: HistoryKind }
+type Judgement = { code: ReasonCode, reason: string } | 'pending' | { layer: Layer | null, kind?: HistoryKind, refs?: Record<string, string> }
 
 const CONTENT = 'content'
+
+/** Saves one opening may have waiting, and how long one waits */
+const SAVES_WAITING = 16
+const SAVE_TIMEOUT = 30000
 
 /** The root each layer's Y.Doc keeps its data in: the suggestions fork the content's */
 const ROOTS: Record<Layer, string> = { content: CONTENT, comments: COMMENTS, suggestions: CONTENT }
@@ -126,7 +131,7 @@ export class DocumentOwner {
   private versions: VersionInfo[]
   /** The writes being folded into the next history entry, and the last entry */
   private batch: Batch | undefined
-  private historyHead: { seq: number, hash: string }
+  private historyHead: { seq: number, hash: string, to: number }
   /** The content people have reviewed */
   private reviewed: Y.IdSet
   private seq: number
@@ -153,7 +158,7 @@ export class DocumentOwner {
       this.layers.set('suggestions', new Y.Doc({ gc: false, isSuggestionDoc: true }))
     }
     this.versions = stored.versions ?? []
-    this.historyHead = stored.historyHead ?? { seq: 0, hash: GENESIS }
+    this.historyHead = stored.historyHead ?? { seq: 0, hash: GENESIS, to: 0 }
     this.reviewed = stored.checkpoint?.reviewed ? Y.decodeIdSet(stored.checkpoint.reviewed) : Y.createIdSet()
     for (const [layer, doc] of this.layers) {
       const state = stored.checkpoint?.states[layer]
@@ -350,6 +355,8 @@ export class DocumentOwner {
     if (opening.awarenessClients.size) {
       awarenessProtocol.removeAwarenessStates(this.awareness, [...opening.awarenessClients], null)
     }
+    this.saves = this.saves.filter((save) => save.opening !== opening)
+    opening.held.length = 0
     this.changed(this)
   }
 
@@ -393,7 +400,7 @@ export class DocumentOwner {
       this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log: this.seq })
       return 'unchanged'
     }
-    const log = await this.commit(actor!, judgement.layer, update, opening, judgement.kind)
+    const log = await this.commit(actor!, judgement.layer, update, opening, judgement.kind, judgement.refs)
     this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log })
     return 'committed'
   }
@@ -469,6 +476,13 @@ export class DocumentOwner {
     const fresh = Y.diffIdSet(ids.inserts, Y.createInsertSetFromStructStore(doc.store, false))
     const fork = layer === 'content' ? this.layers.get('suggestions') : undefined
     const suggested = fork ? Y.intersectSets(fresh, Y.createInsertSetFromStructStore(fork.store, false)) : Y.createIdSet()
+    // ...and only when they are the fork's very items, not new content under their ids
+    if (fork && !suggested.isEmpty()) {
+      const forged = differsFromFork(update, fork, suggested)
+      if (forged) {
+        return { code: 'not-allowed', reason: `Not a suggestion as it was made: ${forged}` }
+      }
+    }
     const clients = new Set(Y.diffIdSet(fresh, suggested).clients.keys())
     for (const client of clients) {
       if (!(await this.storage.claimClient(this.namespace, this.id, client, principalId))) {
@@ -526,6 +540,7 @@ export class DocumentOwner {
       return reason ? refuse(reason) : { layer }
     }
     let kind: HistoryKind | undefined
+    let acceptedDeletes = Y.createIdSet()
     if (!suggested.isEmpty()) {
       const rights = this.capabilitiesFor(actor.principal, roles).suggestions ?? 'none'
       // Written and deleted at once, nothing else: a record that they were
@@ -534,20 +549,36 @@ export class DocumentOwner {
         Y.diffIdSet(suggested, ids.deletes).isEmpty() &&
         Y.diffIdSet(ids.deletes, suggested).isEmpty()
       if (rejected) {
+        // A rejection changes nothing anyone sees: written deleted, a
+        // suggested value must not replace the one in the content either
+        if (JSON.stringify(toJSON(root, this.type.content)) !== JSON.stringify(this.json())) {
+          return refuse('A rejection may not change the content')
+        }
         if (rights === 'all') {
-          return { layer, kind: 'reject' }
+          return { layer, kind: 'reject', refs: this.suggestedBy(suggested, Y.createIdSet()) }
         }
         for (const client of suggested.clients.keys()) {
           if (rights !== 'own' || !(await this.storage.claimClient(this.namespace, this.id, client, principalId))) {
             return refuse('Only its author, or an editor, withdraws a suggestion')
           }
         }
-        return { layer, kind: 'reject' }
+        return { layer, kind: 'reject', refs: this.suggestedBy(suggested, Y.createIdSet()) }
       }
       if (rights !== 'all') {
         return refuse('Only an editor accepts a suggestion')
       }
       kind = 'accept'
+    } else if (fork) {
+      // Deleting what a suggestion deletes, by whoever may accept: accepting it
+      const suggestedDeletes = Y.diffIdSet(
+        Y.createDeleteSetFromStructStore(fork.store),
+        Y.createDeleteSetFromStructStore(doc.store)
+      )
+      const accepted = Y.intersectSets(ids.deletes, suggestedDeletes)
+      if (!accepted.isEmpty() && this.capabilitiesFor(actor.principal, roles).suggestions === 'all') {
+        kind = 'accept'
+        acceptedDeletes = accepted
+      }
     }
     const paths = this.pathsOf(changed)
     const allowed = this.type.policy
@@ -556,7 +587,7 @@ export class DocumentOwner {
     if (!allowed) {
       return refuse(paths.length ? `Not allowed to change ${paths.map((p) => p.join('.')).join(', ')}` : 'Not allowed to write here')
     }
-    return kind ? { layer, kind } : { layer }
+    return kind ? { layer, kind, refs: this.suggestedBy(suggested, acceptedDeletes) } : { layer }
   }
 
   /**
@@ -582,6 +613,27 @@ export class DocumentOwner {
       }
     }
     return undefined
+  }
+
+  // Who suggested what an accept or a rejection takes: both stay on record,
+  // the suggester here and whoever decided as the entry's actor
+  private suggestedBy(inserts: Y.IdSet, deletes: Y.IdSet): Record<string, string> {
+    const map = this.attributions.get('suggestions')
+    const keys = new Set<string>()
+    const collect = (ids: Y.IdMap<unknown>, within: Y.IdSet, verb: 'insert' | 'delete') => {
+      const outside = Y.diffIdSet(Y.createIdSetFromIdMap(ids), within)
+      Y.diffIdMap(ids, outside).forEach((range: { attrs: Array<{ name: string, val: unknown }> }) => {
+        const who = range.attrs.find((attr) => attr.name === verb)?.val
+        if (typeof who === 'string') {
+          keys.add(who)
+        }
+      })
+    }
+    if (map) {
+      collect(map.inserts, inserts, 'insert')
+      collect(map.deletes, deletes, 'delete')
+    }
+    return keys.size ? { suggestedBy: [...keys].sort().join(',') } : {}
   }
 
   private pathsOf(changed: Map<Y.Node, Set<string | null>>): Path[] {
@@ -740,13 +792,13 @@ export class DocumentOwner {
         this.sendTo(opening, ToClient.REJECTED, { ref: opening.ref, seq: header.seq, code: 'not-allowed', reason: `Not allowed to record ${header.kind}` })
         return
       }
-      await this.appendRecord(actor, header.kind, header.data)
+      await this.appendRecord(actor, header.kind, header.data, opening.peer.id)
       // Acknowledged like a change, so the client does not send it again
       this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log: this.seq })
     })
   }
 
-  async appendRecord(actor: Actor, kind: string, data: unknown): Promise<DocumentRecord> {
+  async appendRecord(actor: Actor, kind: string, data: unknown, connection?: string): Promise<DocumentRecord> {
     const record: DocumentRecord = {
       seq: ++this.recordSeq,
       kind,
@@ -756,6 +808,11 @@ export class DocumentOwner {
       data
     }
     await this.storage.appendRecord(this.namespace, this.id, record)
+    if (this.type.history) {
+      // A record is part of the history too: in the chain, beside the writes
+      await this.sealAside('record', actor, connection, { record: String(record.seq), kind },
+        new TextEncoder().encode(JSON.stringify(record)))
+    }
     this.records.push(record)
     for (const opening of this.openings) {
       if (opening.mode === 'open') {
@@ -774,7 +831,19 @@ export class DocumentOwner {
       this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: false, code: 'not-allowed', reason: 'Not allowed to make versions' })
       return
     }
-    this.saves.push({ opening, call: header.call, vector: Y.decodeStateVector(vector), actor: { principal: opening.peer.principal }, ...(header.label ? { label: header.label } : {}) })
+    if (this.saves.filter((save) => save.opening === opening).length >= SAVES_WAITING) {
+      this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: false, code: 'over-limit', reason: 'Too many saves waiting' })
+      return
+    }
+    const save = { opening, call: header.call, vector: Y.decodeStateVector(vector), actor: { principal: opening.peer.principal }, ...(header.label ? { label: header.label } : {}) }
+    this.saves.push(save)
+    // A save waiting for what never comes is let go, and the client told
+    setTimeout(() => {
+      if (this.saves.includes(save)) {
+        this.saves.splice(this.saves.indexOf(save), 1)
+        this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: false, code: 'unavailable', reason: 'What the save waited for never arrived' })
+      }
+    }, SAVE_TIMEOUT).unref?.()
     void this.serial(() => this.settleSaves())
   }
 
@@ -792,7 +861,7 @@ export class DocumentOwner {
       const seq = this.seq
       const json = this.json()
       const state = this.type.history ? Y.encodeStateAsUpdate(this.doc) : undefined
-      void (async () => {
+      void this.serial(async () => {
         const version = state
           ? await this.addVersion({ kind: 'saved', by: personOf(save.actor.principal), ...(save.label ? { label: save.label } : {}) }, seq, state)
           : undefined
@@ -802,7 +871,7 @@ export class DocumentOwner {
           ...(version ? { version } : {})
         })
         this.sendTo(save.opening, ToClient.SAVED, { ref: save.opening.ref, call: save.call, log: seq })
-      })()
+      })
     }
   }
 
@@ -859,8 +928,44 @@ export class DocumentOwner {
       ...(batch.refs ? { refs: batch.refs } : {}),
       payload: Y.mergeUpdates(batch.updates)
     }, this.historyHead.hash)
-    this.historyHead = { seq: entry.seq, hash: entry.hash }
+    // The head moves once the entry is stored: a failed write leaves the
+    // chain as it was, and the log's writes are folded again on the next load
     await this.storage.appendHistory(this.namespace, this.id, [entry])
+    this.historyHead = { seq: entry.seq, hash: entry.hash, to: entry.to }
+  }
+
+  /**
+   * Folds into the history what the log holds beyond it: the writes of a
+   * process that stopped before it sealed them. Their kind was not kept, so
+   * they enter the chain as edits, marked as recovered.
+   */
+  async recover(): Promise<void> {
+    if (!this.type.history) {
+      return
+    }
+    await this.serial(async () => {
+      for (const entry of await this.storage.log(this.namespace, this.id, this.historyHead.to)) {
+        await this.fold(entry, undefined, 'edit', { recovered: 'true' })
+      }
+      await this.flushHistory()
+    })
+  }
+
+  /**
+   * An entry of the history beside the writes, taking no log position: a
+   * review, a record. Sealed after what is being folded, at the position
+   * reached.
+   */
+  private async sealAside(kind: HistoryKind, actor: Actor, connection: string | undefined, refs: Record<string, string>, payload: Uint8Array) {
+    await this.flushHistory()
+    const at = Date.now()
+    const entry = seal({
+      doc: `${this.namespace}/${this.id}`, seq: this.historyHead.seq + 1,
+      from: this.historyHead.to, to: this.historyHead.to, layer: 'content', at, until: at,
+      actor, ...(connection ? { connection } : {}), kind, refs, payload
+    }, this.historyHead.hash)
+    await this.storage.appendHistory(this.namespace, this.id, [entry])
+    this.historyHead = { seq: entry.seq, hash: entry.hash, to: entry.to }
   }
 
   /** Keeps a version of the content at a log position, and tells everyone */
@@ -995,17 +1100,8 @@ export class DocumentOwner {
       }
       const ids = agentContent(this.attributions.get('content') ?? Y.createContentMap(), header.run !== undefined ? { run: header.run } : {})
       this.reviewed = Y.mergeIdSets([this.reviewed, ids])
-      await this.flushHistory()
-      const at = Date.now()
-      const entry = seal({
-        doc: `${this.namespace}/${this.id}`, seq: this.historyHead.seq + 1,
-        from: this.seq, to: this.seq, layer: 'content', at, until: at,
-        actor: { principal }, connection: opening.peer.id, kind: 'review',
-        refs: header.run !== undefined ? { run: header.run } : { scope: 'agents' },
-        payload: Y.encodeIdSet(ids)
-      }, this.historyHead.hash)
-      this.historyHead = { seq: entry.seq, hash: entry.hash }
-      await this.storage.appendHistory(this.namespace, this.id, [entry])
+      await this.sealAside('review', { principal }, opening.peer.id,
+        header.run !== undefined ? { run: header.run } : { scope: 'agents' }, Y.encodeIdSet(ids))
       // Kept at once: a review must not be lost to a crash
       await this.checkpoint()
       this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: true, value: { unreviewed: this.unreviewed() } })

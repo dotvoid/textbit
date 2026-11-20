@@ -111,6 +111,9 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
   const own = new Set<unknown>([origin])
   // Shown through a renderer, the editor follows its own changes too
   let followOwn = false
+  // Applying its own operation: Y.js has it, Slate not yet. Anything that
+  // would bring the editor to Y.js now waits until Slate has it too.
+  let applyingOwn = false
 
   const read = () => fieldToValue(field, renderer)
   const write = (node: Y.Node, d: delta.DeltaAny) => {
@@ -127,11 +130,16 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
       return
     }
     stats.local++
-    if (op.type === 'move_node') {
-      moveNode(op)
-    } else {
-      doc.transact(() => translate(op), current)
-      apply(op)
+    applyingOwn = true
+    try {
+      if (op.type === 'move_node') {
+        moveNode(op)
+      } else {
+        doc.transact(() => translate(op), current)
+        apply(op)
+      }
+    } finally {
+      applyingOwn = false
     }
     if (followOwn) {
       followOwn = false
@@ -309,7 +317,10 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
 
   // Accepting or rejecting a suggestion changes what is shown, not the field
   const shown = () => {
-    if (!remote) {
+    if (applyingOwn) {
+      // e.g. a renderer passing the editor's own change on to the content
+      followOwn = true
+    } else if (!remote) {
       reconcile()
     }
   }

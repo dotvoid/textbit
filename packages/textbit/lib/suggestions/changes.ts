@@ -2,11 +2,13 @@
 // through a diff renderer as what it would add and remove. An editor bound to
 // the fork's field through that renderer shows suggested text with the
 // `_suggested` mark; this reads those marks as changes a person can accept or
-// reject one at a time, each by the Y.js item where it starts. Y.js widens an
-// item to the whole run of suggested content around it, and a suggested block
-// to everything in it.
+// reject one at a time, each by the Y.js items where it starts and ends. Y.js
+// still widens that to the whole run of suggested content around it, whoever
+// suggested each part: the list splits a run where the author changes, but
+// accepting or rejecting one part decides the run. A suggested block is
+// widened to everything in it.
 import * as Y from '@y/y'
-import { Editor, Element, Node, Path, Text, type Range } from 'slate'
+import { Editor, Element, Node, Path, Text, type Point, type Range } from 'slate'
 import { sharedOf, yNodeAtPath } from '../yjs/binding'
 import { BY_MARK, AT_MARK, SUGGESTED_MARK, yOffset } from '../yjs/model'
 
@@ -80,7 +82,7 @@ export function suggestedChanges(editor: Editor): SuggestedChange[] {
 export function acceptChange(editor: Editor, change: SuggestedChange): void {
   const at = itemOf(editor, change)
   if (at) {
-    diffRendererOf(editor)!.acceptChanges(at)
+    diffRendererOf(editor)!.acceptChanges(at, lastItemOf(editor, change) ?? at)
   }
 }
 
@@ -88,7 +90,7 @@ export function acceptChange(editor: Editor, change: SuggestedChange): void {
 export function rejectChange(editor: Editor, change: SuggestedChange): void {
   const at = itemOf(editor, change)
   if (at) {
-    diffRendererOf(editor)!.rejectChanges(at)
+    diffRendererOf(editor)!.rejectChanges(at, lastItemOf(editor, change) ?? at)
   }
 }
 
@@ -188,13 +190,27 @@ function itemOf(editor: Editor, change: SuggestedChange): Y.ID | undefined {
   if (change.block) {
     return blockItem(editor, blockPath(editor, change))
   }
+  return textItemAt(editor, change.range.anchor, 0)
+}
+
+// The item a change ends at: its last character's, or the block's own
+function lastItemOf(editor: Editor, change: SuggestedChange): Y.ID | undefined {
+  return change.block ? itemOf(editor, change) : textItemAt(editor, change.range.focus, -1)
+}
+
+// The item of the character at a point in a block's text, or just before it
+function textItemAt(editor: Editor, point: Point, shift: 0 | -1): Y.ID | undefined {
+  const shared = sharedOf(editor)
+  if (!shared) {
+    return undefined
+  }
   try {
-    const leafPath = change.range.anchor.path
-    const parentPath = Path.parent(leafPath)
+    const parentPath = Path.parent(point.path)
     const parent = Node.get(editor, parentPath) as Element
     const node = yNodeAtPath(editor, shared.field, parentPath)
-    const index = yOffset(parent, leafPath[leafPath.length - 1]) + change.range.anchor.offset
-    return Y.createRelativePositionFromTypeIndex(node, index, 0, shared.renderer ?? null).item ?? undefined
+    const index = yOffset(parent, point.path[point.path.length - 1]) + point.offset + shift
+    const position = Y.createRelativePositionFromTypeIndex(node, index, 0, shared.renderer ?? null)
+    return position.item ?? undefined
   } catch {
     return undefined
   }

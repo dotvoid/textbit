@@ -33,12 +33,21 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
   // into the text, or with "I suggest", is suggested
   const [whoWrote, setWhoWrote] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
-  const renderer = useMemo(
-    () => (!handle ? undefined : whoWrote ? handle.attributionsRenderer() : handle.suggestionsRenderer()),
-    // A rebuilt layer is bound again, through a renderer of its own
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [whoWrote, handle, generation]
-  )
+  // The renderer for the view shown: made in an effect and destroyed in its
+  // cleanup, as one left alive keeps passing typing in the fork on to the
+  // text by its own setting. A rebuilt layer is bound again, through a new one.
+  const view = `${generation}-${whoWrote}`
+  type Shown = { view: string, renderer: Y.DiffRenderer | Y.AttributionsRenderer }
+  const [shown, setShown] = useState<Shown>()
+  useEffect(() => {
+    if (!handle) {
+      return
+    }
+    const made = whoWrote ? handle.attributionsRenderer() : handle.suggestionsRenderer()
+    setShown({ view: `${generation}-${whoWrote}`, renderer: made })
+    return () => made.destroy()
+  }, [handle, whoWrote, generation])
+  const renderer = shown?.view === view ? shown.renderer : undefined
   useEffect(() => {
     if (renderer instanceof Y.DiffRenderer) {
       renderer.suggestionMode = suggesting
@@ -67,7 +76,8 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
         }
         opened = document
         document.on('closed', () => gone.current('The lab document was reset. Join again.'))
-        // A rebuilt content or fork is another Y.Doc; rebuilt comments follow by themselves
+        // A rebuilt content or fork is another Y.Doc, its renderer destroyed;
+        // rebuilt comments follow by themselves, and the awareness stays
         document.on('rebuilt', ({ layer }) => {
           if (layer !== 'comments') {
             setGeneration((n) => n + 1)
@@ -90,7 +100,7 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
   }, [person.name])
 
   const body = (whoWrote ? handle?.content : handle?.suggestionsDoc.get('content'))?.getAttr('body')
-  if (!handle || !(body instanceof Y.Node)) {
+  if (!handle || !renderer || !(body instanceof Y.Node)) {
     return null
   }
 
@@ -112,7 +122,7 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
       )}
       {whoWrote && <WhoWrote handle={handle} />}
       <Textbit.Root
-        key={`${generation}-${whoWrote}`}
+        key={view}
         value={body}
         renderer={renderer}
         awareness={handle.awareness}

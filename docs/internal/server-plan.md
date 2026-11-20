@@ -552,6 +552,22 @@ the host's identity provider and API keys. The host supplies discovery and autho
 module supplies the tools, resources and prompts, on SDK v2, protocol 2026-07-28. Every call
 through MCP is an agent action: people edit over the socket.
 
+**How it is built.** The module is a y-quorum *client* of the server, not a way around it:
+every call goes through the same write pipeline, policies and history as anyone's.
+
+- The host's `authorize(request)` turns the MCP call's credentials into the person and the
+  agent acting for them. The module keeps one client connection per such pair, as the agent
+  on the person's behalf, and closes it when idle.
+- A document a call names is opened on that connection and kept for a while: a headless
+  textbit editor bound to each text field, and one bound to the fork through its renderer for
+  suggesting. The agent package's tools work on those editors; `doc` and the text field name
+  which. Plain fields and list items are read and written as JSON by path.
+- What the agent may do in a document is the server's answer (capabilities) narrowed by the
+  document's agent policy, a field the type names: `none`, `read`, `comment`, `suggest`,
+  `edit`, `edit-confirm`. Suggest-only documents refuse `document_edit` with a hint to suggest.
+- Revisions are the agent package's, per open document; a document reopened after it was
+  released answers a stale revision with what changed since, as now.
+
 **Tools** (each document tool takes `doc`; each write takes `revision`, `opId`, and optionally
 `run` and `intent`):
 
@@ -691,6 +707,16 @@ through MCP is an agent action: people edit over the socket.
    revert too: `handle.suggestRevert({ run, by, since })` finds what was changed in the
    attributions and places its inverse in the fork with `undoContentIds`, for a person to accept.
    Carried forward: listing property-only changes; a fork per person, if wanted.
+   Steps 3 to 5 (comments, history, suggestions in the fork) were reviewed on 20 November
+   2026; the holes found are fixed (fork items in the content checked against the fork,
+   comments that can only be emptied by others, history recovered after a crash and checked
+   for gaps, records and decided suggestions in the chain). Still open from that review:
+   - accepting one author's change can take a neighbouring author's along: Y.js widens to the
+     whole contiguous run. The fix is building accept and reject updates from the change's own
+     ids;
+   - a decision on a suggestion is not in the deciding person's undo;
+   - bounds: versions made by saving, time travel replaying the log per request, and client
+     ids claimed before the policy has decided (belongs with step 7).
 6. **The MCP module.**
 7. **Production:** Postgres and S3, leases and forwarding, audit export, retention and
    redaction.

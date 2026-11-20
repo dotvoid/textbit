@@ -86,7 +86,9 @@ export function createServer(options: ServerOptions): QuorumServer {
     if (!type) {
       throw new Error(`y-quorum: ${namespace}/${id} is of type ${stored.meta.type}, which this server does not know`)
     }
-    return new DocumentOwner(namespace, id, type, stored, options.storage, options, changed)
+    const owner = new DocumentOwner(namespace, id, type, stored, options.storage, options, changed)
+    await owner.recover()
+    return owner
   }
 
   // A host that keeps JSON: a document the cache lacks is made from it
@@ -491,9 +493,13 @@ export function createServer(options: ServerOptions): QuorumServer {
       return json
     },
     exportHistory: async (namespace, id) => {
-      // What is being folded goes into the chain first
-      const loaded = await owners.get(keyOf(namespace, id))
-      await loaded?.flushHistoryNow()
+      // Loading folds what a stopped process left in the log; what is being
+      // folded now goes into the chain first
+      const owner = await ownerOf(namespace, id)
+      await owner?.flushHistoryNow()
+      if (owner) {
+        changed(owner)
+      }
       return (await options.storage.history(namespace, id)).map(toJSONLine).join('\n')
     },
     unreviewed: async (namespace, id) => {

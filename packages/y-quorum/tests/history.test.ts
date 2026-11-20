@@ -11,7 +11,7 @@ import type { Principal } from '@dotvoid/y-quorum-client/protocol'
 import { createServer, memory, sqlite, verifyHistory, type QuorumServer, type ServerType, type Storage } from '../lib'
 
 const paragraph = (id: string, words: string) => ({ id, type: 'base/text', class: 'text', children: [{ text: words }] })
-const article: ServerType = defineType('example/article', { content: object({ body: text() }), history: true })
+const article: ServerType = defineType('example/article', { content: object({ body: text() }), history: true, records: { 'status.changed': {} } })
 
 const people: Record<string, Principal> = {
   alice: { kind: 'person', id: 'alice', name: 'Alice' },
@@ -220,5 +220,86 @@ describe('history', () => {
     } finally {
       rmSync(folder, { recursive: true, force: true })
     }
+  })
+})
+
+describe('a history that survives a crash and shows a gap', () => {
+  it('folds what the log holds beyond the history when the document is loaded again', async () => {
+    const folder = mkdtempSync(join(tmpdir(), 'y-quorum-recover-'))
+    try {
+      let crashed = false
+      const store = sqlite(join(folder, 'db.sqlite'))
+      // A store that keeps writing the log, but crashes before history is sealed
+      const crashable = new Proxy(store, {
+        get: (target, key: keyof Storage) => {
+          const value = target[key]
+          const stopped = ['appendHistory', 'checkpoint', 'unloaded']
+          return typeof value === 'function' && stopped.includes(key)
+            ? (...args: unknown[]) => (crashed ? Promise.resolve() : (value as (...a: unknown[]) => unknown).apply(target, args))
+            : value
+        }
+      })
+      const first = await start(crashable)
+      await first.create('news', 'r-1', 'example/article', { body: [paragraph('p', 'Calm.')] })
+      const bob = await open('bob', 'r-1')
+      crashed = true
+      await type(bob, 'Cold. ')
+
+      const second = await start(sqlite(join(folder, 'db.sqlite')))
+      const lines = await second.exportHistory('news', 'r-1')
+      expect(verifyHistory(lines)).toMatchObject({ ok: true })
+      const entries = parsed(lines)
+      expect(entries.at(-1)).toMatchObject({ actor: { principal: people.bob }, refs: { recovered: 'true' } })
+    } finally {
+      rmSync(folder, { recursive: true, force: true })
+    }
+  })
+
+  it('finds a history that leaves out writes, even when its hashes link up', async () => {
+    const server = await start()
+    await server.create('news', 'r-2', 'example/article', { body: [paragraph('p', 'Calm.')] })
+    const bob = await open('bob', 'r-2')
+    await type(bob, 'One. ')
+    const alice = await open('alice', 'r-2')
+    await type(alice, 'Two. ')
+    await type(bob, 'Three. ')
+    const lines = (await server.exportHistory('news', 'r-2')).split('\n').filter(Boolean)
+    expect(verifyHistory(lines)).toMatchObject({ ok: true })
+    // Drop an entry and chain the rest again, as someone covering their tracks would
+    const { seal } = await import('../lib/history')
+    const kept = lines.map((line) => JSON.parse(line) as Record<string, unknown>).filter((_, i) => i !== 1)
+    let prev = '0'.repeat(64)
+    const rechained = kept.map((entry, i) => {
+      const fields: Record<string, unknown> = { ...entry, seq: i + 1 }
+      for (const key of ['hash', 'payloadHash', 'prevHash', 'payload']) {
+        delete fields[key]
+      }
+      if (entry.payload) {
+        fields.payload = Buffer.from(String(entry.payload), 'base64')
+      }
+      const sealed = seal(fields as Parameters<typeof seal>[0], prev)
+      prev = sealed.hash
+      return sealed
+    })
+    const { toJSONLine } = await import('../lib/history')
+    const verdict = verifyHistory(rechained.map(toJSONLine))
+    expect(verdict).toMatchObject({ ok: false })
+    expect((verdict as { reason: string }).reason).toMatch(/does not take up where the entry before left off/)
+  })
+})
+
+describe('records in the history', () => {
+  it('puts a record in the chain, beside the writes, by who made it', async () => {
+    const server = await start()
+    await server.create('news', 'rec-1', 'example/article', { body: [paragraph('p', 'Calm.')] })
+    const bob = await open('bob', 'rec-1')
+    await type(bob, 'Cold. ')
+    bob.appendRecord('status.changed', { to: 'ready' })
+    await until(() => bob.records.length === 1)
+    await type(bob, 'Very. ')
+    const lines = await server.exportHistory('news', 'rec-1')
+    expect(verifyHistory(lines)).toMatchObject({ ok: true })
+    const record = parsed(lines).find((entry) => entry.kind === 'record')
+    expect(record).toMatchObject({ actor: { principal: people.bob }, refs: { record: '1', kind: 'status.changed' } })
   })
 })

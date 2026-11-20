@@ -183,6 +183,46 @@ describe('comments', () => {
     expect(stored.comments[0]).toMatchObject({ body: '', deleted: expect.any(Number), edited: expect.any(Number) })
   })
 
+  it('an editor may delete a comment, but never put other words in it', async () => {
+    await start()
+    await seed('c-9')
+    const carol = await open('carol', 'c-9')
+    const alice = await open('alice', 'c-9')
+    const thread = carol.comments.create(anchor('c-9'), 'Which harbour?')
+    await until(() => alice.comments.threads.length === 1)
+    const id = carol.comments.threads[0].comments[0].id
+    const node = () => {
+      const threadNode = alice.commentsDoc.get('comments').getAttr(thread) as Y.Node
+      for (let i = 0; i < threadNode.length; i++) {
+        const comment = threadNode.get(i)
+        if (comment instanceof Y.Node && comment.getAttr('id') === id) {
+          return comment
+        }
+      }
+      throw new Error('No comment')
+    }
+    // Deleting while changing the words
+    let refused = rejection(alice)
+    alice.commentsDoc.transact(() => {
+      node().setAttr('body', 'I resign')
+      node().setAttr('deleted', Date.now())
+    })
+    expect((await refused).reason).toBe('Deleting a comment only empties it')
+    await until(() => alice.comments.threads[0]?.comments[0]?.body === 'Which harbour?')
+
+    // Deleted properly, then brought back with other words
+    alice.comments.remove(thread, id)
+    await saved(alice)
+    refused = rejection(alice)
+    alice.commentsDoc.transact(() => {
+      node().setAttr('body', 'I resign')
+      node().deleteAttr('deleted')
+    })
+    expect((await refused).reason).toBe('Only its author may bring back what a comment said')
+    const [stored] = (await server.comments('news', 'c-9'))!
+    expect(stored.comments[0]).toMatchObject({ body: '', deleted: expect.any(Number) })
+  })
+
   it('keeps the comments out of the content’s Y.Doc', async () => {
     await start()
     await seed('c-9')
