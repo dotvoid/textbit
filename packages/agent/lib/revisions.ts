@@ -33,7 +33,8 @@ export function recordRevision(editor: Editor): string {
 
 /**
  * The ids among `ids` whose element changed since `revision`, or null when
- * the revision is not known here
+ * the revision is not known here. A path handle, `@2.1`, is changed when the
+ * element at that path is not the one that was there.
  */
 export function changedSince(editor: Editor, revision: string, ids: string[]): string[] | null {
   const snapshot = SNAPSHOTS.get(editor)?.get(revision)
@@ -46,9 +47,14 @@ export function changedSince(editor: Editor, revision: string, ids: string[]): s
 
 function elementHashes(document: Descendant[]): Map<string, string> {
   const hashes = new Map<string, string>()
-  for (const [node] of Node.nodes({ children: document } as unknown as Node)) {
-    if (Element.isElement(node) && typeof node.id === 'string') {
-      hashes.set(node.id, hash(JSON.stringify(node)))
+  for (const [node, path] of Node.nodes({ children: document } as unknown as Node)) {
+    if (!Element.isElement(node)) {
+      continue
+    }
+    const hashed = hash(JSON.stringify(node))
+    hashes.set(`@${path.join('.')}`, hashed)
+    if (typeof node.id === 'string') {
+      hashes.set(node.id, hashed)
     }
   }
   return hashes
