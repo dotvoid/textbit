@@ -671,6 +671,17 @@ through MCP is an agent action: people edit over the socket.
    Carried forward: reviewing a range, signed checkpoints and versions with a pluggable signer,
    W3C PROV export, scrubbing comments in step, and filtering differences by person or run.
 5. **Suggestions in the fork,** people's suggesting mode, agents suggesting, run revert.
+   The layer done 20 November 2026: `suggestions` is a Y.Doc forked from the content (`gc:
+   false`, `isSuggestionDoc`), which every accepted content write flows into, on the server
+   and in the client. `handle.suggestionsRenderer()` is Y.js 14's `createDiffRenderer` of the
+   two, to show, accept and reject. Y.js accepts by writing the suggester's own items into the
+   content, and records a rejection by writing them there deleted, so the server lets content
+   writes carry items that exist in the fork: a pure rejection record by the suggestion's author
+   or an editor, anything else as accepting, by an editor only (`accept` and `reject` history
+   entries). In the fork, deleting what exists only there withdraws a suggestion: its author's
+   or an editor's to do. Capabilities: `suggestions` none, own or all, by role (suggester,
+   editor). To come: the editor's suggesting mode and review on the fork, replacing the
+   interim suggestions map; agents suggesting in the fork; run revert.
 6. **The MCP module.**
 7. **Production:** Postgres and S3, leases and forwarding, audit export, retention and
    redaction.

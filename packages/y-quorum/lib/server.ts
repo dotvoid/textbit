@@ -134,7 +134,12 @@ export function createServer(options: ServerOptions): QuorumServer {
         })()
       : {}
     await options.storage.create(namespace, id, { type: typeName, incarnation: randomUUID(), createdAt }, {
-      states: { content: Y.encodeStateAsUpdate(doc), comments: Y.encodeStateAsUpdate(commentsDoc) },
+      states: {
+        content: Y.encodeStateAsUpdate(doc),
+        comments: Y.encodeStateAsUpdate(commentsDoc),
+        // The suggestions start as a fork of the content
+        ...(type.suggestions ? { suggestions: Y.encodeStateAsUpdate(doc) } : {})
+      },
       ...history
     })
     // With history, the first version is the document as it was made: going

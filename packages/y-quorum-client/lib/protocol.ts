@@ -11,8 +11,10 @@
 // one, so frames stay short. A client can open the same document only once at a
 // time: every view of it in the page shares that one opening.
 //
-// A document is a Y.Doc per layer: `content`, and beside it `comments` for a
-// type that has them. Only the content travels in payloads of OPEN and OPENED;
+// A document is a Y.Doc per layer: `content`, and beside it `comments` and
+// `suggestions` for a type that has them. Suggestions are a fork of the
+// content, as in Y.js 14: the content flows into it, and what is suggested
+// stays there until it is accepted into the content. Only the content travels in payloads of OPEN and OPENED;
 // the other layers' state vectors and missing updates go in the header, base64.
 import * as encoding from 'lib0/encoding'
 import * as decoding from 'lib0/decoding'
@@ -21,7 +23,7 @@ import * as decoding from 'lib0/decoding'
 export const PROTOCOL_VERSION = 1
 
 /** A document's layers, each a Y.Doc of its own */
-export type Layer = 'content' | 'comments'
+export type Layer = 'content' | 'comments' | 'suggestions'
 
 /** Frames a client sends */
 export const ToServer = {
@@ -167,6 +169,11 @@ export interface Capabilities {
   comments?: CommentRights
   /** For a type with history: see versions, also make them, or also restore them */
   versions?: 'read' | 'create' | 'restore'
+  /**
+   * For a type with suggestions: none, only see them; `own`, suggest and
+   * edit and withdraw one's own; `all`, also accept and reject anyone's
+   */
+  suggestions?: 'none' | 'own' | 'all'
 }
 
 /** Presence in a namespace: who has which document open, doing what */

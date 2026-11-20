@@ -100,12 +100,12 @@ const HELD_BYTES = 4 * 1024 * 1024
  * What judging a write found: refused, waiting, or allowed into a layer of
  * the log; `null` when it changes nothing, so there is nothing to store
  */
-type Judgement = { code: ReasonCode, reason: string } | 'pending' | { layer: Layer | null }
+type Judgement = { code: ReasonCode, reason: string } | 'pending' | { layer: Layer | null, kind?: HistoryKind }
 
 const CONTENT = 'content'
 
-/** The root each layer's Y.Doc keeps its data in */
-const ROOTS: Record<Layer, string> = { content: CONTENT, comments: COMMENTS }
+/** The root each layer's Y.Doc keeps its data in: the suggestions fork the content's */
+const ROOTS: Record<Layer, string> = { content: CONTENT, comments: COMMENTS, suggestions: CONTENT }
 
 export class DocumentOwner {
   readonly openings = new Set<Opening>()
@@ -148,6 +148,10 @@ export class DocumentOwner {
     // With history, deleted content is kept: restoring a version brings it back
     this.doc = new Y.Doc({ gc: !type.history })
     this.layers = new Map<Layer, Y.Doc>([['content', this.doc], ['comments', new Y.Doc()]])
+    if (type.suggestions) {
+      // A fork of the content: it keeps what it deletes, to show it struck
+      this.layers.set('suggestions', new Y.Doc({ gc: false, isSuggestionDoc: true }))
+    }
     this.versions = stored.versions ?? []
     this.historyHead = stored.historyHead ?? { seq: 0, hash: GENESIS }
     this.reviewed = stored.checkpoint?.reviewed ? Y.decodeIdSet(stored.checkpoint.reviewed) : Y.createIdSet()
@@ -214,6 +218,11 @@ export class DocumentOwner {
     } finally {
       doc.off('afterTransaction', capture)
     }
+    // The content flows into its fork, always
+    const fork = this.layers.get('suggestions')
+    if (layer === 'content' && fork) {
+      Y.applyUpdate(fork, update, origin)
+    }
     if (!this.type.history || !sets) {
       return undefined
     }
@@ -242,7 +251,10 @@ export class DocumentOwner {
 
   /** The layers a client of this type keeps beside the content */
   private get extraLayers(): Layer[] {
-    return this.type.comments ? ['comments'] : []
+    return [
+      ...(this.type.comments ? ['comments' as const] : []),
+      ...(this.type.suggestions ? ['suggestions' as const] : [])
+    ]
   }
 
   get isIdle(): boolean {
@@ -271,11 +283,15 @@ export class DocumentOwner {
     const comments = !this.type.comments
       ? 'none'
       : capabilities.comments ?? (write ? 'all' : roles.some((role) => role === 'commenter' || role === 'suggester') ? 'own' : 'none')
+    // Suggestions by role unless the policy says: editors accept and reject
+    const suggestions = !this.type.suggestions
+      ? undefined
+      : capabilities.suggestions ?? (capabilities.write ? 'all' : roles.includes('suggester') ? 'own' : 'none')
     // Versions by role unless the policy says: owners restore, editors make them
     const versions = !this.type.history || !capabilities.read
       ? undefined
       : capabilities.versions ?? (roles.includes('owner') ? 'restore' : capabilities.write ? 'create' : 'read')
-    return { ...capabilities, comments, ...(versions ? { versions } : {}) }
+    return { ...capabilities, comments, ...(versions ? { versions } : {}), ...(suggestions ? { suggestions } : {}) }
   }
 
   // ---- Opening and closing ------------------------------------------------
@@ -377,7 +393,7 @@ export class DocumentOwner {
       this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log: this.seq })
       return 'unchanged'
     }
-    const log = await this.commit(actor!, judgement.layer, update, opening)
+    const log = await this.commit(actor!, judgement.layer, update, opening, judgement.kind)
     this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log })
     return 'committed'
   }
@@ -446,15 +462,14 @@ export class DocumentOwner {
   // Whether a write to a layer may be applied, judged on that layer alone
   private async judge(principalId: string, actor: Actor, roles: string[], layer: Layer, update: Uint8Array): Promise<Judgement> {
     const doc = this.layer(layer)
-    // 1. New content only under the writer's own client ids
-    const known = Y.decodeStateVector(Y.encodeStateVector(doc))
-    const clients = new Set<number>()
-    for (const struct of Y.decodeUpdate(update).structs) {
-      const { client, clock } = struct.id
-      if (clock + struct.length > (known.get(client) ?? 0)) {
-        clients.add(client)
-      }
-    }
+    // 1. New content only under the writer's own client ids, but for what is
+    //    suggested in the fork: accepting a suggestion, or recording that it
+    //    was rejected, writes the suggester's very items into the content
+    const ids = Y.createContentIdsFromUpdate(update)
+    const fresh = Y.diffIdSet(ids.inserts, Y.createInsertSetFromStructStore(doc.store, false))
+    const fork = layer === 'content' ? this.layers.get('suggestions') : undefined
+    const suggested = fork ? Y.intersectSets(fresh, Y.createInsertSetFromStructStore(fork.store, false)) : Y.createIdSet()
+    const clients = new Set(Y.diffIdSet(fresh, suggested).clients.keys())
     for (const client of clients) {
       if (!(await this.storage.claimClient(this.namespace, this.id, client, principalId))) {
         return { code: 'not-allowed', reason: 'The update writes under a client id held by someone else' }
@@ -506,6 +521,34 @@ export class DocumentOwner {
       const reason = judgeComments(doc.get(COMMENTS), root, changed, actor, rights)
       return reason ? refuse(reason) : { layer }
     }
+    if (layer === 'suggestions') {
+      const reason = await this.judgeSuggestion(principalId, actor, roles, update)
+      return reason ? refuse(reason) : { layer }
+    }
+    let kind: HistoryKind | undefined
+    if (!suggested.isEmpty()) {
+      const rights = this.capabilitiesFor(actor.principal, roles).suggestions ?? 'none'
+      // Written and deleted at once, nothing else: a record that they were
+      // rejected, which changes nothing anyone sees
+      const rejected = Y.diffIdSet(fresh, suggested).isEmpty() &&
+        Y.diffIdSet(suggested, ids.deletes).isEmpty() &&
+        Y.diffIdSet(ids.deletes, suggested).isEmpty()
+      if (rejected) {
+        if (rights === 'all') {
+          return { layer, kind: 'reject' }
+        }
+        for (const client of suggested.clients.keys()) {
+          if (rights !== 'own' || !(await this.storage.claimClient(this.namespace, this.id, client, principalId))) {
+            return refuse('Only its author, or an editor, withdraws a suggestion')
+          }
+        }
+        return { layer, kind: 'reject' }
+      }
+      if (rights !== 'all') {
+        return refuse('Only an editor accepts a suggestion')
+      }
+      kind = 'accept'
+    }
     const paths = this.pathsOf(changed)
     const allowed = this.type.policy
       ? this.type.policy({ actor, roles, layer: CONTENT, content: this.root, next: root, paths }).write
@@ -513,7 +556,32 @@ export class DocumentOwner {
     if (!allowed) {
       return refuse(paths.length ? `Not allowed to change ${paths.map((p) => p.join('.')).join(', ')}` : 'Not allowed to write here')
     }
-    return { layer }
+    return kind ? { layer, kind } : { layer }
+  }
+
+  /**
+   * Whether a write to the fork may be stored. Anything suggested is a
+   * suggestion, the deletion of content included. Deleting what exists only
+   * in the fork withdraws or rejects a suggestion: only its author, or
+   * whoever may accept and reject, does that.
+   */
+  private async judgeSuggestion(principalId: string, actor: Actor, roles: string[], update: Uint8Array): Promise<string | undefined> {
+    const rights = this.capabilitiesFor(actor.principal, roles).suggestions ?? 'none'
+    if (rights === 'none') {
+      return 'Not allowed to suggest here'
+    }
+    if (rights === 'all') {
+      return undefined
+    }
+    const content = Y.createInsertSetFromStructStore(this.doc.store, false)
+    const withdrawn = Y.diffIdSet(Y.createContentIdsFromUpdate(update).deletes, content)
+    for (const client of withdrawn.clients.keys()) {
+      // The writer of a suggestion holds its client id: anyone else is refused the claim
+      if (!(await this.storage.claimClient(this.namespace, this.id, client, principalId))) {
+        return 'Only its author, or an editor, withdraws a suggestion'
+      }
+    }
+    return undefined
   }
 
   private pathsOf(changed: Map<Y.Node, Set<string | null>>): Path[] {
@@ -549,6 +617,12 @@ export class DocumentOwner {
       await this.fold(entry, from?.peer.id, kind, refs)
     }
     const attributed = this.apply(layer, update, actor, entry.at, from ?? this)
+    // The fork's shadow follows the content as the fork does, so a suggestion
+    // on content just written can be judged
+    const forkShadow = this.shadows.get('suggestions')
+    if (layer === 'content' && forkShadow) {
+      Y.applyUpdate(forkShadow, update)
+    }
     for (const opening of this.openings) {
       if (opening !== from && opening.mode === 'open') {
         this.sendTo(opening, ToClient.UPDATE, { ref: opening.ref, layer, log: this.seq }, update)

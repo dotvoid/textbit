@@ -130,6 +130,18 @@ export interface DocumentHandle {
   readonly content: Y.Node
   /** The comments' Y.Doc, beside the content; `comments` reads and writes it */
   readonly commentsDoc: Y.Doc
+  /**
+   * For a type with suggestions: the fork of the content they are made in.
+   * The content flows into it; what is suggested stays there until accepted.
+   */
+  readonly suggestionsDoc: Y.Doc
+  /**
+   * For a type with suggestions: the difference between the content and its
+   * fork, to show suggestions and accept or reject them. Bind an editor to the
+   * fork's field through it; with `suggesting`, the default, what is typed is
+   * suggested, else it goes into the content. Make a new one after `rebuilt`.
+   */
+  suggestionsRenderer(options?: { suggesting?: boolean }): Y.DiffRenderer
   readonly awareness: Awareness
   readonly capabilities: Capabilities
   readonly records: DocumentRecord[]
@@ -271,6 +283,9 @@ interface DocState extends Opening {
   doc: Y.Doc
   content: Y.Node
   commentsDoc: Y.Doc
+  suggestionsDoc: Y.Doc
+  /** Whether the document's type has suggestions, so its fork is kept */
+  forked: boolean
   awareness: Awareness
   detach: () => void
   type: string
@@ -822,6 +837,8 @@ class QuorumClient implements Client {
       doc,
       content: doc.get('content'),
       commentsDoc: new Y.Doc(),
+      suggestionsDoc: newFork(),
+      forked: false,
       awareness: new Awareness(doc),
       detach: () => undefined,
       type: '',
@@ -849,8 +866,13 @@ class QuorumClient implements Client {
 
   /** Sends a document's local changes and presence from now on */
   private listen(state: DocState): void {
-    const { doc, commentsDoc, awareness } = state
+    const { doc, commentsDoc, suggestionsDoc, awareness } = state
     const onUpdateOf = (layer: Layer) => (update: Uint8Array, origin: unknown) => {
+      // The content flows into its fork, from here or from the server, and
+      // is never sent as a suggestion
+      if (layer === 'content' && state.forked) {
+        Y.applyUpdate(suggestionsDoc, update, this.remote)
+      }
       if (origin === this.remote) {
         return
       }
@@ -869,6 +891,7 @@ class QuorumClient implements Client {
     }
     const onUpdate = onUpdateOf('content')
     const onComments = onUpdateOf('comments')
+    const onSuggestions = onUpdateOf('suggestions')
     const onAwareness = (
       { added, updated, removed }: { added: number[], updated: number[], removed: number[] },
       origin: unknown
@@ -881,10 +904,12 @@ class QuorumClient implements Client {
     }
     doc.on('update', onUpdate)
     commentsDoc.on('update', onComments)
+    suggestionsDoc.on('update', onSuggestions)
     awareness.on('update', onAwareness)
     state.detach = () => {
       doc.off('update', onUpdate)
       commentsDoc.off('update', onComments)
+      suggestionsDoc.off('update', onSuggestions)
       awareness.off('update', onAwareness)
       awareness.destroy()
     }
@@ -940,7 +965,10 @@ class QuorumClient implements Client {
       mode: 'open' as const,
       clientId: state.doc.clientID,
       ...(state.incarnation ? { incarnation: state.incarnation } : {}),
-      layers: { comments: toBase64(Y.encodeStateVector(state.commentsDoc)) }
+      layers: {
+        comments: toBase64(Y.encodeStateVector(state.commentsDoc)),
+        ...(state.forked ? { suggestions: toBase64(Y.encodeStateVector(state.suggestionsDoc)) } : {})
+      }
     }
     this.send(encodeFrame(ToServer.OPEN, header, Y.encodeStateVector(state.doc)))
   }
@@ -962,6 +990,15 @@ class QuorumClient implements Client {
     const comments = header.layers?.comments
     if (comments) {
       Y.applyUpdate(state.commentsDoc, fromBase64(comments.missing), this.remote)
+    }
+    const suggestions = header.layers?.suggestions
+    if (suggestions) {
+      Y.applyUpdate(state.suggestionsDoc, fromBase64(suggestions.missing), this.remote)
+      if (!state.forked) {
+        // From now on the fork follows the content; first what this client has
+        state.forked = true
+        Y.applyUpdate(state.suggestionsDoc, Y.encodeStateAsUpdate(state.doc), this.remote)
+      }
     }
     state.type = header.type
     state.incarnation = header.incarnation
@@ -988,6 +1025,12 @@ class QuorumClient implements Client {
       const commentsDiff = Y.encodeStateAsUpdate(state.commentsDoc, fromBase64(comments.stateVector))
       if (hasContent(commentsDiff)) {
         this.sendUpdate(state, 'comments', commentsDiff)
+      }
+    }
+    if (suggestions) {
+      const suggested = Y.encodeStateAsUpdate(state.suggestionsDoc, fromBase64(suggestions.stateVector))
+      if (hasContent(suggested)) {
+        this.sendUpdate(state, 'suggestions', suggested)
       }
     }
     if (state.mode) {
@@ -1112,6 +1155,17 @@ class QuorumClient implements Client {
     if (layers.includes('comments')) {
       state.commentsDoc = freshDoc(state.commentsDoc)
     }
+    // The fork holds what the content had: refused content must not stay there
+    // as if suggested
+    if (layers.includes('suggestions') || (layers.includes('content') && state.forked)) {
+      const fork = newFork()
+      while (fork.clientID === state.suggestionsDoc.clientID) {
+        fork.clientID = newClientId()
+      }
+      state.suggestionsDoc = fork
+      state.forked = false
+      layers = [...new Set([...layers, 'suggestions' as const])]
+    }
     this.listen(state)
     state.phase = 'idle'
     state.local = []
@@ -1221,6 +1275,7 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   private released = false
   private commentsOfHandle: CommentsOfHandle | undefined
   private renderers = new Set<LiveAttributionsRenderer>()
+  private diffRenderers = new Set<Y.DiffRenderer>()
 
   constructor(private readonly client: QuorumClient, private readonly state: DocState) {
     super()
@@ -1233,6 +1288,16 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   get doc() { return this.state.doc }
   get content() { return this.state.content }
   get commentsDoc() { return this.state.commentsDoc }
+  get suggestionsDoc() { return this.state.suggestionsDoc }
+
+  suggestionsRenderer({ suggesting = true }: { suggesting?: boolean } = {}): Y.DiffRenderer {
+    const renderer = Y.createDiffRenderer(this.state.doc, this.state.suggestionsDoc, {
+      attributions: this.attributions('suggestions')
+    })
+    renderer.suggestionMode = suggesting
+    this.diffRenderers.add(renderer)
+    return renderer
+  }
   get awareness() { return this.state.awareness }
   get capabilities() { return this.state.capabilities }
   get records() { return this.state.records }
@@ -1321,6 +1386,9 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
     for (const renderer of this.renderers) {
       this.state.renderers.delete(renderer)
     }
+    for (const renderer of this.diffRenderers) {
+      renderer.destroy()
+    }
     this.state.handles.delete(this)
     this.client.release(this.state)
   }
@@ -1362,7 +1430,12 @@ function keyOf(namespace: string, id: string): string {
 
 /** The Y.Doc of a document's layer */
 function layerDoc(state: DocState, layer: Layer): Y.Doc {
-  return layer === 'comments' ? state.commentsDoc : state.doc
+  return layer === 'comments' ? state.commentsDoc : layer === 'suggestions' ? state.suggestionsDoc : state.doc
+}
+
+/** A fork of the content: it keeps what it deletes, to show it struck */
+function newFork(): Y.Doc {
+  return new Y.Doc({ gc: false, isSuggestionDoc: true })
 }
 
 /** An empty Y.Doc to start a layer again in, under a client id of its own */
