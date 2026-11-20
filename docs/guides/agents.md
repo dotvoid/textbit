@@ -48,7 +48,7 @@ The same is available without tools, on the agent itself:
 
 | Method | Returns |
 |--------|---------|
-| `agent.read({ from?, limit? })` | `{ revision, view, total, next? }` |
+| `agent.read({ from?, limit? })` | `{ revision, view, total, next?, fromNotFound? }` |
 | `agent.search({ query, limit? })` | `{ revision, matches: [{ line, in? }] }`; `limit` defaults to 20 |
 | `agent.describe()` | The element types as text, as `document_types` gives them |
 | `agent.edit({ operations, revision?, opId? })` | An edit result, see below |
@@ -90,7 +90,7 @@ The document as one element per line, children indented two spaces under their p
   their text.
 
 A read returns at most `pageSize` characters (24000 by default) and says where the next page
-starts. While the agent suggests, it reads the fork: the document with the suggestions made so
+starts. A read `from` an element no longer there returns nothing, with `fromNotFound`. While the agent suggests, it reads the fork: the document with the suggestions made so
 far.
 
 The exact grammar is in [Formats](./formats.md#the-agents-line-format). `FORMAT_GUIDE` is the
@@ -243,4 +243,5 @@ with `createAgentTools` then, so the edit tool's description follows.
 | `pageSize` | `24000` | Characters a read returns at most before it pages |
 | `presence` | none | From `createAgentPresence`, to show people what the agent does |
 | `review` | `'apply'` | `'suggest'` proposes changes for people to accept or reject instead |
-| `author` | the presence's name, else `Agent` | Who suggestions are from: `{ name, color }` |
+| `suggestIn` | none | With `review: 'suggest'`: an editor bound to the fork, plainly, without a renderer. Who suggested is who writes the fork, as the server records it |
+| `origin` | one of its own | The origin its changes go into a shared document under: a y-quorum handle's `claimOrigin({ agent })` has the server record them as the agent's, made for the person |

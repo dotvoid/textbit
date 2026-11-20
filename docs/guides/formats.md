@@ -95,8 +95,10 @@ is the document's `suggestions` layer. See [Suggestions](./suggestions.md).
 A hash of an element that every peer computes alike, `hashNode` in core:
 
 1. **Canonical JSON** of the element: objects with their keys sorted (by UTF-16 code unit,
-   as JavaScript's default sort does), keys whose value is `undefined` left out, arrays in
-   order, strings, numbers, booleans and `null` as `JSON.stringify` writes them. No spaces.
+   as JavaScript's default sort does), keys whose value is `undefined` left out, a
+   `properties` key whose value is an empty object left out too (a shared document cannot
+   tell it from none), arrays in order, strings, numbers, booleans and `null` as
+   `JSON.stringify` writes them. No spaces.
 2. **FNV-1a, 32 bits,** over the UTF-16 code units of that string: start at `0x811c9dc5`; for
    each code unit, XOR it in, then multiply by `0x01000193` modulo 2³².
 3. The result as an **unsigned integer in base 36**, lowercase.

@@ -29,7 +29,7 @@ Every plugin is a named export, and bundlers keep only the ones you import.
 
 | Plugin | Adds | Default shortcut |
 |---|---|---|
-| `Text` | `base/text`, with the roles `heading-1` to `heading-6` and `preamble` | Ctrl+Alt+0 to 4 (⌘⌥0 to 4) |
+| `Text` | `base/text`, with the roles `heading-1` to `heading-4` and `preamble`; `heading-5` and `heading-6` with `headings` | Ctrl+Alt+0 to 4 (⌘⌥0 to 4) |
 | `Bold`, `Italic`, `Underline` | marks `base/bold`, `base/italic`, `base/underline` | Ctrl/⌘+B, I, U |
 | `Strikethrough`, `Code` | marks `base/strikethrough`, `base/code` | none |
 | `UnorderedList`, `OrderedList` | `base/unordered-list`, `base/ordered-list` | Ctrl/⌘+Shift+8, Ctrl/⌘+Shift+7 |

@@ -27,11 +27,12 @@ npm install @dotvoid/textbit @dotvoid/textbit-plugins @dotvoid/textbit-styles
 
 ```tsx
 import { useMemo, useState } from 'react'
-import { Textbit, type TBElement } from '@dotvoid/textbit'
+import type { Descendant } from 'slate'
+import { Textbit } from '@dotvoid/textbit'
 import { Text, Bold, Italic, Link } from '@dotvoid/textbit-plugins'
 import '@dotvoid/textbit-styles'
 
-const initial: TBElement[] = [
+const initial: Descendant[] = [
   { id: crypto.randomUUID(), type: 'base/text', class: 'text', children: [{ text: 'Hello world' }] }
 ]
 

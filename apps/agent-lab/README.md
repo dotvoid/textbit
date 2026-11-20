@@ -3,10 +3,10 @@
 A real AI agent in a shared textbit document, editing alongside you. Private to this
 repository; not published.
 
-- `src/server.ts` is the shared document: a Hocuspocus server on `ws://localhost:1234`, with
-  one document. It starts as the demo's article and keeps its state in `.lab/`, across
-  restarts. Each start-over is a document of its own, `lab-<when it was created>`, whose name
-  clients get from `http://localhost:1234/lab`.
+- `src/server.ts` is the shared document: a y-quorum server on `ws://localhost:1234`, with
+  one document, `lab/article`. It starts as the demo's article and keeps its state in a
+  SQLite file in `.lab/`, across restarts. It repairs what people's edits break together by
+  the demo's plugins, and keeps the document's history.
 - `src/mcp.ts` is an MCP server over stdio. Your MCP client starts it. It joins the document
   as a peer of its own, like a browser, and gives the agent the tools of
   `@dotvoid/textbit-agent`: `document_read`, `document_search`, `document_types` and
@@ -56,10 +56,10 @@ Both run the built packages, as a host would.
 ## Starting over
 
 `npm run lab:reset` (with the server stopped) throws the document away; the next `npm run lab`
-starts again from the article. Each start-over is a document of its own, with a name the
-server hands out: a browser tab or MCP server still holding the old one is turned away
-rather than merging its copy back in, which would give every element twice. The demo then
-asks you to join again; reconnect the MCP server with `/mcp` in Claude Code.
+starts again from the article. The document keeps its name, `lab/article`, but is made anew,
+with a new incarnation: a browser tab or MCP server still holding the old one sees that and
+discards its copy rather than merging it back in, which would give every element twice.
+Reconnect the MCP server with `/mcp` in Claude Code if it does not follow.
 
 ## Edit or suggest
 

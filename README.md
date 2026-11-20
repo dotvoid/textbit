@@ -1,6 +1,6 @@
 # Textbit
 
-A React rich-text editor built on Slate, with collaborative editing through Yjs.
+A React rich-text editor built on Slate, with collaborative editing through Y.js 14.
 
 | Package | |
 |---------|---|
@@ -8,8 +8,11 @@ A React rich-text editor built on Slate, with collaborative editing through Yjs.
 | [`@dotvoid/textbit-plugins`](packages/plugins) | Ready to use plugins: headings, formatting, lists, links, tables, code, quotes, images, audio. |
 | [`@dotvoid/textbit-styles`](packages/styles) | A default look for the editor and the plugins, in plain CSS. |
 | [`@dotvoid/textbit-agent`](packages/agent) | Tools for AI agents to read and edit documents alongside people, in any agent framework. |
+| [`@dotvoid/y-quorum`](packages/y-quorum) | A Y.js 14 server for documents people and agents write together: rights, history, repairs, more than one node. |
+| [`@dotvoid/y-quorum-client`](packages/y-quorum-client) | Its client, for the browser and Node, with the typed content model the two share. |
 
-[`apps/demo`](apps/demo) uses all three, as a host would.
+[`apps/demo`](apps/demo) uses the editor, the plugins, the styles and the y-quorum client, as
+a host would. [`apps/agent-lab`](apps/agent-lab) runs a y-quorum server and an agent over MCP.
 
 ## Documentation
 

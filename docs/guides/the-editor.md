@@ -32,7 +32,7 @@ Holds the document, the plugins and the settings. Everything else goes inside it
 | `renderer` | | For a shared document: show the text through a Y.js 14 renderer, such as who wrote what (y-quorum's `handle.attributionsRenderer()`) or the difference between versions. Text then carries `_by` and `_at`, who wrote or deleted it and when, and the leaf `data-tb-by` and `data-tb-change`. |
 | `labels` | English | Text textbit itself shows, to translate. See [Labels](#labels). |
 | `agentChangeDuration` | `8000` | Milliseconds what an agent changed stays marked. See [Agents](./agents.md). |
-| `awareness`, `cursor` | | Cursors and presence when collaborating. Keep `cursor` the same object between renders. See [Collaboration](./collaboration.md). |
+| `awareness`, `cursor` | | Cursors and presence when collaborating. See [Collaboration](./collaboration.md). |
 | `verbose` | `false` | Log plugin registration to the console |
 | `className`, `style` | | On the element the root renders, `[data-tb="editor"]` |
 
