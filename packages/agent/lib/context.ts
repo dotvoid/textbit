@@ -30,6 +30,12 @@ export interface AgentOptions {
    * Who suggested is who writes the fork, as the server records it.
    */
   suggestIn?: Editor
+  /**
+   * The origin the agent's changes go into a shared document under. Default:
+   * one of its own. Give a y-quorum handle's `claimOrigin({ agent, ... })`, and
+   * the server records the changes as the agent's, made for the person.
+   */
+  origin?: object
 }
 
 /** @internal What every part of the agent shares */

@@ -159,6 +159,49 @@ the server first.
 If the server does not appear, its log on stderr says why: most often that it could not reach
 the collaboration server.
 
+## Agents at a y-quorum server
+
+With documents on a y-quorum server, mount `@dotvoid/y-quorum/mcp` instead of writing a server
+of your own. It serves many documents over Streamable HTTP, and works through the y-quorum
+server like any client, as the person the agent acts for, every change claimed as the agent's:
+the server's rules, history and review evidence apply to agents as to everyone.
+
+```ts
+import { createMcpModule } from '@dotvoid/y-quorum/mcp'
+
+const mcp = createMcpModule({
+  url: 'ws://localhost:1234',
+  types: [article],
+  plugins: { default: plugins },
+  // Who is calling: the person's token for y-quorum, and the agent
+  identify: async (request) => {
+    const session = await yourAuth(request.headers.get('authorization'))
+    return session && {
+      key: `${session.userId}:${session.clientId}`,
+      token: session.quorumToken,
+      agent: { id: session.clientId, name: session.clientName }
+    }
+  },
+  // Your index: what the caller may find
+  documents: async (caller, { text }) => ({ documents: await yourIndex.search(caller, text) }),
+  // Agents only suggest in documents that are ready for publishing
+  agentPolicy: ({ content }) => (content.status === 'ready' ? 'suggest' : 'edit')
+})
+
+// Mount it, e.g. with a framework that speaks web Requests
+app.all('/mcp', (request) => mcp.fetch(request))
+```
+
+- **What agents may do** is the least of what the person may and what `agentPolicy` says:
+  `none`, `read`, `comment`, `suggest` or `edit`. A refused edit tells the model to suggest
+  instead where it may.
+- **Tools:** `documents_list`, `document_fields` (the document as JSON, its text fields, what the
+  agent may do), `document_set_field` (a plain field), `document_read`, `document_search`,
+  `document_types`, `document_edit` and `document_suggest` (a text field, named by `field`),
+  `suggestions_list`, `comments_list`, `comment_create` (by quoting the text) and
+  `comment_reply`. Documents are named `namespace/id`.
+- **Connections** are kept per caller and closed after a minute unused (`idle`).
+
 ## Your own tool-calling loop
 
 Model SDKs that call tools take the same three things: a name, a description and a JSON Schema

@@ -16,6 +16,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./mcp": {
+      "types": "./dist/mcp/index.d.ts",
+      "import": "./dist/mcp.js",
+      "require": "./dist/mcp.cjs"
     }
   },
   "files": [
@@ -43,12 +48,16 @@
   },
   "peerDependencies": {
     "@dotvoid/textbit": "^3.0.0 || ^2.1.0",
+    "@dotvoid/textbit-agent": "^1.0.0 || 0.0.0",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@y/protocols": "1.0.6-rc.1",
     "@y/y": "14.0.0-rc.30",
     "slate": "^0.147.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.29.0",
+    "@modelcontextprotocol/client": "^2.4.0",
+    "@modelcontextprotocol/server": "^2.4.0",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.5.12",
     "@y/protocols": "1.0.6-rc.1",
@@ -60,5 +69,13 @@
     "vite": "^7.3.7",
     "vite-plugin-dts": "^5.0.0",
     "vitest": "^4.1.12"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/server": {
+      "optional": true
+    },
+    "@dotvoid/textbit-agent": {
+      "optional": true
+    }
   }
 }

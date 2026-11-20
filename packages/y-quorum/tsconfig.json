@@ -17,7 +17,8 @@
       "@dotvoid/textbit/headless": ["../textbit/lib/headless.ts"],
       "@dotvoid/y-quorum-client/protocol": ["../y-quorum-client/lib/protocol.ts"],
       "@dotvoid/y-quorum-client/model": ["../y-quorum-client/lib/model.ts"],
-      "@dotvoid/y-quorum-client": ["../y-quorum-client/lib/index.ts"]
+      "@dotvoid/y-quorum-client": ["../y-quorum-client/lib/index.ts"],
+      "@dotvoid/textbit-agent": ["../agent/lib/index.ts"]
     }
   },
   "include": ["lib", "tests"]

@@ -24,7 +24,10 @@ export default defineConfig({
   publicDir: false,
   build: {
     lib: {
-      entry: resolve(__dirname, 'lib/index.ts'),
+      entry: {
+        index: resolve(__dirname, 'lib/index.ts'),
+        mcp: resolve(__dirname, 'lib/mcp/index.ts')
+      },
       formats: ['es', 'cjs'],
       fileName: (format, name) => `${name}.${format === 'es' ? 'js' : 'cjs'}`
     },
