@@ -86,8 +86,10 @@ export interface DocumentEvents {
   rejected: Rejection
   /**
    * A layer was replaced after a refusal: for the content, bind to `handle.doc`
-   * and `handle.awareness` again; for the comments, `handle.comments` follows
-   * by itself
+   * and `handle.awareness` again; for the fork, to `handle.suggestionsDoc`
+   * through a new `suggestionsRenderer`, the old one destroyed; for the
+   * comments, `handle.comments` follows by itself. The awareness is replaced
+   * only with the content.
    */
   rebuilt: { doc: Y.Doc, layer: Layer }
   /** Every local change is stored; `log` is the position of the last one, when known */
@@ -139,9 +141,14 @@ export interface DocumentHandle {
    * For a type with suggestions: the difference between the content and its
    * fork, to show suggestions and accept or reject them. Bind an editor to the
    * fork's field through it; with `suggesting`, the default, what is typed is
-   * suggested, else it goes into the content. Make a new one after `rebuilt`.
+   * suggested, else it goes into the content. With `origins`, only the fork's
+   * transactions of those origins, such as the bound editor's, go into the
+   * content when not suggesting; by default every local one does, whichever
+   * editor made it. Destroy it when done with it: the handle keeps it current
+   * until then. When the content or the fork is rebuilt, the client destroys
+   * it: make a new one after `rebuilt`.
    */
-  suggestionsRenderer(options?: { suggesting?: boolean }): Y.DiffRenderer
+  suggestionsRenderer(options?: { suggesting?: boolean, origins?: object[] }): Y.DiffRenderer
   readonly awareness: Awareness
   readonly capabilities: Capabilities
   readonly records: DocumentRecord[]
@@ -152,7 +159,7 @@ export interface DocumentHandle {
   /**
    * A renderer showing who wrote what in the content, kept current: give it
    * to `Textbit.Root` as `renderer`. Text carries `_by` and `_at`, and with
-   * `withDeleted` deleted text shows too.
+   * `withDeleted` deleted text shows too. Destroy it when done with it.
    */
   attributionsRenderer(options?: { withDeleted?: boolean }): Y.AttributionsRenderer
   /** For a type with history: the versions of the content, oldest first */
@@ -185,7 +192,8 @@ export interface DocumentHandle {
    * For a type with history and suggestions: suggests taking back what a run,
    * an actor or a stretch of time changed, as its inverse in the fork, for a
    * person to accept or reject. Nothing in the text changes until someone
-   * accepts. Returns whether there was anything to take back.
+   * accepts. Returns whether the fork changed: false when there was nothing
+   * to take back, or it is suggested taken back already.
    */
   suggestRevert(which: ChangesOf): boolean
   readonly hasUnsavedChanges: boolean
@@ -294,6 +302,7 @@ interface DocState extends Opening {
   /** Whether the document's type has suggestions, so its fork is kept */
   forked: boolean
   awareness: Awareness
+  /** Stops sending the layers' changes and the presence; the awareness lives on */
   detach: () => void
   type: string
   incarnation: string
@@ -876,13 +885,24 @@ class QuorumClient implements Client {
   /** Sends a document's local changes and presence from now on */
   private listen(state: DocState): void {
     const { doc, commentsDoc, suggestionsDoc, awareness } = state
-    const onUpdateOf = (layer: Layer) => (update: Uint8Array, origin: unknown) => {
+    const onUpdateOf = (layer: Layer) => (
+      update: Uint8Array,
+      origin: unknown,
+      _doc: Y.Doc,
+      tr: Y.Transaction
+    ) => {
       // The content flows into its fork, from here or from the server, and
       // is never sent as a suggestion
       if (layer === 'content' && state.forked) {
         Y.applyUpdate(suggestionsDoc, update, this.remote)
       }
       if (origin === this.remote) {
+        return
+      }
+      // A diff renderer passes the content on to the fork too, under no
+      // origin, and its listener may run before the one above: what the
+      // content already has is not suggested, whoever brought it
+      if (layer === 'suggestions' && !tr.local && origin !== REVERT && inContent(state.doc, tr)) {
         return
       }
       if (layer === 'content') {
@@ -920,7 +940,6 @@ class QuorumClient implements Client {
       commentsDoc.off('update', onComments)
       suggestionsDoc.off('update', onSuggestions)
       awareness.off('update', onAwareness)
-      awareness.destroy()
     }
   }
 
@@ -1177,11 +1196,12 @@ class QuorumClient implements Client {
       const doc = freshDoc(state.doc)
       state.doc = doc
       state.content = doc.get('content')
+      // The presence is of the content's Y.Doc, so it goes with it; for a
+      // rebuilt comments or fork it stays, and what is bound to it with it
+      state.awareness.destroy()
       state.awareness = new Awareness(doc)
       state.incarnation = ''
       state.changed = false
-    } else {
-      state.awareness = new Awareness(state.doc)
     }
     state.awareness.setLocalState(presence)
     if (layers.includes('comments')) {
@@ -1197,6 +1217,13 @@ class QuorumClient implements Client {
       state.suggestionsDoc = fork
       state.forked = false
       layers = [...new Set([...layers, 'suggestions' as const])]
+    }
+    if (layers.includes('content') || layers.includes('suggestions')) {
+      // Bound to a Y.Doc no longer used: left alive, one would keep passing
+      // the old fork's typing on to the content
+      for (const renderer of [...state.diffRenderers]) {
+        renderer.destroy()
+      }
     }
     this.listen(state)
     state.phase = 'idle'
@@ -1252,6 +1279,7 @@ class QuorumClient implements Client {
       }
       if (live) {
         state.detach()
+        state.awareness.destroy()
         emitAll(state.handles, 'closed', refusal)
       }
     } else {
@@ -1322,11 +1350,20 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   get commentsDoc() { return this.state.commentsDoc }
   get suggestionsDoc() { return this.state.suggestionsDoc }
 
-  suggestionsRenderer({ suggesting = true }: { suggesting?: boolean } = {}): Y.DiffRenderer {
-    const renderer = Y.createDiffRenderer(this.state.doc, this.state.suggestionsDoc, {
+  suggestionsRenderer(
+    { suggesting = true, origins }: { suggesting?: boolean, origins?: object[] } = {}
+  ): Y.DiffRenderer {
+    const renderer = new HandleDiffRenderer(this.state.doc, this.state.suggestionsDoc, {
       attributions: this.attributions('suggestions')
     })
     renderer.suggestionMode = suggesting
+    if (origins) {
+      renderer.suggestionOrigins = [...origins]
+    }
+    renderer.onDestroy = () => {
+      this.diffRenderers.delete(renderer)
+      this.state.diffRenderers.delete(renderer)
+    }
     this.diffRenderers.add(renderer)
     this.state.diffRenderers.add(renderer)
     return renderer
@@ -1349,6 +1386,10 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
 
   attributionsRenderer(options?: { withDeleted?: boolean }): Y.AttributionsRenderer {
     const renderer = new LiveAttributionsRenderer(this.attributions('content'), options)
+    renderer.onDestroy = () => {
+      this.renderers.delete(renderer)
+      this.state.renderers.delete(renderer)
+    }
     this.state.renderers.add(renderer)
     this.renderers.add(renderer)
     return renderer
@@ -1404,9 +1445,16 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
     const scratch = new Y.Doc({ gc: false })
     Y.applyUpdate(scratch, Y.encodeStateAsUpdate(this.state.suggestionsDoc))
     const before = Y.encodeStateVector(scratch)
+    // Taken back already, or nothing of it left: the fork stays as it is
+    let changed = false
+    scratch.on('afterTransaction', (tr: Y.Transaction) => {
+      changed ||= !tr.insertSet.isEmpty() || !tr.deleteSet.isEmpty()
+    })
     Y.undoContentIds(scratch, ids)
-    Y.applyUpdate(this.state.suggestionsDoc, Y.encodeStateAsUpdate(scratch, before), REVERT)
-    return true
+    if (changed) {
+      Y.applyUpdate(this.state.suggestionsDoc, Y.encodeStateAsUpdate(scratch, before), REVERT)
+    }
+    return changed
   }
   get hasUnsavedChanges() { return this.state.local.length > 0 }
 
@@ -1443,11 +1491,7 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
     }
     this.released = true
     this.commentsOfHandle?.destroy()
-    for (const renderer of this.renderers) {
-      this.state.renderers.delete(renderer)
-    }
-    for (const renderer of this.diffRenderers) {
-      this.state.diffRenderers.delete(renderer)
+    for (const renderer of [...this.renderers, ...this.diffRenderers]) {
       renderer.destroy()
     }
     this.state.handles.delete(this)
@@ -1491,6 +1535,25 @@ function keyOf(namespace: string, id: string): string {
 
 /** The origin of suggested reverts: neither the server's nor anyone typing */
 const REVERT = {}
+
+/** A diff renderer a handle keeps current, until it is destroyed */
+class HandleDiffRenderer extends Y.DiffRenderer {
+  onDestroy: (() => void) | undefined
+
+  override destroy(): void {
+    super.destroy()
+    const done = this.onDestroy
+    this.onDestroy = undefined
+    done?.()
+  }
+}
+
+/** Whether the content has everything a transaction brought: inserts and deletes alike */
+function inContent(content: Y.Doc, tr: Y.Transaction): boolean {
+  const inserted = Y.diffIdSet(tr.insertSet, Y.createInsertSetFromStructStore(content.store, false))
+  return inserted.isEmpty() &&
+    Y.diffIdSet(tr.deleteSet, Y.createDeleteSetFromStructStore(content.store)).isEmpty()
+}
 
 /** The Y.Doc of a document's layer */
 function layerDoc(state: DocState, layer: Layer): Y.Doc {

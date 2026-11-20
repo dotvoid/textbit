@@ -8,7 +8,7 @@ import type { Layer } from '@dotvoid/y-quorum-client/protocol'
 import type { Actor } from './types'
 
 /** What a history entry did */
-export type HistoryKind = 'edit' | 'accept' | 'reject' | 'restore' | 'review'
+export type HistoryKind = 'edit' | 'accept' | 'reject' | 'restore' | 'review' | 'record'
 
 /** One entry of a document's history: writes of one actor, folded, in the chain */
 export interface HistoryEntry {
@@ -85,13 +85,16 @@ export type Verification =
 
 /**
  * Checks an exported history: every payload against its hash, every entry
- * against its hash, every entry against the one before. Entries whose
- * payload was removed are checked by the hash they kept.
+ * against its hash, every entry against the one before, and that together
+ * they cover the log without a gap. Entries whose payload was removed are
+ * checked by the hash they kept.
  */
 export function verifyHistory(lines: string | string[]): Verification {
   const all = (Array.isArray(lines) ? lines : lines.split('\n')).filter((line) => line.trim())
   let prev = GENESIS
   let checked = 0
+  // The log positions covered so far: writes are folded in order, none left out
+  let covered = 0
   for (const line of all) {
     const { payload, hash, ...rest } = JSON.parse(line) as Omit<HistoryEntry, 'payload'> & { payload?: string }
     const fail = (reason: string): Verification => ({ ok: false, entries: checked, seq: rest.seq, reason })
@@ -107,6 +110,12 @@ export function verifyHistory(lines: string | string[]): Verification {
     if (hashOf(rest) !== hash) {
       return fail('It was changed after it was stored')
     }
+    // Reviews and records take no log positions; everything else folds the next ones
+    const aside = rest.kind === 'review' || rest.kind === 'record'
+    if (aside ? rest.from !== covered || rest.to !== covered : rest.from !== covered + 1 || rest.to < rest.from) {
+      return fail(`It does not take up where the entry before left off, at log position ${covered}`)
+    }
+    covered = aside ? covered : rest.to
     prev = hash
     checked++
   }

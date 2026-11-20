@@ -32,7 +32,10 @@ whatever the text gets flows into it. Bind the editor to the fork's field throug
 
 With [y-quorum](./collaboration.md), the client keeps the fork for you: `handle.suggestionsDoc`
 is it, and `handle.suggestionsRenderer()` the renderer, with who suggested what from the
-server.
+server. Destroy a renderer when the view it is for goes, such as in a React effect's cleanup:
+until then it keeps passing what is typed in the fork on by its own `suggestionMode`. When the
+content or the fork is rebuilt after a refusal, the client destroys the renderers bound to them;
+make a new one on `rebuilt`.
 
 ## Suggesting, or editing with suggestions shown
 
@@ -43,7 +46,11 @@ server.
 - `false`: into the text, through the fork. The person edits as usual and sees what others
   suggest around it.
 
-y-quorum's `suggestionsRenderer({ suggesting })` sets it; it may change at any time.
+y-quorum's `suggestionsRenderer({ suggesting })` sets it; it may change at any time. Every
+local change to the fork goes into the text while it is `false`, whichever editor made it; with
+several editors on one fork, `suggestionsRenderer({ origins: [origin] })` (Y.js's
+`renderer.suggestionOrigins`) limits that to the transactions of the origins given, such as the
+editor's own.
 
 ## What people see
 
@@ -71,15 +78,19 @@ To build your own, `useSuggestions()` gives:
 Without React, `suggestedChanges(editor)`, `acceptChange(editor, change)` and
 `rejectChange(editor, change)` do the same for an editor bound to the fork through the renderer.
 
-A change is a run of suggested content side by side: an insertion right next to a deletion is
-one replacement, and accepting it takes the whole run, as Y.js does. A whole block suggested,
-added or removed, is one change with everything in it.
+A change is a run of suggested content side by side by one person: an insertion right next to a
+deletion is one replacement. Where two people's suggestions touch, they are listed apart, but
+Y.js decides the whole run at once: accepting or rejecting one decides the other too, such as
+Bob's "the" right after Alice's struck "teh". A whole block suggested, added or removed, is one
+change with everything in it.
 
 ## Accepting and rejecting
 
 Accepting writes the suggested items themselves into the text, so the text keeps who wrote them
 and the fork who suggested them. Rejecting takes the suggestion out of the fork and records in
-the text that it was rejected. Both are changes like any other and are undone like one.
+the text that it was rejected. Neither is in the person's undo: the editor's undo covers the
+fork, and a decision changes the text, so undoing one in the text would remove the suggestion
+instead of bringing it back. To go back on a decision, suggest the change again.
 
 With y-quorum the server holds everyone to their role:
 

@@ -33,7 +33,7 @@ export function memory(): Storage {
         entries: kept.entries.filter((entry) => entry.seq > kept.checkpoint.seq),
         records: [...kept.records],
         versions: kept.versions.map(({ version }) => version),
-        ...(kept.history.length ? { historyHead: { seq: kept.history.at(-1)!.seq, hash: kept.history.at(-1)!.hash } } : {})
+        ...(kept.history.length ? { historyHead: { seq: kept.history.at(-1)!.seq, hash: kept.history.at(-1)!.hash, to: kept.history.at(-1)!.to } } : {})
       }
     },
     create: async (namespace, id, meta, checkpoint) => {

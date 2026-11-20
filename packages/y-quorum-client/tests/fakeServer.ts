@@ -11,6 +11,7 @@ import {
   isFrame,
   type FrameType,
   type Headers,
+  type Layer,
   type Limits
 } from '../lib/protocol'
 
@@ -36,6 +37,9 @@ export interface FakeServer {
   refuseNextUpdate: boolean
   /** Answer the next OPEN with client-id-taken */
   takeNextClientId: boolean
+  /** Whether the document's type has comments and suggestions, each layer a Y.Doc here */
+  layered: boolean
+  layers: Record<Exclude<Layer, 'content'>, Y.Doc>
   framesOf(type: FrameType): Received[]
   /** Drops every connection, as a network failure would */
   drop(): void
@@ -58,6 +62,8 @@ export async function startServer(): Promise<FakeServer> {
     incarnation: 'one',
     refuseNextUpdate: false,
     takeNextClientId: false,
+    layered: false,
+    layers: { comments: new Y.Doc(), suggestions: new Y.Doc({ gc: false, isSuggestionDoc: true }) },
     framesOf: (type) => server.received.filter((frame) => frame.type === type),
     drop: () => {
       for (const connection of connections) {
@@ -72,17 +78,32 @@ export async function startServer(): Promise<FakeServer> {
 
   // Changes reach every opening but the one they came from; watchers get
   // their projection again
-  server.doc.on('update', (update: Uint8Array, origin: unknown) => {
+  const forward = (layer: Layer) => (update: Uint8Array, origin: unknown) => {
     for (const connection of connections) {
       for (const [ref, opening] of connection.refs) {
         if (opening.mode === 'watch') {
-          send(connection, ToClient.PROJECTION, { ref, projection: project(opening.paths) })
+          if (layer === 'content') {
+            send(connection, ToClient.PROJECTION, { ref, projection: project(opening.paths) })
+          }
         } else if (origin !== opening) {
-          send(connection, ToClient.UPDATE, { ref, layer: 'content' }, update)
+          send(connection, ToClient.UPDATE, { ref, layer }, update)
         }
       }
     }
+  }
+  // The fork follows the content, as the server's does; clients' forks get it from their content
+  const following = {}
+  server.doc.on('update', (update: Uint8Array) => {
+    Y.applyUpdate(server.layers.suggestions, update, following)
   })
+  server.doc.on('update', forward('content'))
+  server.layers.comments.on('update', forward('comments'))
+  server.layers.suggestions.on('update', (update: Uint8Array, origin: unknown) => {
+    if (origin !== following) {
+      forward('suggestions')(update, origin)
+    }
+  })
+  const docOf = (layer: Layer) => layer === 'content' ? server.doc : server.layers[layer]
 
   function project(paths: string[]): Record<string, unknown> {
     const content = server.doc.get('content')
@@ -147,7 +168,9 @@ export async function startServer(): Promise<FakeServer> {
         }
         const stateVector = Buffer.from(Y.encodeStateVector(server.doc)).toString('base64')
         const missing = Y.encodeStateAsUpdate(server.doc, frame.payload)
-        send(connection, ToClient.OPENED, { ...common, stateVector, records: [] }, missing)
+        const layers = server.layered ? layersFor(frame.header.layers ?? {}) : undefined
+        const header = { ...common, stateVector, records: [], ...(layers ? { layers } : {}) }
+        send(connection, ToClient.OPENED, header, missing)
       } else if (isFrame(frame, ToServer.UPDATE)) {
         const { ref, seq } = frame.header
         const opening = connection.refs.get(ref)
@@ -161,7 +184,7 @@ export async function startServer(): Promise<FakeServer> {
           send(connection, ToClient.REJECTED, header, frame.payload)
           return
         }
-        Y.applyUpdate(server.doc, frame.payload, opening)
+        Y.applyUpdate(docOf(frame.header.layer), frame.payload, opening)
         send(connection, ToClient.ACK, { ref, seq, log: ++log })
       } else if (isFrame(frame, ToServer.CLOSE)) {
         connection.refs.delete(frame.header.ref)
@@ -179,6 +202,20 @@ export async function startServer(): Promise<FakeServer> {
       }
     })
   })
+
+  // The layers an opening asked for, by its state vectors
+  function layersFor(asked: Partial<Record<Layer, string>>) {
+    const base64 = (bytes: Uint8Array) => Buffer.from(bytes).toString('base64')
+    const entries = (['comments', 'suggestions'] as const).map((layer) => {
+      const doc = server.layers[layer]
+      const theirs = asked[layer] ? Buffer.from(asked[layer], 'base64') : undefined
+      return [layer, {
+        stateVector: base64(Y.encodeStateVector(doc)),
+        missing: base64(Y.encodeStateAsUpdate(doc, theirs))
+      }] as const
+    })
+    return Object.fromEntries(entries)
+  }
 
   return server
 }

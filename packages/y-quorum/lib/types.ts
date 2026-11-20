@@ -89,7 +89,7 @@ export interface StoredDocument {
   /** For a type with history: its versions, oldest first, without their content */
   versions?: VersionInfo[]
   /** For a type with history: the last entry of its history, which the next one follows */
-  historyHead?: { seq: number, hash: string }
+  historyHead?: { seq: number, hash: string, /** The last log position it folds */ to: number }
 }
 
 /**

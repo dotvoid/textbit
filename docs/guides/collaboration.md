@@ -147,7 +147,7 @@ extension or a `y-websocket` server keeps in memory. See [Without a user interfa
 ## Undo
 
 Each person's undo takes back their own changes, not other people's. Accepting or rejecting a
-suggestion is the person's own change and is undone like one.
+suggestion is not in it: see [Suggestions](./suggestions.md#accepting-and-rejecting).
 
 ## Agents and suggestions
 

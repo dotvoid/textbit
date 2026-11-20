@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from '@y/y'
-import { Node, Text, Transforms } from 'slate'
+import { Editor, Node, Text, Transforms } from 'slate'
 import { bindField } from '../../lib/yjs/binding'
 import { SUGGESTED_MARK as SUGGESTED, seedField, fieldToValue as toSlateValue } from '../../lib/yjs/model'
 import { addItem, createPlan, findItem, listOf, textField } from './_tree'
@@ -71,6 +71,54 @@ describe('suggesting in the fork', () => {
     renderer.rejectAllChanges()
     expect(Node.string(suggester.children[0])).toBe('Write 600 words.')
     expect(Node.string(toSlateValue(baseField)[0])).toBe('Write 600 words.')
+    expect(binding.check()).toBe(true)
+  })
+})
+
+describe('editing the content through the suggestions view', () => {
+  function editingThrough() {
+    const base = new Y.Doc({ gc: false })
+    const baseField = base.get('body')
+    seedField(baseField, [
+      { id: 'p1', type: 'core/text', class: 'text', children: [{ text: 'Hello world.' }] },
+      { id: 'p2', type: 'core/text', class: 'text', children: [{ text: 'Second.' }] }
+    ])
+    const fork = new Y.Doc({ gc: false, isSuggestionDoc: true })
+    Y.applyUpdate(fork, Y.encodeStateAsUpdate(base))
+    const renderer = Y.createDiffRenderer(base, fork)
+    renderer.suggestionMode = false
+    const editor = makeEditor()
+    const operations: string[] = []
+    const { apply } = editor
+    editor.apply = (op) => {
+      operations.push(op.type)
+      apply(op)
+    }
+    const binding = bindField(editor, fork.get('body'), { renderer })
+    return { editor, binding, baseField, operations }
+  }
+
+  it('applies typing once, and it goes into the content', () => {
+    const { editor, binding, baseField, operations } = editingThrough()
+    Transforms.insertText(editor, 'X', { at: { path: [0, 0], offset: 5 } })
+    expect(operations.filter((type) => type === 'insert_text')).toHaveLength(1)
+    expect(Node.string(toSlateValue(baseField)[0])).toBe('HelloX world.')
+    expect(binding.check()).toBe(true)
+  })
+
+  it('splits a paragraph with the caret at the start of the new one', () => {
+    const { editor, binding, baseField } = editingThrough()
+    Transforms.select(editor, { path: [0, 0], offset: 5 })
+    Editor.insertBreak(editor)
+    expect(toSlateValue(baseField).map((block) => Node.string(block))).toEqual(['Hello', ' world.', 'Second.'])
+    expect(editor.selection?.anchor).toEqual({ path: [1, 0], offset: 0 })
+    expect(binding.check()).toBe(true)
+  })
+
+  it('deletes across blocks', () => {
+    const { editor, binding, baseField } = editingThrough()
+    Transforms.delete(editor, { at: { anchor: { path: [0, 0], offset: 5 }, focus: { path: [1, 0], offset: 3 } } })
+    expect(toSlateValue(baseField).map((block) => Node.string(block))).toEqual(['Helloond.'])
     expect(binding.check()).toBe(true)
   })
 })

@@ -70,6 +70,37 @@ describe('suggested changes in a fork', () => {
     expect(text(content)).toBe('Harbour.|Boats.')
   })
 
+  test('split by author, though accepting one takes the whole run Y.js sees', () => {
+    const { suggester, content } = byTwo((suggest) => {
+      suggest('person:alice', (block) => block.delete(4, 3))
+      suggest('person:bob', (block) => block.insert(4, 'the'))
+    })
+    const changes = suggestedChanges(suggester)
+    const listed = changes.map(({ kind, inserted, deleted, by }) => [kind, inserted, deleted, by])
+    expect(listed).toEqual([
+      ['delete', '', 'teh', 'person:alice'],
+      ['insert', 'the', '', 'person:bob']
+    ])
+
+    // Y.js widens to the contiguous run of suggested content, whoever made
+    // it, even given where the change ends: Bob's goes in with Alice's
+    acceptChange(suggester, changes[0])
+    expect(text(content)).toBe('Fix the typo.')
+    expect(suggestedChanges(suggester)).toEqual([])
+  })
+
+  test('accepting one author\'s change leaves another apart from it', () => {
+    const { suggester, content } = byTwo((suggest) => {
+      suggest('person:alice', (block) => block.delete(4, 3))
+      suggest('person:bob', (block) => block.insert(5, 'big '))
+    })
+    acceptChange(suggester, suggestedChanges(suggester)[0])
+    expect(text(content)).toBe('Fix  typo.')
+    expect(suggestedChanges(suggester).map(({ inserted, by }) => [inserted, by])).toEqual([
+      ['big ', 'person:bob']
+    ])
+  })
+
   test('none without a fork', () => {
     expect(suggestedChanges(createTextbitEditor({ value: [paragraph('p1', 'Hi')] }))).toEqual([])
   })
@@ -103,6 +134,36 @@ describe('Textbit.Suggestions', () => {
     expect(screen.queryByRole('region', { name: 'Suggestions' })).toBeNull()
   })
 })
+
+// "Fix teh typo." and its fork, where two people suggest, each in a copy of
+// the fork so the attributions can name who made which items
+function byTwo(edits: (suggest: (who: string, edit: (block: Y.Node) => void) => void) => void) {
+  const base = new Y.Doc({ gc: false })
+  seedField(base.get('body'), [paragraph('p1', 'Fix teh typo.')])
+  const fork = new Y.Doc({ gc: false, isSuggestionDoc: true })
+  Y.applyUpdate(fork, Y.encodeStateAsUpdate(base))
+  const attributions = Y.createContentMap()
+  const renderer = Y.createDiffRenderer(base, fork, { attributions })
+  edits((who, edit) => {
+    const copy = new Y.Doc({ gc: false, isSuggestionDoc: true })
+    Y.applyUpdate(copy, Y.encodeStateAsUpdate(fork))
+    const before = Y.encodeStateVector(copy)
+    let ids = Y.createContentIds(Y.createIdSet(), Y.createIdSet())
+    copy.on('afterTransaction', (tr: { insertSet: Y.IdSet, deleteSet: Y.IdSet }) => {
+      ids = Y.createContentIds(tr.insertSet, tr.deleteSet)
+    })
+    copy.transact(() => edit(copy.get('body').get(0) as Y.Node))
+    const made = Y.createContentMapFromContentIds(ids, [Y.createContentAttribute('insert', who)], [
+      Y.createContentAttribute('delete', who)
+    ])
+    Y.insertIntoIdMap(attributions.inserts, made.inserts)
+    Y.insertIntoIdMap(attributions.deletes, made.deletes)
+    Y.applyUpdate(fork, Y.encodeStateAsUpdate(copy, before))
+  })
+  const suggester = createTextbitEditor({ shared: fork.get('body'), renderer })
+  const content = createTextbitEditor({ shared: base.get('body') })
+  return { suggester, content }
+}
 
 // The end of the first paragraph, in its last leaf
 function endOf(editor: Editor) {

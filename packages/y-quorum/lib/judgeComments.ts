@@ -122,10 +122,20 @@ function judgeComment(before: Comment, after: Comment, actor: Actor, rights: Com
     return 'Who wrote a comment, and when, does not change'
   }
   const own = isActor(before.author, before.onBehalfOf, actor)
+  const rewritten = before.body !== after.body || before.edited !== after.edited
   if (before.deleted !== after.deleted) {
-    return own || rights === 'all' ? undefined : 'Only its author, or an editor, may delete a comment'
+    if (!own && rights !== 'all') {
+      return 'Only its author, or an editor, may delete a comment'
+    }
+    // Deleting empties a comment and changes nothing else in it
+    if (after.deleted !== undefined) {
+      const emptied = after.body === '' || after.body === before.body
+      return emptied && before.edited === after.edited ? undefined : 'Deleting a comment only empties it'
+    }
+    // Bringing one back, its words with it, is its author's: an undo
+    return rewritten && !own ? 'Only its author may bring back what a comment said' : undefined
   }
-  if (before.body !== after.body || before.edited !== after.edited) {
+  if (rewritten) {
     return own ? undefined : 'Only its author may edit a comment'
   }
   return undefined
@@ -194,7 +204,8 @@ function threadOf(node: Y.Node, root: Y.Node): string | undefined {
 /** Whether an author is the one acting: the principal, for whom it acts */
 function isActor(author: CommentAuthor, onBehalfOf: CommentAuthor | undefined, actor: Actor): boolean {
   const as = (who: CommentAuthor, principal: Actor['principal']) =>
-    who.kind === principal.kind && who.id === principal.id && who.name === principal.name
+    // By who they are, not what they are called: a renamed person keeps their comments
+    who.kind === principal.kind && who.id === principal.id
   if (!as(author, actor.principal)) {
     return false
   }

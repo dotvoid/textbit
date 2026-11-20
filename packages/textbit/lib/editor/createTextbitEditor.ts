@@ -97,8 +97,9 @@ export function withTextbit(
   if (!options.shared) {
     editor = withHistory(editor)
   } else if (options.bind !== false) {
-    // Innermost, so every operation the plugins make reaches the field. A
-    // person's own accepts and rejects of suggestions are undone like their edits.
+    // Innermost, so every operation the plugins make reaches the field. Its
+    // undo covers the field only: accepting or rejecting a suggestion writes
+    // into the shared text, not the fork, and is not undone with the edits.
     bindField(editor, options.shared, {
       origin: options.origin,
       renderer: options.renderer

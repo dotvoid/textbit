@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from '@y/y'
-import { createClient, type Client, type Rejection } from '../lib/client'
+import { createClient, type Client, type DocumentHandle, type Rejection } from '../lib/client'
 import { ToServer } from '../lib/protocol'
 import { startServer, waitFor, type FakeServer } from './fakeServer'
 
@@ -221,5 +221,85 @@ describe('the client', () => {
     const [save] = server.framesOf(ToServer.SAVE)
     expect(save.header.label).toBe('First draft')
     expect(save.payload).toEqual(Y.encodeStateVector(handle.doc))
+  })
+})
+
+describe('the fork and its renderers', () => {
+  // A document whose type has comments and suggestions, its fork following the content
+  async function forked(): Promise<DocumentHandle> {
+    server.layered = true
+    const handle = await connect().open('plans', 'one')
+    await waitFor(() => fork(handle).getAttr('title') === 'From the server')
+    return handle
+  }
+  const fork = (handle: DocumentHandle) => handle.suggestionsDoc.get('content')
+  const suggested = () => server.framesOf(ToServer.UPDATE)
+    .filter((frame) => frame.header.layer === 'suggestions')
+
+  it('keeps the presence and the renderers when only the comments are rebuilt', async () => {
+    const handle = await forked()
+    const awareness = handle.awareness
+    awareness.setLocalState({ name: 'Pat' })
+    handle.suggestionsRenderer({ suggesting: false })
+    const rebuilt = new Promise<{ layer: string }>((resolve) => handle.on('rebuilt', resolve))
+    server.refuseNextUpdate = true
+    handle.commentsDoc.get('comments').setAttr('note', 'refused')
+    expect((await rebuilt).layer).toBe('comments')
+
+    expect(handle.awareness).toBe(awareness)
+    expect(awareness.getLocalState()).toEqual({ name: 'Pat' })
+    // The content's listener now comes after the renderer's: what the
+    // renderer passes on to the fork is still not suggested
+    handle.content.setAttr('status', 'done')
+    await waitFor(() => !handle.hasUnsavedChanges)
+    expect(server.doc.get('content').getAttr('status')).toBe('done')
+    expect(fork(handle).getAttr('status')).toBe('done')
+    expect(suggested()).toHaveLength(0)
+
+    // The renderer still passes typing on to the content
+    fork(handle).setAttr('note', 'typed')
+    expect(handle.content.getAttr('note')).toBe('typed')
+  })
+
+  it('destroys the renderers of a rebuilt content and fork', async () => {
+    const handle = await forked()
+    const renderer = handle.suggestionsRenderer({ suggesting: false })
+    const destroyed = vi.spyOn(renderer, 'destroy')
+    const oldFork = handle.suggestionsDoc
+    const layers: string[] = []
+    handle.on('rebuilt', ({ layer }) => layers.push(layer))
+    server.refuseNextUpdate = true
+    handle.content.setAttr('status', 'refused')
+    await waitFor(() => layers.length === 2)
+
+    expect(layers.sort()).toEqual(['content', 'suggestions'])
+    expect(destroyed).toHaveBeenCalled()
+    oldFork.get('content').setAttr('note', 'into the old fork')
+    expect(handle.content.getAttr('note')).toBeUndefined()
+  })
+
+  it('lets a renderer go when it is destroyed', async () => {
+    const handle = await forked()
+    const editing = handle.suggestionsRenderer({ suggesting: false })
+    const attributions = handle.attributionsRenderer()
+    editing.destroy()
+    attributions.destroy()
+    handle.suggestionsRenderer()
+    fork(handle).setAttr('note', 'suggested')
+    expect(handle.content.getAttr('note')).toBeUndefined()
+
+    const again = [vi.spyOn(editing, 'destroy'), vi.spyOn(attributions, 'destroy')]
+    handle.release()
+    expect(again.map((spy) => spy.mock.calls.length)).toEqual([0, 0])
+  })
+
+  it('passes on to the content only the origins it is given', async () => {
+    const handle = await forked()
+    const mine = {}
+    handle.suggestionsRenderer({ suggesting: false, origins: [mine] })
+    handle.suggestionsDoc.transact(() => fork(handle).setAttr('theirs', 'suggested'), {})
+    handle.suggestionsDoc.transact(() => fork(handle).setAttr('mine', 'typed'), mine)
+    expect(handle.content.getAttr('theirs')).toBeUndefined()
+    expect(handle.content.getAttr('mine')).toBe('typed')
   })
 })
