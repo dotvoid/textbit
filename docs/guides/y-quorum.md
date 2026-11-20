@@ -336,7 +336,8 @@ same thing at once would duplicate or delete it.
   is an item without its key.
 
 A repair is one change of the server's own, by `REPAIRER` (`service:y-quorum`), sent to
-everyone like any other and in the history as its own entry, kind `repair`. Nobody is made the
+everyone like any other and in the history as its own entry, kind `repair`. It holds only what
+it changed: where nothing needed putting right, nothing is written. Nobody is made the
 author of a repair, and it is not counted as anyone's work to review. A field that keeps
 needing repairs, from plugins whose rules never settle, is left alone after 20 repairs in a
 minute.
@@ -370,6 +371,9 @@ and what is suggested stays there until accepted. The server keeps the fork too 
   refused.
 - **Rejecting** writes them into the content already deleted, changing nothing anyone sees. It
   is the suggester's, or anyone's with `all`.
+- **Typing through the suggestions view, not suggesting,** writes into the fork, then the same
+  items into the content, as Y.js does. Content that is just what the same connection last
+  wrote in the fork, by someone who may write, is their writing, not an accept.
 
 Accepts and rejections are history entries of their own, naming who suggested what was
 decided. How people review suggestions in the editor is in [Suggestions](./suggestions.md),
