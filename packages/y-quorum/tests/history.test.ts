@@ -303,3 +303,78 @@ describe('records in the history', () => {
     expect(record).toMatchObject({ actor: { principal: people.bob }, refs: { record: '1', kind: 'status.changed' } })
   })
 })
+
+describe('signed histories', () => {
+  it('signs the head at checkpoints and versions, and the verifier checks the signatures', async () => {
+    const { generateKeyPairSync, sign } = await import('node:crypto')
+    const ours = generateKeyPairSync('ed25519')
+    const theirs = generateKeyPairSync('ed25519')
+    const server = createServer({
+      types: [article],
+      storage: memory(),
+      authenticate: (token) => (people[token] ? { principal: people[token], namespaces: ['news'] } : null),
+      signer: { keyId: 'k1', sign: (message) => sign(null, message, ours.privateKey) },
+      checkpointEvery: 2
+    })
+    servers.push(server)
+    url = `ws://localhost:${((await server.listen(0)).address() as AddressInfo).port}`
+    await server.create('news', 's-1', 'example/article', { body: [paragraph('p', 'Calm.')] })
+    const bob = await open('bob', 's-1')
+    await type(bob, 'One. ')
+    await type(bob, 'Two. ')
+    await type(bob, 'Three. ')
+    const lines = (await server.exportHistory('news', 's-1')).split('\n').filter(Boolean)
+    const entries = lines.map((line) => JSON.parse(line) as { kind: string })
+    expect(entries.some((entry) => entry.kind === 'signature')).toBe(true)
+
+    expect(verifyHistory(lines, { keys: { k1: ours.publicKey } })).toMatchObject({ ok: true })
+    expect(verifyHistory(lines, { keys: { k1: theirs.publicKey } })).toMatchObject({ ok: false, reason: 'Its signature does not hold' })
+    expect(verifyHistory(lines, { keys: {} })).toMatchObject({ ok: false })
+
+    // Rewritten and chained again by someone with the store but not the key
+    const { seal, toJSONLine } = await import('../lib/history')
+    let prev = '0'.repeat(64)
+    const rewritten = lines.map((line, i) => {
+      const entry = JSON.parse(line) as Record<string, unknown>
+      const fields: Record<string, unknown> = { ...entry, ...(i === 0 ? { at: 1 } : {}) }
+      for (const key of ['hash', 'payloadHash', 'prevHash', 'payload']) {
+        delete fields[key]
+      }
+      if (entry.payload) {
+        fields.payload = Buffer.from(String(entry.payload), 'base64')
+      }
+      if (fields.kind === 'signature') {
+        fields.refs = { ...(fields.refs as Record<string, string>), head: prev }
+      }
+      const sealed = seal(fields as Parameters<typeof seal>[0], prev)
+      prev = sealed.hash
+      return toJSONLine(sealed)
+    })
+    expect(verifyHistory(rewritten, { keys: { k1: ours.publicKey } })).toMatchObject({ ok: false, reason: 'Its signature does not hold' })
+  })
+})
+
+describe('retention', () => {
+  it('drops old payloads and log, keeps the chain verifiable and the document whole', async () => {
+    const folder = mkdtempSync(join(tmpdir(), 'y-quorum-prune-'))
+    try {
+      const server = await start(sqlite(join(folder, 'db.sqlite')))
+      await server.create('news', 'p-1', 'example/article', { body: [paragraph('p', 'Calm.')] })
+      const bob = await open('bob', 'p-1')
+      await type(bob, 'One. ')
+      await type(bob, 'Two. ')
+      await server.prune('news', 'p-1', Date.now() + 1)
+
+      const lines = (await server.exportHistory('news', 'p-1')).split('\n').filter(Boolean)
+      expect(verifyHistory(lines)).toMatchObject({ ok: true })
+      expect(lines.every((line) => !('payload' in (JSON.parse(line) as object)))).toBe(true)
+      // The past between versions is gone, and said to be
+      await expect(bob.version(1)).rejects.toThrow()
+
+      const again = await start(sqlite(join(folder, 'db.sqlite')))
+      expect(JSON.stringify(await again.read('news', 'p-1'))).toContain('Two. One. Calm.')
+    } finally {
+      rmSync(folder, { recursive: true, force: true })
+    }
+  })
+})

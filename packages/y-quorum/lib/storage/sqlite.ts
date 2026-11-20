@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite'
 import type { DocumentRecord, Layer, Person, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
-import type { Actor, Checkpoint, LogEntry, Storage } from '../types'
+import { StaleLease, type Actor, type Checkpoint, type Lease, type LogEntry, type Storage } from '../types'
 import type { HistoryEntry } from '../history'
 
 /**
@@ -41,6 +41,11 @@ export function sqlite(file: string): Storage {
       entry TEXT NOT NULL, payload BLOB, hash TEXT NOT NULL,
       PRIMARY KEY (namespace, id, seq)
     );
+    CREATE TABLE IF NOT EXISTS leases (
+      namespace TEXT NOT NULL, id TEXT NOT NULL,
+      holder TEXT NOT NULL, address TEXT NOT NULL, epoch INTEGER NOT NULL, until INTEGER NOT NULL,
+      PRIMARY KEY (namespace, id)
+    );
     CREATE TABLE IF NOT EXISTS claims (
       namespace TEXT NOT NULL, id TEXT NOT NULL, client INTEGER NOT NULL, principal TEXT NOT NULL,
       PRIMARY KEY (namespace, id, client)
@@ -64,10 +69,12 @@ export function sqlite(file: string): Storage {
   const loadVersions = db.prepare('SELECT info FROM versions WHERE namespace = ? AND id = ? ORDER BY seq, rowid')
   const loadVersionState = db.prepare('SELECT state FROM versions WHERE namespace = ? AND id = ? AND version_id = ?')
   const findClaim = db.prepare('SELECT principal FROM claims WHERE namespace = ? AND id = ? AND client = ?')
+  const findLease = db.prepare('SELECT holder, address, epoch, until FROM leases WHERE namespace = ? AND id = ?')
+  const putLease = db.prepare('INSERT OR REPLACE INTO leases VALUES (?, ?, ?, ?, ?, ?)')
   const insertClaim = db.prepare('INSERT INTO claims VALUES (?, ?, ?, ?)')
 
   function transaction(work: () => void) {
-    db.exec('BEGIN')
+    db.exec('BEGIN IMMEDIATE') // the write lock at once: two processes never both take a lease
     try {
       work()
       db.exec('COMMIT')
@@ -154,8 +161,12 @@ export function sqlite(file: string): Storage {
         putParts(namespace, id, checkpoint)
       })
     },
-    append: async (namespace, id, entries) => {
+    append: async (namespace, id, entries, epoch) => {
       transaction(() => {
+        // Fenced: a node whose lease passed to another writes nothing
+        if (epoch !== undefined && (findLease.get(namespace, id) as Lease | undefined)?.epoch !== epoch) {
+          throw new StaleLease(namespace, id)
+        }
         for (const entry of entries) {
           insertEntry.run(namespace, id, entry.seq, entry.at, entry.layer, JSON.stringify(entry.actor), entry.update)
         }
@@ -202,6 +213,35 @@ export function sqlite(file: string): Storage {
         record.onBehalfOf ? JSON.stringify(record.onBehalfOf) : null, JSON.stringify(record.data ?? null)
       )
     },
+    lease: async (namespace, id, node, ttl) => {
+      let lease: Lease | undefined
+      transaction(() => {
+        const now = Date.now()
+        const current = findLease.get(namespace, id) as Lease | undefined
+        if (!current || current.until <= now) {
+          lease = { holder: node.id, address: node.address, epoch: (current?.epoch ?? 0) + 1, until: now + ttl }
+        } else if (current.holder === node.id) {
+          lease = { ...current, address: node.address, until: now + ttl }
+        } else {
+          lease = { ...current }
+          return
+        }
+        putLease.run(namespace, id, lease.holder, lease.address, lease.epoch, lease.until)
+      })
+      return lease!
+    },
+    releaseLease: async (namespace, id, node) => {
+      db.prepare('UPDATE leases SET until = 0 WHERE namespace = ? AND id = ? AND holder = ?').run(namespace, id, node)
+    },
+    prune: async (namespace, id, { before, upTo }) => {
+      transaction(() => {
+        db.prepare('DELETE FROM log WHERE namespace = ? AND id = ? AND at < ? AND seq <= ?').run(namespace, id, before, upTo)
+        db.prepare("UPDATE history SET payload = NULL WHERE namespace = ? AND id = ? AND json_extract(entry, '$.until') < ?")
+          .run(namespace, id, before)
+      })
+    },
+    clientHolder: async (namespace, id, client) =>
+      (findClaim.get(namespace, id, client) as { principal: string } | undefined)?.principal,
     claimClient: async (namespace, id, client, principal) => {
       const row = findClaim.get(namespace, id, client) as { principal: string } | undefined
       if (row) {

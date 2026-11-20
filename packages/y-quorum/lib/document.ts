@@ -42,10 +42,10 @@ import {
   type CommentThread,
   type Path
 } from '@dotvoid/y-quorum-client/model'
-import type { Actor, LogEntry, ServerOptions, ServerType, Storage, StoredDocument } from './types'
+import { StaleLease, type Actor, type LogEntry, type ServerOptions, type ServerType, type Storage, type StoredDocument } from './types'
 import { differsFromFork } from './suggestionActs'
 import { judgeComments } from './judgeComments'
-import { GENESIS, seal, type HistoryKind } from './history'
+import { GENESIS, seal, signedHead, type HistoryKind } from './history'
 
 /** How long writes of one actor are folded into one history entry at most */
 const BATCH_MS = 10_000
@@ -74,6 +74,8 @@ export interface Peer {
   /** Whether agents may claim to act for this principal through it */
   agents: boolean
   send(frame: Uint8Array): void
+  /** Ends the connection as a passing interruption: its client reconnects and opens again */
+  drop?(): void
 }
 
 /** One connection's opening of the document */
@@ -101,10 +103,12 @@ const HELD_BYTES = 4 * 1024 * 1024
  * What judging a write found: refused, waiting, or allowed into a layer of
  * the log; `null` when it changes nothing, so there is nothing to store
  */
-type Judgement = { code: ReasonCode, reason: string } | 'pending' | { layer: Layer | null, kind?: HistoryKind, refs?: Record<string, string> }
+type Judgement = { code: ReasonCode, reason: string } | 'pending' | { layer: Layer | null, kind?: HistoryKind, refs?: Record<string, string>, claims?: number[] }
 
 const CONTENT = 'content'
 
+/** Past states of the content kept for time travel */
+const PAST_STATES = 8
 /** Saves one opening may have waiting, and how long one waits */
 const SAVES_WAITING = 16
 const SAVE_TIMEOUT = 30000
@@ -114,6 +118,17 @@ const ROOTS: Record<Layer, string> = { content: CONTENT, comments: COMMENTS, sug
 
 export class DocumentOwner {
   readonly openings = new Set<Opening>()
+  /**
+   * With more than one node: the lease this node holds the document by. Every
+   * write carries it, so a node that lost the document writes nothing.
+   */
+  epoch?: number
+  /** Called once when the document passes to another node */
+  onLost?: () => void
+  private lost = false
+  private pastStates = new Map<number, Uint8Array>()
+  private signedSeq = 0
+  private checkpointTimer: ReturnType<typeof setTimeout> | undefined
   /** The content */
   readonly doc: Y.Doc
   readonly awareness: awarenessProtocol.Awareness
@@ -268,7 +283,9 @@ export class DocumentOwner {
 
   /** Runs tasks of this document one at a time, in order */
   private serial<T>(task: () => Promise<T> | T): Promise<T> {
-    const run = this.queue.then(task, task)
+    // A document passed to another node does nothing more here
+    const guarded = () => (this.lost ? Promise.reject(new StaleLease(this.namespace, this.id)) : task())
+    const run = this.queue.then(guarded, guarded)
     this.queue = run.catch(() => undefined)
     return run
   }
@@ -304,7 +321,14 @@ export class DocumentOwner {
   async open(opening: Opening, header: Headers[typeof ToServer.OPEN], vector: Uint8Array): Promise<void> {
     return this.serial(async () => {
       if (opening.mode === 'open' && header.clientId !== undefined) {
-        const own = await this.storage.claimClient(this.namespace, this.id, header.clientId, opening.peer.principal.id)
+        // Anyone who may write claims their id now, before anyone who saw it in
+        // awareness could write under it first; a reader's is only checked, so
+        // reading fills no claims
+        const caps = opening.capabilities
+        const writes = caps.write || (caps.comments ?? 'none') !== 'none' || (caps.suggestions ?? 'none') !== 'none'
+        const own = writes
+          ? await this.storage.claimClient(this.namespace, this.id, header.clientId, opening.peer.principal.id)
+          : await this.holderOf(header.clientId, opening.peer.principal.id) !== 'other'
         if (!own) {
           this.sendTo(opening, ToClient.CLOSED, { ref: opening.ref, code: 'client-id-taken', reason: 'That client id writes for someone else; pick another' })
           return
@@ -400,6 +424,14 @@ export class DocumentOwner {
       this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log: this.seq })
       return 'unchanged'
     }
+    // Taken: now its new client ids are its writer's
+    for (const client of judgement.claims ?? []) {
+      if (!(await this.storage.claimClient(this.namespace, this.id, client, opening.peer.principal.id))) {
+        this.shadows.set(judgement.layer, this.copy(judgement.layer))
+        this.sendTo(opening, ToClient.REJECTED, { ref: opening.ref, seq: header.seq, code: 'not-allowed', reason: 'The update writes under a client id held by someone else' }, update)
+        return 'refused'
+      }
+    }
     const log = await this.commit(actor!, judgement.layer, update, opening, judgement.kind, judgement.refs)
     this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log })
     return 'committed'
@@ -484,9 +516,14 @@ export class DocumentOwner {
       }
     }
     const clients = new Set(Y.diffIdSet(fresh, suggested).clients.keys())
+    const claims: number[] = []
     for (const client of clients) {
-      if (!(await this.storage.claimClient(this.namespace, this.id, client, principalId))) {
+      const holder = await this.holderOf(client, principalId)
+      if (holder === 'other') {
         return { code: 'not-allowed', reason: 'The update writes under a client id held by someone else' }
+      }
+      if (holder === 'free') {
+        claims.push(client)
       }
     }
     // 2. On the shadow first: what it changes, and whether it fits at all
@@ -533,11 +570,11 @@ export class DocumentOwner {
     if (layer === 'comments') {
       const rights = this.capabilitiesFor(actor.principal, roles).comments ?? 'none'
       const reason = judgeComments(doc.get(COMMENTS), root, changed, actor, rights)
-      return reason ? refuse(reason) : { layer }
+      return reason ? refuse(reason) : { layer, claims }
     }
     if (layer === 'suggestions') {
       const reason = await this.judgeSuggestion(principalId, actor, roles, update)
-      return reason ? refuse(reason) : { layer }
+      return reason ? refuse(reason) : { layer, claims }
     }
     let kind: HistoryKind | undefined
     let acceptedDeletes = Y.createIdSet()
@@ -555,14 +592,14 @@ export class DocumentOwner {
           return refuse('A rejection may not change the content')
         }
         if (rights === 'all') {
-          return { layer, kind: 'reject', refs: this.suggestedBy(suggested, Y.createIdSet()) }
+          return { layer, kind: 'reject', refs: this.suggestedBy(suggested, Y.createIdSet()), claims }
         }
         for (const client of suggested.clients.keys()) {
-          if (rights !== 'own' || !(await this.storage.claimClient(this.namespace, this.id, client, principalId))) {
+          if (rights !== 'own' || await this.holderOf(client, principalId) !== 'mine') {
             return refuse('Only its author, or an editor, withdraws a suggestion')
           }
         }
-        return { layer, kind: 'reject', refs: this.suggestedBy(suggested, Y.createIdSet()) }
+        return { layer, kind: 'reject', refs: this.suggestedBy(suggested, Y.createIdSet()), claims }
       }
       if (rights !== 'all') {
         return refuse('Only an editor accepts a suggestion')
@@ -587,7 +624,7 @@ export class DocumentOwner {
     if (!allowed) {
       return refuse(paths.length ? `Not allowed to change ${paths.map((p) => p.join('.')).join(', ')}` : 'Not allowed to write here')
     }
-    return kind ? { layer, kind, refs: this.suggestedBy(suggested, acceptedDeletes) } : { layer }
+    return kind ? { layer, kind, refs: this.suggestedBy(suggested, acceptedDeletes), claims } : { layer, claims }
   }
 
   /**
@@ -607,12 +644,55 @@ export class DocumentOwner {
     const content = Y.createInsertSetFromStructStore(this.doc.store, false)
     const withdrawn = Y.diffIdSet(Y.createContentIdsFromUpdate(update).deletes, content)
     for (const client of withdrawn.clients.keys()) {
-      // The writer of a suggestion holds its client id: anyone else is refused the claim
-      if (!(await this.storage.claimClient(this.namespace, this.id, client, principalId))) {
+      // The writer of a suggestion holds its client id
+      if (await this.holderOf(client, principalId) !== 'mine') {
         return 'Only its author, or an editor, withdraws a suggestion'
       }
     }
     return undefined
+  }
+
+  private checkpointSoon() {
+    if (this.checkpointTimer) {
+      return
+    }
+    this.checkpointTimer = setTimeout(() => {
+      this.checkpointTimer = undefined
+      void this.serial(() => this.checkpoint()).catch(() => undefined)
+    }, 1000)
+  }
+
+  /**
+   * The document has passed to another node: everyone here is sent off to
+   * reconnect, and to find it where it is now. Nothing more is written.
+   */
+  giveUp(): void {
+    if (this.lost) {
+      return
+    }
+    this.lost = true
+    clearTimeout(this.batch?.timer)
+    clearTimeout(this.checkpointTimer)
+    for (const opening of [...this.openings]) {
+      this.openings.delete(opening)
+      opening.peer.drop?.()
+    }
+    this.awareness.destroy()
+    this.onLost?.()
+  }
+
+  get isLost(): boolean {
+    return this.lost
+  }
+
+  // Whose a client id is: the principal's, nobody's yet, or someone else's
+  private async holderOf(client: number, principal: string): Promise<'mine' | 'free' | 'other'> {
+    if (this.storage.clientHolder) {
+      const holder = await this.storage.clientHolder(this.namespace, this.id, client)
+      return holder === undefined ? 'free' : holder === principal ? 'mine' : 'other'
+    }
+    // A store that cannot only look claims as it checks
+    return (await this.storage.claimClient(this.namespace, this.id, client, principal)) ? 'mine' : 'other'
   }
 
   // Who suggested what an accept or a rejection takes: both stay on record,
@@ -663,7 +743,14 @@ export class DocumentOwner {
     refs?: Record<string, string>
   ): Promise<number> {
     const entry: LogEntry = { seq: this.seq + 1, at: Date.now(), layer, actor, update }
-    await this.storage.append(this.namespace, this.id, [entry])
+    try {
+      await this.storage.append(this.namespace, this.id, [entry], this.epoch)
+    } catch (error) {
+      if (error instanceof StaleLease) {
+        this.giveUp()
+      }
+      throw error
+    }
     this.seq = entry.seq
     if (this.type.history) {
       await this.fold(entry, from?.peer.id, kind, refs)
@@ -742,6 +829,38 @@ export class DocumentOwner {
         ? { attributions: this.encodedAttributions((bytes) => bytes), people: this.people, reviewed: Y.encodeIdSet(this.reviewed) }
         : {})
     }, this.seq)
+    await this.signHead()
+  }
+
+  /** Retention: what is older than `before` goes, the chain of hashes and the versions stay */
+  prune(before: number): Promise<void> {
+    return this.serial(async () => {
+      if (!this.storage.prune) {
+        return
+      }
+      // Everything sealed and checkpointed first: nothing pruned is needed to load
+      await this.flushHistory()
+      await this.checkpoint()
+      await this.storage.prune(this.namespace, this.id, { before, upTo: this.seq })
+      this.pastStates.clear()
+    })
+  }
+
+  /** Signs the history's head into the chain, when the server has a signer and it is not signed yet */
+  private async signHead() {
+    const signer = this.options.signer
+    if (!signer || !this.type.history) {
+      return
+    }
+    await this.flushHistory()
+    const head = this.historyHead
+    if (head.seq === 0 || head.seq === this.signedSeq) {
+      return
+    }
+    const signature = await signer.sign(signedHead(`${this.namespace}/${this.id}`, head.seq, head.hash))
+    await this.sealAside('signature', { principal: { kind: 'service', id: 'server', name: 'Server' } }, undefined,
+      { keyId: signer.keyId, signs: String(head.seq), head: head.hash }, signature)
+    this.signedSeq = this.historyHead.seq
   }
 
   // Who an update is from: the connection's principal, or an agent claiming to act for it
@@ -862,9 +981,14 @@ export class DocumentOwner {
       const json = this.json()
       const state = this.type.history ? Y.encodeStateAsUpdate(this.doc) : undefined
       void this.serial(async () => {
-        const version = state
-          ? await this.addVersion({ kind: 'saved', by: personOf(save.actor.principal), ...(save.label ? { label: save.label } : {}) }, seq, state)
-          : undefined
+        // Saving what is already a version makes no new one: versions grow
+        // only with the document, however often someone saves
+        const latest = this.versions[this.versions.length - 1]
+        const version = !state
+          ? undefined
+          : latest && latest.seq === seq && !save.label
+            ? latest
+            : await this.addVersion({ kind: 'saved', by: personOf(save.actor.principal), ...(save.label ? { label: save.label } : {}) }, seq, state)
         await this.options.onSave?.({
           namespace: this.namespace, id: this.id, seq, actor: save.actor, json,
           ...(save.label ? { label: save.label } : {}),
@@ -975,6 +1099,7 @@ export class DocumentOwner {
     const version: VersionInfo = { id: randomUUID(), seq, at: Date.now(), ...what }
     await this.storage.addVersion(this.namespace, this.id, version, state)
     this.versions.push(version)
+    await this.signHead()
     for (const opening of this.openings) {
       if (opening.mode === 'open') {
         this.sendTo(opening, ToClient.VERSIONS, { ref: opening.ref, versions: [version] })
@@ -1015,6 +1140,24 @@ export class DocumentOwner {
    */
   private async contentAt(seq: number): Promise<Uint8Array | undefined> {
     const target = Math.min(Math.max(0, seq), this.seq)
+    // The last few asked for are kept: scrubbing back and forth replays nothing twice
+    const kept = this.pastStates.get(target)
+    if (kept) {
+      this.pastStates.delete(target)
+      this.pastStates.set(target, kept)
+      return kept
+    }
+    const state = await this.replayTo(target)
+    if (state) {
+      this.pastStates.set(target, state)
+      while (this.pastStates.size > PAST_STATES) {
+        this.pastStates.delete(this.pastStates.keys().next().value!)
+      }
+    }
+    return state
+  }
+
+  private async replayTo(target: number): Promise<Uint8Array | undefined> {
     const base = [...this.versions].reverse().find((version) => version.seq <= target)
     const state = base && await this.storage.versionState(this.namespace, this.id, base.id)
     if (!base || !state) {
@@ -1022,13 +1165,21 @@ export class DocumentOwner {
     }
     const doc = new Y.Doc({ gc: false })
     Y.applyUpdate(doc, state)
+    let next = base.seq + 1
     for (const entry of await this.storage.log(this.namespace, this.id, base.seq)) {
       if (entry.seq > target) {
         break
       }
+      // Retention may have taken what lies between: no past is shown wrong
+      if (entry.seq !== next++) {
+        return undefined
+      }
       if (entry.layer === 'content') {
         Y.applyUpdate(doc, entry.update)
       }
+    }
+    if (next <= target) {
+      return undefined
     }
     return Y.encodeStateAsUpdate(doc)
   }
@@ -1102,8 +1253,9 @@ export class DocumentOwner {
       this.reviewed = Y.mergeIdSets([this.reviewed, ids])
       await this.sealAside('review', { principal }, opening.peer.id,
         header.run !== undefined ? { run: header.run } : { scope: 'agents' }, Y.encodeIdSet(ids))
-      // Kept at once: a review must not be lost to a crash
-      await this.checkpoint()
+      // Kept soon: a review must not be lost to a crash, and many reviews in a
+      // row share one checkpoint
+      this.checkpointSoon()
       this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: true, value: { unreviewed: this.unreviewed() } })
     })
   }

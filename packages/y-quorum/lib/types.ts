@@ -100,7 +100,12 @@ export interface Storage {
   load(namespace: string, id: string): Promise<StoredDocument | undefined>
   /** Creates a document from its first checkpoint; fails when it exists */
   create(namespace: string, id: string, meta: StoredMeta, checkpoint: Checkpoint): Promise<void>
-  append(namespace: string, id: string, entries: LogEntry[]): Promise<void>
+  /**
+   * Adds writes to the log. With more than one node, `epoch` is the lease the
+   * writing node holds: a store that keeps leases refuses a write from an older
+   * one with a `StaleLease`, so a node that lost a document cannot write it.
+   */
+  append(namespace: string, id: string, entries: LogEntry[], epoch?: number): Promise<void>
   /** Keeps the whole of a document at a log position */
   checkpoint(namespace: string, id: string, checkpoint: Checkpoint, seq: number): Promise<void>
   appendRecord(namespace: string, id: string, record: DocumentRecord): Promise<void>
@@ -116,6 +121,23 @@ export interface Storage {
   versionState(namespace: string, id: string, versionId: string): Promise<Uint8Array | undefined>
   /** Claims a Y.js client id for a principal; false when another principal holds it */
   claimClient(namespace: string, id: string, client: number, principal: string): Promise<boolean>
+  /**
+   * Retention: drops what is older than `before` (milliseconds) and kept
+   * elsewhere: the log's writes up to `upTo`, a checkpoint holding them, and
+   * the history's payloads, whose hashes stay in the chain
+   */
+  prune?(namespace: string, id: string, limits: { before: number, upTo: number }): Promise<void>
+  /** Who holds a client id, without claiming it: so ids are claimed only by writes that are taken */
+  clientHolder?(namespace: string, id: string, client: number): Promise<string | undefined>
+  /**
+   * For more than one node: holds a document for a node, for `ttl` milliseconds,
+   * unless another node holds it already. Answers who holds it now, where it is
+   * reached, and the lease's epoch, which grows whenever it changes hands. A node
+   * keeps a document by asking again before its lease runs out.
+   */
+  lease?(namespace: string, id: string, node: Node, ttl: number): Promise<Lease>
+  /** Lets a document go, for another node to take at once */
+  releaseLease?(namespace: string, id: string, node: string): Promise<void>
   /** Deletes a document, or a whole namespace */
   delete(namespace: string, id?: string): Promise<void>
   /** Called when a document is unloaded: a chance to store what was waiting */
@@ -128,6 +150,30 @@ export interface Storage {
     comments: CommentThread[]
   ): Promise<void>
   close?(): Promise<void>
+}
+
+/** A server node, as other nodes reach it */
+export interface Node {
+  id: string
+  /** Where other nodes reach it, e.g. `ws://10.0.0.5:1234` */
+  address: string
+}
+
+/** Who holds a document */
+export interface Lease {
+  holder: string
+  address: string
+  epoch: number
+  /** Milliseconds since the epoch at which it runs out */
+  until: number
+}
+
+/** A write from a node whose lease on the document was taken over */
+export class StaleLease extends Error {
+  constructor(namespace: string, id: string) {
+    super(`y-quorum: the lease on ${namespace}/${id} has passed to another node`)
+    this.name = 'StaleLease'
+  }
 }
 
 /** What `createServer` takes */
@@ -156,6 +202,22 @@ export interface ServerOptions {
     version?: VersionInfo
   }): void | Promise<void>
   limits?: Partial<Limits>
+  /**
+   * More than one node: this node, as the others reach it. With a storage that
+   * keeps leases, each document is held by one node at a time, and the others
+   * pass its frames on to it. Every node needs the same `nodeSecret`.
+   */
+  node?: Node
+  /**
+   * Signs the history's head at every checkpoint and version, for an audit:
+   * with the signature in the chain, rewriting history takes the key, not only
+   * access to the store. E.g. an Ed25519 key with `crypto.sign(null, message, key)`.
+   */
+  signer?: { keyId: string, sign(message: Uint8Array): Uint8Array | Promise<Uint8Array> }
+  /** The secret the nodes share, to speak for clients to each other */
+  nodeSecret?: string
+  /** Milliseconds a lease lasts unless renewed; a dead node's documents move after it. Default: 10000. */
+  leaseTtl?: number
   /** Milliseconds a document stays loaded after the last connection leaves. Default: 5000. */
   idle?: number
   /** Log entries between checkpoints. Default: 200. */
@@ -191,6 +253,13 @@ export interface QuorumServer {
   appendRecord(namespace: string, id: string, actor: Actor, kind: string, data: unknown): Promise<DocumentRecord>
   /** Sends a host's message to every client that has the document open */
   send(namespace: string, id: string, message: unknown): void
+  /**
+   * Retention: drops a document's changes older than `before` (milliseconds)
+   * from the log and the history's payloads, keeping its checkpoint, its
+   * versions and the history's chain of hashes. Time travel then reaches only
+   * versions and the time after `before`.
+   */
+  prune(namespace: string, id: string, before: number): Promise<void>
   /** Deletes a document, or a namespace, everywhere it is kept */
   delete(namespace: string, id?: string): Promise<void>
   close(): Promise<void>

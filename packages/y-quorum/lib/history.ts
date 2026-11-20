@@ -3,12 +3,12 @@
 // connection and layer at a time, and chains them with SHA-256: each entry's
 // hash covers its fields, a hash of its change, and the hash before it. An
 // export is JSON Lines that `verifyHistory` checks with nothing but itself.
-import { createHash } from 'node:crypto'
+import { createHash, verify, type KeyObject } from 'node:crypto'
 import type { Layer } from '@dotvoid/y-quorum-client/protocol'
 import type { Actor } from './types'
 
 /** What a history entry did */
-export type HistoryKind = 'edit' | 'accept' | 'reject' | 'restore' | 'review' | 'record'
+export type HistoryKind = 'edit' | 'accept' | 'reject' | 'restore' | 'review' | 'record' | 'signature'
 
 /** One entry of a document's history: writes of one actor, folded, in the chain */
 export interface HistoryEntry {
@@ -72,6 +72,11 @@ export function seal(fields: Omit<HistoryEntry, 'hash' | 'payloadHash' | 'prevHa
   return { ...unsealed, ...(payload ? { payload } : {}), hash: hashOf(unsealed) }
 }
 
+/** What a signature entry signs: the document, and the head of its history */
+export function signedHead(doc: string, seq: number, hash: string): Uint8Array {
+  return new TextEncoder().encode(`${doc}\n${seq}\n${hash}`)
+}
+
 /** An entry as a line of JSON, its payload base64 */
 export function toJSONLine(entry: HistoryEntry): string {
   const { payload, ...rest } = entry
@@ -89,12 +94,16 @@ export type Verification =
  * they cover the log without a gap. Entries whose payload was removed are
  * checked by the hash they kept.
  */
-export function verifyHistory(lines: string | string[]): Verification {
+export function verifyHistory(
+  lines: string | string[],
+  options: { keys?: Record<string, KeyObject | string> } = {}
+): Verification {
   const all = (Array.isArray(lines) ? lines : lines.split('\n')).filter((line) => line.trim())
   let prev = GENESIS
   let checked = 0
   // The log positions covered so far: writes are folded in order, none left out
   let covered = 0
+  let prevSeq = 0
   for (const line of all) {
     const { payload, hash, ...rest } = JSON.parse(line) as Omit<HistoryEntry, 'payload'> & { payload?: string }
     const fail = (reason: string): Verification => ({ ok: false, entries: checked, seq: rest.seq, reason })
@@ -110,13 +119,27 @@ export function verifyHistory(lines: string | string[]): Verification {
     if (hashOf(rest) !== hash) {
       return fail('It was changed after it was stored')
     }
-    // Reviews and records take no log positions; everything else folds the next ones
-    const aside = rest.kind === 'review' || rest.kind === 'record'
+    // A signature signs the entry right before it, with a key the reader may check
+    if (rest.kind === 'signature') {
+      if (rest.refs?.head !== prev || rest.refs?.signs !== String(prevSeq)) {
+        return fail('It signs something other than the entry before it')
+      }
+      const key = options.keys?.[rest.refs?.keyId ?? '']
+      if (options.keys && !key) {
+        return fail(`It is signed with a key the reader does not have: ${rest.refs?.keyId}`)
+      }
+      if (key && (payload === undefined || !verify(null, signedHead(rest.doc, prevSeq, prev), key, Buffer.from(payload, 'base64')))) {
+        return fail('Its signature does not hold')
+      }
+    }
+    // Reviews, records and signatures take no log positions; everything else folds the next ones
+    const aside = rest.kind === 'review' || rest.kind === 'record' || rest.kind === 'signature'
     if (aside ? rest.from !== covered || rest.to !== covered : rest.from !== covered + 1 || rest.to < rest.from) {
       return fail(`It does not take up where the entry before left off, at log position ${covered}`)
     }
     covered = aside ? covered : rest.to
     prev = hash
+    prevSeq = rest.seq
     checked++
   }
   return { ok: true, entries: checked, head: prev }

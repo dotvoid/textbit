@@ -1,5 +1,5 @@
 import type { DocumentRecord, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
-import type { Checkpoint, LogEntry, Storage, StoredMeta } from '../types'
+import { StaleLease, type Checkpoint, type Lease, type LogEntry, type Storage, type StoredMeta } from '../types'
 import type { HistoryEntry } from '../history'
 
 interface Kept {
@@ -15,6 +15,8 @@ interface Kept {
 /** Storage in memory: for tests and trying things out. Gone when the process ends. */
 export function memory(): Storage {
   const documents = new Map<string, Kept>()
+  // Leases outlive what they lease: a document deleted and made again keeps counting epochs
+  const leases = new Map<string, Lease>()
   const keyOf = (namespace: string, id: string) => `${namespace}\u0000${id}`
   const get = (namespace: string, id: string) => {
     const kept = documents.get(keyOf(namespace, id))
@@ -43,9 +45,39 @@ export function memory(): Storage {
       }
       documents.set(key, { meta, checkpoint: { ...checkpoint, seq: 0 }, entries: [], records: [], versions: [], history: [], claims: new Map() })
     },
-    append: async (namespace, id, entries) => {
+    append: async (namespace, id, entries, epoch) => {
+      if (epoch !== undefined && leases.get(keyOf(namespace, id))?.epoch !== epoch) {
+        throw new StaleLease(namespace, id)
+      }
       get(namespace, id).entries.push(...entries)
     },
+    lease: async (namespace, id, node, ttl) => {
+      const key = keyOf(namespace, id)
+      const now = Date.now()
+      const current = leases.get(key)
+      if (!current || current.until <= now) {
+        leases.set(key, { holder: node.id, address: node.address, epoch: (current?.epoch ?? 0) + 1, until: now + ttl })
+      } else if (current.holder === node.id) {
+        leases.set(key, { ...current, address: node.address, until: now + ttl })
+      }
+      return { ...leases.get(key)! }
+    },
+    releaseLease: async (namespace, id, node) => {
+      const current = leases.get(keyOf(namespace, id))
+      if (current?.holder === node) {
+        current.until = 0
+      }
+    },
+    prune: async (namespace, id, { before, upTo }) => {
+      const kept = get(namespace, id)
+      kept.entries = kept.entries.filter((entry) => entry.at >= before || entry.seq > upTo)
+      for (const entry of kept.history) {
+        if (entry.until < before) {
+          delete entry.payload
+        }
+      }
+    },
+    clientHolder: async (namespace, id, client) => documents.get(keyOf(namespace, id))?.claims.get(client),
     checkpoint: async (namespace, id, checkpoint, seq) => {
       get(namespace, id).checkpoint = { ...checkpoint, seq }
     },

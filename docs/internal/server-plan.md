@@ -726,8 +726,29 @@ every call goes through the same write pipeline, policies and history as anyone'
    - resources, prompts and subscriptions; `edit-confirm` through elicitation;
    - OAuth helpers (protected resource metadata); today the host's `identify` decides;
    - revisions that survive the module's connection closing.
-7. **Production:** Postgres and S3, leases and forwarding, audit export, retention and
-   redaction.
+7. **Production.** Done 20 November 2026:
+   - storage in Postgres (node-postgres or PGlite) and S3 for the large states, beside memory
+     and SQLite;
+   - more than one node: documents held by lease, renewed while loaded, fenced so a node
+     that lost one writes nothing; frames passed on to the holding node over relays that speak
+     for the client with the nodes' shared secret; a document taken over when its node shuts
+     down, at once, or crashes, when its lease runs out;
+   - client ids claimed at opening only by those who may write, and by writes once taken;
+   - versions made by saving only when the document changed; time travel keeps its last
+     states; reviews share checkpoints;
+   - the history's head signed into the chain at checkpoints and versions; `verifyHistory`
+     checks signatures against the keys it is given;
+   - retention: `server.prune` drops old log and history payloads, keeping the chain, the
+     checkpoint and the versions; time travel says when a past is no longer kept.
+   Still open:
+   - **erasure needs a decision:** the chain hashes each actor with their name, so a name
+     cannot be erased without breaking it. Pseudonymous ids in the chain and names kept apart
+     would change the history's format;
+   - presence per namespace sees only the node a follower is on;
+   - a node whose store stalls while its network lives still takes relays, and the documents
+     it holds hang until it is restarted;
+   - after a token is renewed, relays to other nodes keep the authentication they began with;
+   - Postgres's `prune` has no test of its own; the audit export as W3C PROV.
 8. **Documentation, migration from 2.x, and the release** with Y.js 14.0.
 
 ## Testing
