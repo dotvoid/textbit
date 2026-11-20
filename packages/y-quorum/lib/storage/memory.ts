@@ -63,6 +63,10 @@ export function memory(): Storage {
       }
       return { ...leases.get(key)! }
     },
+    leaseOf: async (namespace, id) => {
+      const lease = leases.get(keyOf(namespace, id))
+      return lease && { ...lease }
+    },
     releaseLease: async (namespace, id, node) => {
       const current = leases.get(keyOf(namespace, id))
       if (current?.holder === node) {
@@ -109,8 +113,17 @@ export function memory(): Storage {
       return true
     },
     delete: async (namespace, id) => {
+      // The lease ended first, with the next epoch: a node still holding the
+      // document writes nothing more to it
+      const gone = (key: string) =>
+        (id !== undefined ? key === keyOf(namespace, id) : key.startsWith(`${namespace}\u0000`))
+      for (const [key, lease] of leases) {
+        if (gone(key)) {
+          leases.set(key, { holder: '', address: '', epoch: lease.epoch + 1, until: 0 })
+        }
+      }
       for (const key of [...documents.keys()]) {
-        if (id !== undefined ? key === keyOf(namespace, id) : key.startsWith(`${namespace}\u0000`)) {
+        if (gone(key)) {
           documents.delete(key)
         }
       }

@@ -30,8 +30,9 @@ type Param = string | number | Uint8Array | null
 export function postgres(db: PostgresClient, options: PostgresOptions = {}): Storage {
   const schema = `"${(options.schema ?? 'y_quorum').replaceAll('"', '""')}"`
   const t = (table: string) => `${schema}.${table}`
+  // Leases are not deleted with a document: their epochs keep growing
   const tables = [
-    'documents', 'checkpoint_parts', 'log', 'records', 'versions', 'history', 'claims', 'leases', 'people'
+    'documents', 'checkpoint_parts', 'log', 'records', 'versions', 'history', 'claims', 'people'
   ]
 
   let ready: Promise<void> | undefined
@@ -418,6 +419,14 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
       return leaseOf(held)
     },
 
+    leaseOf: async (namespace, id) => {
+      const [held] = await query(
+        `SELECT holder, address, epoch, until FROM ${t('leases')} WHERE namespace = $1 AND id = $2`,
+        [namespace, id]
+      )
+      return held && leaseOf(held)
+    },
+
     releaseLease: async (namespace, id, node) => {
       // Run out rather than removed: the epoch must keep growing, or a node that
       // held an old lease could match a new one
@@ -428,6 +437,15 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
     },
 
     delete: async (namespace, id) => {
+      // The lease ended first, with the next epoch: a node still holding the
+      // document writes nothing more to it
+      const fence =
+        `UPDATE ${t('leases')} SET holder = '', address = '', epoch = epoch + 1, until = 0`
+      if (id !== undefined) {
+        await query(`${fence} WHERE namespace = $1 AND id = $2`, [namespace, id])
+      } else {
+        await query(`${fence} WHERE namespace = $1`, [namespace])
+      }
       for (const table of tables) {
         if (id !== undefined) {
           await query(`DELETE FROM ${t(table)} WHERE namespace = $1 AND id = $2`, [namespace, id])

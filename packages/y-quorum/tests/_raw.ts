@@ -37,8 +37,8 @@ export class RawClient {
     })
   }
 
-  static async connect(port: number): Promise<RawClient> {
-    const socket = new WebSocket(`ws://localhost:${port}`)
+  static async connect(port: number, path = ''): Promise<RawClient> {
+    const socket = new WebSocket(`ws://localhost:${port}${path}`)
     await new Promise((resolve, reject) => {
       socket.once('open', resolve)
       socket.once('error', reject)

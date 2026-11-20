@@ -41,7 +41,8 @@ const { principal, namespaces, limits } = await client.ready
   the connection. Everything open is closed, with the reason.
 - **Tokens.** `token` is a string or a function, asked at every connection. To renew a token
   on an open connection, without reconnecting, call `client.setToken(token)`. It must be for
-  the same principal.
+  the same principal. The server asks for roles again: open documents may get new
+  capabilities, or be closed when they may no longer be read.
 - **`rpc(name, args)`** calls a function the host gave the server, and resolves with what it
   returns. A call on its way when the connection is lost is rejected with `unavailable`: it may
   or may not have been carried out, and only the app can tell whether to try again.
@@ -425,7 +426,8 @@ window.addEventListener('beforeunload', (event) => {
 - **Offline,** changes are kept and sent when the connection is back, in one update.
 - **`save()`** is for a moment that must hold everything the person has, before publishing for
   instance: it resolves once the server holds all of it. For a type with history it makes a
-  version; without, it calls the host's `onSave`.
+  version and takes `versions: 'create'`; without, it calls the host's `onSave` and takes
+  `write`.
 
 ## Rejections and rebuilds
 

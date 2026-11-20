@@ -90,7 +90,8 @@ export interface Opening {
   awarenessClients: Set<number>
   /** The projection last sent, as JSON, for watching */
   sent?: string
-  presence: { mode: 'watching' | 'reading' | 'editing', visible: boolean }
+  /** For opening, not watching: watched documents are not in presence */
+  presence: { mode: 'reading' | 'editing', visible: boolean }
   /** Updates that arrived before what they depend on, waiting for it, in order */
   held: Array<{ header: Headers[typeof ToServer.UPDATE], update: Uint8Array }>
 }
@@ -138,6 +139,8 @@ export class DocumentOwner {
   private readonly layers: Map<Layer, Y.Doc>
   /** Copies the next write of each layer is tried on first */
   private shadows = new Map<Layer, Y.Doc>()
+  /** The client id each actor writes under from this process, by principal id */
+  private transactClients = new Map<string, number>()
   /** For a type with history: who wrote what in each layer, as Y.js 14 keeps it */
   private attributions = new Map<Layer, Y.ContentMap>()
   /** The people the attributions name, by their key */
@@ -154,6 +157,8 @@ export class DocumentOwner {
   private sinceCheckpoint = 0
   private queue: Promise<unknown> = Promise.resolve()
   private projecting: ReturnType<typeof setTimeout> | undefined
+  /** For a storage that keeps JSON: when it is next given the document */
+  private settling: ReturnType<typeof setTimeout> | undefined
   private saves: Array<{ opening: Opening, call: number, vector: Map<number, number>, actor: Actor, label?: string }> = []
 
   constructor(
@@ -296,15 +301,23 @@ export class DocumentOwner {
     return copy
   }
 
-  capabilitiesFor(principal: Principal, roles: string[]): Capabilities {
+  /**
+   * What an actor may do here: the policy's answer, or the roles'. The actor
+   * whole, so a policy sees whom an agent acts for.
+   */
+  capabilitiesFor(actor: Actor, roles: string[]): Capabilities {
     const write = roles.some((role) => role === 'editor' || role === 'owner')
     const capabilities = this.type.policy
-      ? this.type.policy({ actor: { principal }, roles, layer: CONTENT, content: this.root })
+      ? this.type.policy({ actor, roles, layer: CONTENT, content: this.root })
       : { read: roles.length > 0, write, records: write ? Object.keys(this.type.records ?? {}) : [] }
-    // Comments only where the type has them; by role unless the policy says
+    // Comments only where the type has them; unless the policy says, whoever
+    // may write comments on all, and a commenter or suggester on their own. A
+    // document that became read-only takes commenting on all from editors too
+    const commenter = roles.some((role) => role === 'commenter' || role === 'suggester')
     const comments = !this.type.comments
       ? 'none'
-      : capabilities.comments ?? (write ? 'all' : roles.some((role) => role === 'commenter' || role === 'suggester') ? 'own' : 'none')
+      : capabilities.comments ??
+        (capabilities.write ? 'all' : commenter && capabilities.read ? 'own' : 'none')
     // Suggestions by role unless the policy says: editors accept and reject
     const suggestions = !this.type.suggestions
       ? undefined
@@ -478,13 +491,21 @@ export class DocumentOwner {
   transact(actor: Actor, roles: string[], change: (content: Y.Node) => void): Promise<boolean> {
     return this.serial(async () => {
       const copy = this.copy()
+      // A client id of its own, claimed for the actor once, as any writer's,
+      // and kept for its later changes, so they do not fill the claims
+      const held = this.transactClients.get(actor.principal.id)
+      if (held !== undefined) {
+        copy.clientID = held
+      } else if (
+        await this.storage.claimClient(this.namespace, this.id, copy.clientID, actor.principal.id)
+      ) {
+        this.transactClients.set(actor.principal.id, copy.clientID)
+      } else {
+        return false
+      }
       const before = Y.encodeStateVector(copy)
       copy.transact(() => change(copy.get(CONTENT)))
       const update = Y.encodeStateAsUpdate(copy, before)
-      // A client id of its own, claimed for the actor, as any writer's
-      if (!(await this.storage.claimClient(this.namespace, this.id, copy.clientID, actor.principal.id))) {
-        return false
-      }
       const judgement = await this.judge(actor.principal.id, actor, roles, 'content', update)
       if (judgement === 'pending' || 'code' in judgement) {
         return false
@@ -568,7 +589,7 @@ export class DocumentOwner {
       }
     }
     if (layer === 'comments') {
-      const rights = this.capabilitiesFor(actor.principal, roles).comments ?? 'none'
+      const rights = this.capabilitiesFor(actor, roles).comments ?? 'none'
       const reason = judgeComments(doc.get(COMMENTS), root, changed, actor, rights)
       return reason ? refuse(reason) : { layer, claims }
     }
@@ -579,7 +600,7 @@ export class DocumentOwner {
     let kind: HistoryKind | undefined
     let acceptedDeletes = Y.createIdSet()
     if (!suggested.isEmpty()) {
-      const rights = this.capabilitiesFor(actor.principal, roles).suggestions ?? 'none'
+      const rights = this.capabilitiesFor(actor, roles).suggestions ?? 'none'
       // Written and deleted at once, nothing else: a record that they were
       // rejected, which changes nothing anyone sees
       const rejected = Y.diffIdSet(fresh, suggested).isEmpty() &&
@@ -612,7 +633,7 @@ export class DocumentOwner {
         Y.createDeleteSetFromStructStore(doc.store)
       )
       const accepted = Y.intersectSets(ids.deletes, suggestedDeletes)
-      if (!accepted.isEmpty() && this.capabilitiesFor(actor.principal, roles).suggestions === 'all') {
+      if (!accepted.isEmpty() && this.capabilitiesFor(actor, roles).suggestions === 'all') {
         kind = 'accept'
         acceptedDeletes = accepted
       }
@@ -634,7 +655,7 @@ export class DocumentOwner {
    * whoever may accept and reject, does that.
    */
   private async judgeSuggestion(principalId: string, actor: Actor, roles: string[], update: Uint8Array): Promise<string | undefined> {
-    const rights = this.capabilitiesFor(actor.principal, roles).suggestions ?? 'none'
+    const rights = this.capabilitiesFor(actor, roles).suggestions ?? 'none'
     if (rights === 'none') {
       return 'Not allowed to suggest here'
     }
@@ -673,6 +694,7 @@ export class DocumentOwner {
     this.lost = true
     clearTimeout(this.batch?.timer)
     clearTimeout(this.checkpointTimer)
+    clearTimeout(this.settling)
     for (const opening of [...this.openings]) {
       this.openings.delete(opening)
       opening.peer.drop?.()
@@ -787,14 +809,33 @@ export class DocumentOwner {
     if (++this.sinceCheckpoint >= (this.options.checkpointEvery ?? 200)) {
       await this.checkpoint()
     }
+    if (layer === 'content' || layer === 'comments') {
+      this.settleSoon()
+    }
     this.settleSaves()
     return this.seq
+  }
+
+  /** A storage that keeps JSON is given the document a while after it last changed */
+  private settleSoon() {
+    if (!this.storage.settled) {
+      return
+    }
+    clearTimeout(this.settling)
+    this.settling = setTimeout(() => {
+      this.settling = undefined
+      void this.serial(() => this.storage.settled?.(
+        this.namespace, this.id, this.json(), this.type.name, this.comments()
+      )).catch(() => undefined)
+    }, this.options.settleAfter ?? 2000)
+    this.settling.unref?.()
   }
 
   private afterChange() {
     // What everyone may do, asked again: content decides it too
     for (const opening of this.openings) {
-      const capabilities = this.capabilitiesFor(opening.peer.principal, opening.roles)
+      const { principal } = opening.peer
+      const capabilities = this.capabilitiesFor({ principal }, opening.roles)
       if (JSON.stringify(capabilities) !== JSON.stringify(opening.capabilities)) {
         opening.capabilities = capabilities
         this.sendTo(opening, ToClient.POLICY, { ref: opening.ref, seq: this.seq, capabilities })
@@ -940,13 +981,28 @@ export class DocumentOwner {
   record(opening: Opening, header: Headers[typeof ToServer.RECORD]): Promise<void> {
     return this.serial(async () => {
       const actor = this.actorOf(opening, header.claim)
-      if (!actor || !(opening.capabilities.records ?? []).includes(header.kind) || !this.type.records?.[header.kind]) {
+      if (!actor || !this.mayRecord(opening.capabilities, header.kind)) {
         this.sendTo(opening, ToClient.REJECTED, { ref: opening.ref, seq: header.seq, code: 'not-allowed', reason: `Not allowed to record ${header.kind}` })
         return
       }
       await this.appendRecord(actor, header.kind, header.data, opening.peer.id)
       // Acknowledged like a change, so the client does not send it again
       this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log: this.seq })
+    })
+  }
+
+  /** Whether a record of this kind may be appended, by what an actor may do */
+  mayRecord(capabilities: Capabilities, kind: string): boolean {
+    return Boolean(this.type.records?.[kind]) && (capabilities.records ?? []).includes(kind)
+  }
+
+  /** A record from code in the server process: checked as a client's is */
+  recordFrom(actor: Actor, roles: string[], kind: string, data: unknown): Promise<DocumentRecord> {
+    return this.serial(async () => {
+      if (!this.mayRecord(this.capabilitiesFor(actor, roles), kind)) {
+        throw new Error(`y-quorum: not allowed to record ${kind} in ${this.namespace}/${this.id}`)
+      }
+      return this.appendRecord(actor, kind, data)
     })
   }
 
@@ -981,11 +1037,16 @@ export class DocumentOwner {
 
   /**
    * A save: answered once the document holds everything the client had.
-   * With history it is a version, made by whoever may make them.
+   * With history it is a version, made by whoever may make them; without, it
+   * is made by whoever may write.
    */
   save(opening: Opening, header: Headers[typeof ToServer.SAVE], vector: Uint8Array): void {
-    if (this.type.history && !['create', 'restore'].includes(opening.capabilities.versions ?? '')) {
-      this.sendTo(opening, ToClient.RESULT, { call: header.call, ok: false, code: 'not-allowed', reason: 'Not allowed to make versions' })
+    const { versions, write } = opening.capabilities
+    const may = this.type.history ? versions === 'create' || versions === 'restore' : write
+    if (!may) {
+      const reason = this.type.history ? 'Not allowed to make versions' : 'Not allowed to save'
+      this.sendTo(opening, ToClient.RESULT,
+        { call: header.call, ok: false, code: 'not-allowed', reason })
       return
     }
     if (this.saves.filter((save) => save.opening === opening).length >= SAVES_WAITING) {
@@ -1300,6 +1361,23 @@ export class DocumentOwner {
     })
   }
 
+  /**
+   * New roles for an opening, after its token was renewed: what it may do is
+   * worked out again, and sent when it changed. False when it may no longer read.
+   */
+  reauthorize(opening: Opening, roles: string[]): boolean {
+    const capabilities = this.capabilitiesFor({ principal: opening.peer.principal }, roles)
+    if (!capabilities.read) {
+      return false
+    }
+    opening.roles = roles
+    if (JSON.stringify(capabilities) !== JSON.stringify(opening.capabilities)) {
+      opening.capabilities = capabilities
+      this.sendTo(opening, ToClient.POLICY, { ref: opening.ref, seq: this.seq, capabilities })
+    }
+    return true
+  }
+
   setMode(opening: Opening, mode: 'reading' | 'editing', visible: boolean): void {
     opening.presence = { mode, visible }
     this.changed(this)
@@ -1322,6 +1400,9 @@ export class DocumentOwner {
   async unload(): Promise<void> {
     await this.serial(async () => {
       clearTimeout(this.projecting)
+      // Unloading gives the storage the document anyway
+      clearTimeout(this.settling)
+      this.settling = undefined
       await this.flushHistory()
       await this.checkpoint()
       await this.storage.unloaded?.(this.namespace, this.id, Y.encodeStateAsUpdate(this.doc), this.json(), this.type.name, this.comments())

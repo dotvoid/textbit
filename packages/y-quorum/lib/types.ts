@@ -143,10 +143,27 @@ export interface Storage {
    * keeps a document by asking again before its lease runs out.
    */
   lease?(namespace: string, id: string, node: Node, ttl: number): Promise<Lease>
+  /** Who holds a document now, without taking it: nothing when nobody ever has */
+  leaseOf?(namespace: string, id: string): Promise<Lease | undefined>
   /** Lets a document go, for another node to take at once */
   releaseLease?(namespace: string, id: string, node: string): Promise<void>
-  /** Deletes a document, or a whole namespace */
+  /**
+   * Deletes a document, or a whole namespace. A storage that keeps leases ends
+   * the lease first with the next epoch, so a node still holding the document
+   * writes nothing more to it; leases themselves are never deleted.
+   */
   delete(namespace: string, id?: string): Promise<void>
+  /**
+   * Called a while after a document's content or comments last changed, while
+   * it is open: for a storage that keeps the document as JSON
+   */
+  settled?(
+    namespace: string,
+    id: string,
+    json: Record<string, unknown>,
+    type: string,
+    comments: CommentThread[]
+  ): Promise<void>
   /** Called when a document is unloaded: a chance to store what was waiting */
   unloaded?(
     namespace: string,
@@ -229,12 +246,21 @@ export interface ServerOptions {
   idle?: number
   /** Log entries between checkpoints. Default: 200. */
   checkpointEvery?: number
+  /**
+   * Milliseconds after the last change before a storage that keeps JSON (`host`)
+   * is given an open document. Default: 2000.
+   */
+  settleAfter?: number
 }
 
 /** The server */
 export interface QuorumServer {
-  /** Serves WebSockets on an HTTP server's upgrades */
-  attach(server: import('node:http').Server): void
+  /**
+   * Serves WebSockets on an HTTP server's upgrades: those to `path` only, when
+   * given, leaving the others to the server's other listeners; else all of them.
+   * With more than one node, a node's address then includes the path.
+   */
+  attach(server: import('node:http').Server, options?: { path?: string }): void
   /** Starts an HTTP server of its own */
   listen(port: number): Promise<import('node:http').Server>
   /** Creates a document of a type, filled from JSON */
@@ -256,7 +282,10 @@ export interface QuorumServer {
    * check it with `verifyHistory`
    */
   exportHistory(namespace: string, id: string): Promise<string>
-  /** Appends a record from code in this process */
+  /**
+   * Appends a record from code in this process, for an actor: checked as a
+   * client's record is, by `authorize`, the policy and the type's record kinds
+   */
   appendRecord(namespace: string, id: string, actor: Actor, kind: string, data: unknown): Promise<DocumentRecord>
   /** Sends a host's message to every client that has the document open */
   send(namespace: string, id: string, message: unknown): void

@@ -58,7 +58,9 @@ export const ToServer = {
   /** A person reviewed what agents wrote: one run's, or all of it; answered with RESULT */
   REVIEW: 15,
   /** What agents wrote that nobody has reviewed; answered with RESULT */
-  UNREVIEWED: 16
+  UNREVIEWED: 16,
+  /** From another node only: a host's message for those with a document open there */
+  NODE_MESSAGE: 17
 } as const
 
 /** Frames a server sends */
@@ -176,12 +178,15 @@ export interface Capabilities {
   suggestions?: 'none' | 'own' | 'all'
 }
 
-/** Presence in a namespace: who has which document open, doing what */
+/**
+ * Presence in a namespace: who has which document open, doing what. Watching a
+ * document is not presence: a list of documents is not having them open.
+ */
 export interface PresenceEntry {
   principal: Principal
   namespace: string
   id: string
-  mode: 'watching' | 'reading' | 'editing'
+  mode: 'reading' | 'editing'
   /** Whether the page showing it is visible */
   visible: boolean
 }
@@ -237,6 +242,7 @@ export interface Headers {
   [ToServer.RESTORE]: { ref: number, call: number, id: string }
   [ToServer.REVIEW]: { ref: number, call: number, run?: string }
   [ToServer.UNREVIEWED]: { ref: number, call: number }
+  [ToServer.NODE_MESSAGE]: { namespace: string, id: string, message: unknown }
 
   [ToClient.WELCOME]: { protocol: number, principal: Principal, namespaces: string[] | '*', limits: Limits }
   [ToClient.REFUSED]: { code: ReasonCode, reason: string }

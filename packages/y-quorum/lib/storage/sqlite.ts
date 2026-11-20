@@ -234,6 +234,10 @@ export function sqlite(file: string): Storage {
       })
       return lease!
     },
+    leaseOf: async (namespace, id) => {
+      const lease = findLease.get(namespace, id) as Lease | undefined
+      return lease && { ...lease }
+    },
     releaseLease: async (namespace, id, node) => {
       db.prepare('UPDATE leases SET until = 0 WHERE namespace = ? AND id = ? AND holder = ?').run(namespace, id, node)
     },
@@ -267,6 +271,14 @@ export function sqlite(file: string): Storage {
       return true
     },
     delete: async (namespace, id) => {
+      // The lease ended first, with the next epoch: a node still holding the
+      // document writes nothing more to it
+      const fence = "UPDATE leases SET holder = '', address = '', epoch = epoch + 1, until = 0"
+      if (id !== undefined) {
+        db.prepare(`${fence} WHERE namespace = ? AND id = ?`).run(namespace, id)
+      } else {
+        db.prepare(`${fence} WHERE namespace = ?`).run(namespace)
+      }
       for (const table of ['documents', 'layer_checkpoints', 'log', 'records', 'versions', 'history', 'claims', 'people']) {
         if (id !== undefined) {
           db.prepare(`DELETE FROM ${table} WHERE namespace = ? AND id = ?`).run(namespace, id)

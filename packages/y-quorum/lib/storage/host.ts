@@ -12,9 +12,12 @@ export interface HostDocument {
 
 /** A host's own store, in JSON */
 export interface HostStore {
-  /** A document as the host keeps it, and a version that changes when it does */
-  load(namespace: string, id: string): Promise<(HostDocument & { version?: string }) | undefined>
-  /** The document as JSON, after changes: on a debounce and when it is unloaded */
+  /** A document as the host keeps it */
+  load(namespace: string, id: string): Promise<HostDocument | undefined>
+  /**
+   * The document as JSON: a while after it last changed (the server's
+   * `settleAfter`), and when it is unloaded
+   */
   store(namespace: string, id: string, document: HostDocument): Promise<void>
 }
 
@@ -22,12 +25,18 @@ export interface HostStore {
  * Storage for a host that keeps documents as JSON in its own database. Y.js
  * state and the log are kept in `cache` (memory by default, SQLite to survive
  * restarts); a document the cache lacks is seeded from the host's JSON. The
- * JSON goes back to the host when a document is unloaded.
+ * JSON goes back to the host a while after each change, and when a document
+ * is unloaded.
  */
 export function host(store: HostStore, { cache = memory() }: { cache?: Storage } = {}): Storage & { seedFrom: HostStore } {
   return {
     ...cache,
     seedFrom: store,
+    settled: async (namespace, id, json, type, comments) => {
+      await cache.settled?.(namespace, id, json, type, comments)
+      await store.store(namespace, id,
+        { type, content: json, ...(comments.length ? { comments } : {}) })
+    },
     unloaded: async (namespace, id, state, json, type, comments) => {
       await cache.unloaded?.(namespace, id, state, json, type, comments)
       await store.store(namespace, id, { type, content: json, ...(comments.length ? { comments } : {}) })
