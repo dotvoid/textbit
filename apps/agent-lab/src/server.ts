@@ -14,6 +14,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createServer, defineType, number, object, oneOf, sqlite, text } from '@dotvoid/y-quorum'
 import { document as article } from '../../demo/src/document.ts'
+import { plugins } from './plugins.ts'
 
 const PORT = Number(process.env.LAB_PORT ?? 1234)
 const FOLDER = resolve(dirname(fileURLToPath(import.meta.url)), '../.lab')
@@ -45,7 +46,9 @@ const server = createServer({
     }
   },
   // Everyone in the lab owns the document: they may restore versions too
-  authorize: () => ['owner']
+  authorize: () => ['owner'],
+  // What the editors render: repairs and checks of the body go by them
+  plugins: { demo: plugins }
 })
 
 if (!(await server.read('lab', 'article'))) {

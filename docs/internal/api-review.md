@@ -30,6 +30,10 @@ would otherwise be wrong forever, and to keep everything else as 2.x hosts know 
    and `rejectAll`.
 5. **`diffWords`** is in the main entry too, so both entries offer the same headless API.
 6. **`Suggestions`** is exported on its own as well, like every other `Textbit.*` component.
+7. **`repairField(field, { plugins, origin })`** and `TBRepairOptions`, added 20 November 2026:
+   what a shared document's owner runs to repair a field, normalization and unique ids in one.
+   y-quorum's `REPAIRER` principal and the model's `fieldIssues`, `valueFits` and `writeField`
+   came with it.
 
 ## Kept, after weighing it
 
@@ -47,8 +51,9 @@ would otherwise be wrong forever, and to keep everything else as 2.x hosts know 
 - **`PluginInitFunction`,** for compatibility; the documentation recommends a return type.
 - **`TextbitElement.isText`** (an element of class text), **`usePluginRegistry`**,
   `TBPluginRegistryAction`, and the other 2.x helpers.
-- **Behaviour:** Tab leaves the editor; editors remove an exact copy of a block; an agent's
-  changes are marked for 8 seconds; suggestions wait.
+- **Behaviour:** Tab leaves the editor; editors of documents of their own remove an exact copy
+  of a block, and in a shared document the owner does (`repairField`); an agent's changes are
+  marked for 8 seconds; suggestions wait.
 
 ## Frozen, and documented as specifications
 

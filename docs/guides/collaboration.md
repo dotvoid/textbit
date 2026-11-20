@@ -111,10 +111,12 @@ repairs only what its own edits leave behind. That has consequences:
 - **Loading and following others never write.** An editor that opens a document, or shows what
   others change, changes nothing in it. A person who only reads never becomes an author, and
   two editors never make the same repair at once, which would duplicate or delete content.
-- **What arrives broken is the owner's to repair.** Content written outside an editor, or by an
-  editor with other plugins, is shown as it is. The document's owner, such as the server holding
-  it, repairs it by loading the field into a headless editor with the plugins and normalizing;
-  see [Without a user interface](./headless.md#repairing-a-shared-document).
+- **What arrives broken is the owner's to repair.** Content written outside an editor, by an
+  editor with other plugins, or merged from two people's changes at once (a block both moved is
+  there twice, as Y.js moves by copying), is shown as it is. The document's owner repairs it with
+  `repairField`; y-quorum's server does so a moment after such changes. Editors do not remove
+  the copies themselves: two removing them at once could remove both. See
+  [Without a user interface](./headless.md#repairing-a-shared-document).
 - **Use the same plugins in every editor of a document.** Each editor repairs its own edits to
   the rules of the plugins it has. Two editors with different rules for the same type would
   keep undoing each other's work.

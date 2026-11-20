@@ -7,7 +7,8 @@ import { createHash, verify, type KeyObject } from 'node:crypto'
 import type { Layer } from '@dotvoid/y-quorum-client/protocol'
 
 /** What a history entry did */
-export type HistoryKind = 'edit' | 'accept' | 'reject' | 'restore' | 'review' | 'record' | 'signature'
+export type HistoryKind =
+  'edit' | 'accept' | 'reject' | 'restore' | 'repair' | 'review' | 'record' | 'signature'
 
 /**
  * Who acted, in the chain: by key only, e.g. `person:alice`, never by name.

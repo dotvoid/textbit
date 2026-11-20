@@ -5,6 +5,7 @@ export { postgres, type PostgresClient, type PostgresOptions } from './storage/p
 export { s3, type S3Bucket, type S3Options } from './storage/s3'
 export { host, type HostDocument, type HostStore } from './storage/host'
 export { StaleLease } from './types'
+export { REPAIRER } from './repairs'
 export { verifyHistory, GENESIS, type HistoryEntry, type HistoryKind, type Verification } from './history'
 export type {
   Actor,

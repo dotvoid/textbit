@@ -429,12 +429,11 @@ have, a pasted copy's new id.
   never write. A change from someone else is shown as it is.
 
 Two changes that are each valid can still meet in a block that breaks a rule, such as two
-people deleting the only caption at once. That is for the document's owner, the server, to
-repair once for everyone: a headless editor bound to the field and normalized
-(`Editor.normalize(editor, { force: true })`) does it. y-quorum does not do this yet, see
-[What's new in 3.0](./whats-new-in-3.md#not-yet). Until then, as in 2.x, write through a
-textbit editor everywhere, never straight into the Y.js types, and give every editor of a
-document the same plugins.
+people deleting the only caption at once, or a block two people moved at once and that is now
+there twice. That is for the document's owner, the server, to repair once for everyone, with
+`repairField` from the headless entry; y-quorum's server does it a moment after such changes,
+with the plugins you give it. Write through a textbit editor everywhere, never straight into
+the Y.js types, and give every editor of a document, and the server, the same plugins.
 
 ## Suggestions, from an early 3.0 build
 
@@ -477,8 +476,10 @@ Accepting or rejecting is no longer in the person's undo. Moves can be suggested
 - **Remote changes keep their ids.** An editor no longer gives a new id to an element that
   arrives from someone else, even if the id is taken in its own copy; rewriting it made the
   copies disagree.
-- **Exact copies are removed.** An editor's repair removes a top-level block with the same id
-  and the same content as an earlier one. Blocks that share an id but differ are kept.
+- **Exact copies are removed by the owner.** An editor of a document of its own removes a
+  top-level block with the same id and the same content as an earlier one. In a shared document
+  only the owner does, with `repairField`: anywhere in the field, and a later block that shares
+  an id but differs gets an id of its own.
 - **Files with nothing selected** go after the last block.
 - **Plugins add to the context menu.** An action can ask for a place in it, as a table's rows
   and columns do. Where one is offered, the menu opens whatever the `contextMenu` mode, plugin

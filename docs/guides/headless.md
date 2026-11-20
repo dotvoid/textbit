@@ -116,31 +116,29 @@ does following what others change: only the editor's own changes are repaired. S
 
 ## Repairing a shared document
 
-What an editor finds broken in a shared document, it shows as it is. Repairing it is for the
-document's owner, such as the server holding it, and nobody else, so that two peers never make
-the same repair at once. Load the field into an editor with the document's plugins and normalize
-it all:
+What an editor finds broken in a shared document, it shows as it is. Two people's changes can
+each be valid and still merge into a shape neither made: a block both moved at once is there
+twice, as Y.js moves by copying; a list one person numbered while the other added a bullet
+item holds both kinds. Repairing that is for the document's owner, such as the server holding
+it, and nobody else, so that two peers never make the same repair at once. `repairField` does
+it:
 
 ```ts
-import type * as Y from '@y/y'
-import { Editor } from 'slate'
-import { createTextbitEditor, sharedOf } from '@dotvoid/textbit/headless'
+import { repairField } from '@dotvoid/textbit/headless'
 import { Text, Bold, Image } from '@dotvoid/textbit-plugins/definitions'
 
-const plugins = [Text(), Bold(), Image()]
-
-/** Run by the document's owner: repairs a field to the plugins' rules */
-export function repairField(field: Y.Node) {
-  const editor = createTextbitEditor({ plugins, shared: field, origin: { repair: true } })
-  try {
-    Editor.normalize(editor, { force: true })
-  } finally {
-    sharedOf(editor)?.release()
-  }
-}
+// Run by the document's owner, after others' changes have merged
+const changed = repairField(field, { plugins: [Text(), Bold(), Image()], origin: { repair: true } })
 ```
 
-The repairs go into the field as the editor's own changes, under its `origin`.
+It normalizes every element as an editor normalizes its own changes, and makes ids unique: of
+elements with the same id, the first in the field stays, a later exact copy is removed, and a
+later one that differs gets an id of its own, so nothing anyone wrote is lost. The repairs go
+into the field as ordinary changes under `origin`; a field that is right gets none. y-quorum
+calls it for you.
+
+Y.js 14 takes the same view: a node's content cannot be kept valid as it changes, since any
+remote update may break it again, so the value is checked after the fact.
 
 ## What it is not
 

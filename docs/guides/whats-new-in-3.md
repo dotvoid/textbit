@@ -191,15 +191,14 @@ The details, with before and after, are in [Upgrading from 2.x](./upgrading-from
 - **2.x and 3.x cannot edit one document at once.** Move every user of a document together.
   Stored documents load as they are.
 - **Repairs.** An editor repairs only its own changes, no longer what arrives from others.
+  What two people's changes break between them is repaired once, by the document's owner:
+  `repairField`, which y-quorum's server calls for you.
 - **Packaging.** The UMD build is gone, and the files are renamed.
 
 ## Not yet
 
 What the 3.0 work has left open, to come in later releases:
 
-- **Repairs by the server.** y-quorum does not yet repair, with the plugins' rules, a block that
-  two valid changes broke between them; nor does it validate API writes against the schema
-  before they apply.
 - **Suggestions.** Accepting one person's change can take a neighbouring person's along, as Y.js
   decides a whole run of touching changes at once. Changes to a block's properties alone are not
   listed. There is one fork per document, not one per person.

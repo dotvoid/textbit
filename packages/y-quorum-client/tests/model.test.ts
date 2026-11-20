@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import * as Y from '@y/y'
-import { addItem, between, createContent, itemsOf, pathOf, projection, resolvePath, toJSON } from '../lib/model'
+import {
+  addItem, between, createContent, fieldIssues, itemsOf, pathOf, projection, resolvePath, toJSON,
+  writeField
+} from '../lib/model'
 import { paragraph, plan } from './_plan'
 
 const initial = {
@@ -57,5 +60,51 @@ describe('a typed document', () => {
     const middle = between(String(first.getAttr('_pos')), String(second.getAttr('_pos')))
     addItem(list, plan.content.fields.assignments as never, { id: 'video', status: 'todo' }, middle)
     expect(itemsOf(list, plan.content.fields.assignments as never).map((i) => i.getAttr('id'))).toEqual(['text', 'video', 'photo'])
+  })
+})
+
+describe('what a type does not allow', () => {
+  it('finds nothing in a document made from its type', () => {
+    const doc = new Y.Doc()
+    createContent(doc.get('content'), plan.content, initial)
+    expect(fieldIssues(doc.get('content'), plan.content)).toEqual([])
+  })
+
+  it('finds values of the wrong kind, fields that are not what the type says, and keys', () => {
+    const doc = new Y.Doc()
+    const content = doc.get('content')
+    createContent(content, plan.content, initial)
+    content.setAttr('due', 'tomorrow')
+    content.setAttr('title', 'a string, not a text field')
+    const assignments = content.getAttr('assignments') as Y.Node
+    // Two people adding the item `text` at once
+    addItem(assignments, plan.content.fields.assignments as never, { id: 'text', status: 'done' })
+    const [item] = itemsOf(assignments).filter((candidate) => candidate.getAttr('id') === 'photo')
+    item.setAttr('status', 'lost')
+
+    const issues = fieldIssues(content, plan.content)
+    expect(issues.map(({ path, code }) => [path.join('.'), code])).toEqual([
+      ['title', 'slot'],
+      ['due', 'value'],
+      ['assignments.#photo.status', 'value'],
+      ['assignments.#text', 'key']
+    ])
+    // The later of the two is the one found
+    expect(issues[3].item?.getAttr('status')).toBe('done')
+  })
+
+  it('writes a field back from JSON, a text field as a new one', () => {
+    const doc = new Y.Doc()
+    const content = doc.get('content')
+    createContent(content, plan.content, initial)
+    content.setAttr('title', 'broken')
+    writeField(content, 'title', plan.content.fields.title, [paragraph('t', 'Harbour feature')])
+    content.setAttr('due', 'tomorrow')
+    writeField(content, 'due', plan.content.fields.due, undefined)
+    expect(fieldIssues(content, plan.content)).toEqual([])
+    expect(toJSON(content, plan.content)).toMatchObject({
+      title: [{ id: 't', children: [{ text: 'Harbour feature' }] }],
+      due: undefined
+    })
   })
 })

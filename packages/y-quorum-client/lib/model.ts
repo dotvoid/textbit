@@ -291,6 +291,126 @@ export function pathOf(node: Y.Node, root: Y.Node, schema: ObjectField): Path | 
   return path
 }
 
+/** What a document holds that its type does not allow, outside its text */
+export interface FieldIssue {
+  path: Path
+  /**
+   * `value`: a plain value of the wrong kind; `slot`: no text field, object or
+   * list where the type has one; `key`: a list item without its key, or with
+   * the key of an item before it
+   */
+  code: 'value' | 'slot' | 'key'
+  message: string
+  /** For `key`: the item */
+  item?: Y.Node
+}
+
+/** Whether a plain value fits its field. Nothing fits any field: a value not given. */
+export function valueFits(field: ScalarField, value: unknown): boolean {
+  if (value === undefined) {
+    return true
+  }
+  switch (field.kind) {
+    case 'string':
+      return typeof value === 'string'
+    case 'number':
+      return typeof value === 'number' && Number.isFinite(value)
+    case 'boolean':
+      return typeof value === 'boolean'
+    case 'date':
+      return typeof value === 'string' && ISO_DATE.test(value) && !Number.isNaN(Date.parse(value))
+    case 'id':
+      return typeof value === 'string' && value.length > 0
+    case 'oneOf':
+      return typeof value === 'string' && (field.values ?? []).includes(value)
+  }
+}
+
+// An ISO 8601 date, with a time or without
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/
+
+/**
+ * What a document's content holds that its type does not allow, but in its
+ * text fields, whose rules are textbit's: plain values of the wrong kind,
+ * fields that are not what the type says, list items without a key or with
+ * one an earlier item has. Items in the order they are shown.
+ */
+export function fieldIssues(root: Y.Node, schema: ObjectField): FieldIssue[] {
+  const issues: FieldIssue[] = []
+  checkObject(root, schema, [], issues)
+  return issues
+}
+
+function checkObject(node: Y.Node, schema: ObjectField, path: Path, issues: FieldIssue[]) {
+  for (const [key, field] of Object.entries(schema.fields)) {
+    const value = node.getAttr(key)
+    const at = [...path, key]
+    if (field.kind === 'text' || field.kind === 'object' || field.kind === 'list') {
+      if (!(value instanceof Y.Node)) {
+        issues.push({ path: at, code: 'slot', message: `${at.join('.')} must be ${a(field.kind)}` })
+      } else if (field.kind === 'object') {
+        checkObject(value, field, at, issues)
+      } else if (field.kind === 'list') {
+        checkList(value, field, at, issues)
+      }
+    } else if (!valueFits(field, value)) {
+      const message = `${at.join('.')} must be ${expected(field)}`
+      issues.push({ path: at, code: 'value', message })
+    }
+  }
+}
+
+function checkList(node: Y.Node, schema: ListField, path: Path, issues: FieldIssue[]) {
+  const seen = new Set<string>()
+  for (const item of itemsOf(node, schema)) {
+    const key = item.getAttr(schema.key)
+    if (typeof key !== 'string' || !key || seen.has(key)) {
+      const message = typeof key === 'string' && key
+        ? `${path.join('.')} has more than one item ${key}`
+        : `${path.join('.')} has an item without its ${schema.key}`
+      issues.push({ path: [...path, `#${String(key ?? '?')}`], code: 'key', message, item })
+      continue
+    }
+    seen.add(key)
+    checkObject(item, schema.of, [...path, `#${key}`], issues)
+  }
+}
+
+function a(kind: 'text' | 'object' | 'list'): string {
+  return kind === 'text' ? 'a text field' : kind === 'object' ? 'an object' : 'a list'
+}
+
+function expected(field: ScalarField): string {
+  if (field.kind === 'oneOf') {
+    return `one of ${(field.values ?? []).map((value) => JSON.stringify(value)).join(', ')}`
+  }
+  if (field.kind === 'date') {
+    return 'an ISO 8601 date'
+  }
+  return field.kind === 'id' ? 'an id' : `a ${field.kind}`
+}
+
+/**
+ * Writes one field of an object from JSON, as `createContent` fills it: a text
+ * field, object or list as a new node holding the value, a plain value as it
+ * is, nothing given removing it
+ */
+export function writeField(node: Y.Node, key: string, field: Field, value: unknown): void {
+  const write = () => {
+    const plain = field.kind !== 'text' && field.kind !== 'object' && field.kind !== 'list'
+    if (value === undefined && plain) {
+      node.deleteAttr(key)
+      return
+    }
+    fillObject(node, { kind: 'object', fields: { [key]: field } }, { [key]: value })
+  }
+  if (node.doc) {
+    node.doc.transact(write)
+  } else {
+    write()
+  }
+}
+
 // The attribute a node is held in, or null when it is a child in a list. Y.js
 // keeps it on the node's item; there is no public way to read it yet.
 function keyInParent(node: Y.Node): string | null {
