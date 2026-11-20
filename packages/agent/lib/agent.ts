@@ -4,7 +4,7 @@ import { formatElements } from './format'
 import { describeWith } from './describe'
 import { planEdit, runEdit, isStepError, pathOf, type EditOperation, type EditResult } from './edit'
 import { changedSince, recordRevision, revisionOf } from './revisions'
-import { asAgent, startRun, type AgentRun, type RunRecorder } from './runs'
+import { asAgent, startRun, type AgentRun, type RunRecorder, setAgentOrigin } from './runs'
 import type { AgentPresence } from './presence'
 import { textChanges, textsById } from './changes'
 
@@ -99,6 +99,12 @@ export function createDocumentAgent(
 ): DocumentAgent {
   const context = createContext(options)
   const pageSize = options.pageSize ?? 24000
+  if (options.origin) {
+    setAgentOrigin(content, options.origin)
+    if (options.suggestIn) {
+      setAgentOrigin(options.suggestIn, options.origin)
+    }
+  }
   const { presence } = options
   let recorder: RunRecorder | undefined
 

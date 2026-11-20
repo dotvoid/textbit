@@ -10,10 +10,15 @@ import { sharedOf } from '@dotvoid/textbit/headless'
  * operations and undoes them while nobody else has changed the document.
  */
 
-const AGENT_ORIGINS = new WeakMap<Editor, symbol>()
+const AGENT_ORIGINS = new WeakMap<Editor, object | symbol>()
+
+/** Has an agent's edits on an editor go in under a given origin */
+export function setAgentOrigin(editor: Editor, origin: object): void {
+  AGENT_ORIGINS.set(editor, origin)
+}
 
 /** The origin of agent edits on a shared editor, set up on first use */
-export function agentOrigin(editor: Editor): symbol | undefined {
+export function agentOrigin(editor: Editor): object | symbol | undefined {
   if (!sharedOf(editor)) {
     return undefined
   }

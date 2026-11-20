@@ -717,7 +717,15 @@ every call goes through the same write pipeline, policies and history as anyone'
    - a decision on a suggestion is not in the deciding person's undo;
    - bounds: versions made by saving, time travel replaying the log per request, and client
      ids claimed before the policy has decided (belongs with step 7).
-6. **The MCP module.**
+6. **The MCP module.** Done 20 November 2026: `@dotvoid/y-quorum/mcp`, a y-quorum client per
+   caller over Streamable HTTP, agents' changes claimed as theirs, the agent policy per document
+   narrowing what the person may. Tools: documents, plain fields, text fields (read, search,
+   types, edit, suggest), suggestions and comments. Not yet:
+   - history and review tools (`history_list`, `history_show`, `run_revert`), records;
+   - runs named in the claim, so the server's history groups an agent's work by run;
+   - resources, prompts and subscriptions; `edit-confirm` through elicitation;
+   - OAuth helpers (protected resource metadata); today the host's `identify` decides;
+   - revisions that survive the module's connection closing.
 7. **Production:** Postgres and S3, leases and forwarding, audit export, retention and
    redaction.
 8. **Documentation, migration from 2.x, and the release** with Y.js 14.0.
