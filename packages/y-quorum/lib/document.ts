@@ -71,6 +71,11 @@ interface Batch {
   until: number
   updates: Uint8Array[]
   timer: ReturnType<typeof setTimeout>
+  /**
+   * A write in the fork by the same person, just after: held back until the
+   * next write tells whether it was their writing passed on to the content
+   */
+  aside?: LogEntry
 }
 
 /** A connection, as a document sees it */
@@ -121,7 +126,14 @@ const RECORD_IDS = 1000
  * What judging a write found: refused, waiting, or allowed into a layer of
  * the log; `null` when it changes nothing, so there is nothing to store
  */
-type Judgement = { code: ReasonCode, reason: string } | 'pending' | { layer: Layer | null, kind?: HistoryKind, refs?: Record<string, string>, claims?: number[] }
+type Judgement = { code: ReasonCode, reason: string } | 'pending' | {
+  layer: Layer | null
+  kind?: HistoryKind
+  refs?: Record<string, string>
+  claims?: number[]
+  /** Exactly what the writer's last write in the fork wrote, passed on to the content */
+  echoed?: boolean
+}
 
 const CONTENT = 'content'
 
@@ -468,7 +480,7 @@ export class DocumentOwner {
         return 'refused'
       }
     }
-    const log = await this.commit(actor!, judgement.layer, update, opening, judgement.kind, judgement.refs)
+    const log = await this.commit(actor!, judgement.layer, update, opening, judgement.kind, judgement.refs, judgement.echoed)
     if (judgement.layer === 'suggestions') {
       const { inserts, deletes } = Y.createContentIdsFromUpdate(update)
       opening.echo = { inserts, deletes }
@@ -709,7 +721,12 @@ export class DocumentOwner {
         return { code: 'invalid', reason: wrong }
       }
     }
-    return kind ? { layer, kind, refs: this.suggestedBy(suggested, acceptedDeletes), claims } : { layer, claims }
+    if (kind) {
+      return { layer, kind, refs: this.suggestedBy(suggested, acceptedDeletes), claims }
+    }
+    const same = (a: Y.IdSet, b: Y.IdSet) => Y.diffIdSet(a, b).isEmpty() && Y.diffIdSet(b, a).isEmpty()
+    const echoed = echo !== undefined && same(ids.inserts, echo.inserts) && same(ids.deletes, echo.deletes)
+    return echoed ? { layer, claims, echoed } : { layer, claims }
   }
 
   /**
@@ -828,7 +845,8 @@ export class DocumentOwner {
     update: Uint8Array,
     from?: Opening,
     kind: HistoryKind = 'edit',
-    refs?: Record<string, string>
+    refs?: Record<string, string>,
+    echoed = false
   ): Promise<number> {
     const entry: LogEntry = { seq: this.seq + 1, at: Date.now(), layer, actor, update }
     try {
@@ -843,7 +861,7 @@ export class DocumentOwner {
       throw error
     }
     try {
-      return await this.committed(entry, from, kind, refs)
+      return await this.committed(entry, from, kind, refs, echoed)
     } catch (error) {
       // Stored, but not here as it should be: let go, and whoever loads the
       // document next has it from the log
@@ -863,12 +881,13 @@ export class DocumentOwner {
     entry: LogEntry,
     from: Opening | undefined,
     kind: HistoryKind,
-    refs: Record<string, string> | undefined
+    refs: Record<string, string> | undefined,
+    echoed = false
   ): Promise<number> {
     const { layer, actor, update } = entry
     this.seq = entry.seq
     if (this.type.history) {
-      await this.fold(entry, from?.peer.id, kind, refs)
+      await this.fold(entry, from?.peer.id, kind, refs, echoed)
     }
     const attributed = this.apply(layer, update, actor, entry.at, from ?? this)
     // The fork's shadow follows the content as the fork does, so a suggestion
@@ -1285,30 +1304,72 @@ export class DocumentOwner {
    * Folds a write into the history: into the open entry when it is the same
    * actor, connection, layer and run within a few seconds, else into a new
    * one. A restore is an entry of its own.
+   *
+   * Typing through the suggestions view, not suggesting, writes in the fork,
+   * then the same in the content: the two are folded together, as writing.
+   * The history's entries each cover a run of the log, so the write in the
+   * fork waits beside the open entry for the next write to tell which it is.
    */
-  private async fold(entry: LogEntry, connection: string | undefined, kind: HistoryKind, refs?: Record<string, string>) {
+  private async fold(entry: LogEntry, connection: string | undefined, kind: HistoryKind, refs?: Record<string, string>, echoed = false) {
     const { actor } = entry
-    const key = JSON.stringify([entry.layer, actor.principal, actor.onBehalfOf ?? null, actor.run ?? null, connection ?? null, kind])
+    const keyOf = (layer: Layer) => JSON.stringify([layer, actor.principal, actor.onBehalfOf ?? null, actor.run ?? null, connection ?? null, kind])
+    const key = keyOf(entry.layer)
     const open = this.batch
-    if (open && (open.key !== key || kind !== 'edit' || entry.at - open.at > BATCH_MS)) {
+    const aside = open?.aside
+    const writing = echoed && entry.layer === CONTENT && kind === 'edit'
+    if (open && aside) {
+      if (writing && aside.seq === entry.seq - 1 && open.key === key && entry.at - open.at <= BATCH_MS) {
+        open.aside = undefined
+        this.extend(open, aside)
+        this.extend(open, entry)
+        return
+      }
+      await this.flushHistory()
+    } else if (open && writing && open.layer === 'suggestions' && open.to === entry.seq - 1 && open.key === keyOf('suggestions')) {
+      // The first of them: the write in the fork leaves its entry for this one
+      const update = open.updates.pop()!
+      const at = open.until
+      open.to -= 1
+      if (open.updates.length) {
+        await this.flushHistory()
+      } else {
+        clearTimeout(open.timer)
+        this.batch = undefined
+      }
+      this.start({ ...entry, seq: entry.seq - 1, at, update }, key, connection, kind, refs)
+      this.extend(this.batch!, entry)
+      return
+    } else if (open && entry.layer === 'suggestions' && kind === 'edit' && open.layer === CONTENT && open.key === keyOf(CONTENT) && open.to === entry.seq - 1) {
+      open.aside = entry
+      return
+    }
+    if (this.batch && (this.batch.key !== key || kind !== 'edit' || entry.at - this.batch.at > BATCH_MS)) {
       await this.flushHistory()
     }
     if (this.batch) {
-      this.batch.to = entry.seq
-      this.batch.until = entry.at
-      this.batch.updates.push(entry.update)
+      this.extend(this.batch, entry)
     } else {
-      this.batch = {
-        key, layer: entry.layer, actor, kind, from: entry.seq, to: entry.seq, at: entry.at, until: entry.at,
-        updates: [entry.update],
-        ...(connection ? { connection } : {}),
-        ...(refs ? { refs } : {}),
-        // Written once the time is up, even when nothing follows
-        timer: setTimeout(() => void this.serial(() => this.flushHistory()), BATCH_MS)
-      }
+      this.start(entry, key, connection, kind, refs)
     }
     if (kind !== 'edit') {
       await this.flushHistory()
+    }
+  }
+
+  private extend(batch: Batch, entry: LogEntry) {
+    batch.to = entry.seq
+    batch.until = entry.at
+    batch.updates.push(entry.update)
+  }
+
+  private start(entry: LogEntry, key: string, connection: string | undefined, kind: HistoryKind, refs?: Record<string, string>) {
+    this.batch = {
+      key, layer: entry.layer, actor: entry.actor, kind, from: entry.seq, to: entry.seq, at: entry.at, until: entry.at,
+      updates: [entry.update],
+      ...(connection ? { connection } : {}),
+      ...(refs ? { refs } : {}),
+      // Written once the time is up, even when nothing follows
+      timer: setTimeout(() => void this.serial(() => this.flushHistory()), BATCH_MS)
     }
   }
 
@@ -1325,6 +1386,17 @@ export class DocumentOwner {
     }
     this.batch = undefined
     clearTimeout(batch.timer)
+    await this.seal(batch)
+    // A write in the fork that nothing followed: an entry of its own
+    if (batch.aside) {
+      const aside = batch.aside
+      const keyed = JSON.parse(batch.key) as unknown[]
+      this.start(aside, JSON.stringify(['suggestions', ...keyed.slice(1)]), batch.connection, 'edit')
+      await this.flushHistory()
+    }
+  }
+
+  private async seal(batch: Batch) {
     const entry = seal({
       doc: `${this.namespace}/${this.id}`,
       seq: this.historyHead.seq + 1,
