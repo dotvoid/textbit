@@ -2,6 +2,7 @@
 import { describe, test, expect } from 'vitest'
 import { Editor, Node, Transforms, type Descendant, type Element } from 'slate'
 import * as Y from '@y/y'
+import { Awareness } from '@y/protocols/awareness'
 import { createTextbitEditor } from '../lib/editor/createTextbitEditor'
 import { fieldToValue, seedField, sharedOf } from '../lib/yjs'
 
@@ -46,5 +47,21 @@ describe('createTextbitEditor', () => {
 
     expect(Node.string(fieldToValue(shared)[0])).toBe('Hello!')
     sharedOf(editor)?.release()
+  })
+})
+
+describe('a shared editor released', () => {
+  test('sends its cursor no more', async () => {
+    const doc = new Y.Doc()
+    const field = doc.get('body')
+    seedField(field, [{ id: 'p', type: 'core/text', class: 'text', children: [{ text: 'abc' }] }])
+    const awareness = new Awareness(doc)
+    const editor = createTextbitEditor({ shared: field, awareness })
+    sharedOf(editor)!.release()
+    awareness.setLocalStateField('selection', 'before')
+    Transforms.select(editor, { path: [0, 0], offset: 1 })
+    // Slate tells of changes a moment later
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    expect(awareness.getLocalState()?.selection).toBe('before')
   })
 })

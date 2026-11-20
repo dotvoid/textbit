@@ -115,7 +115,11 @@ export function elementDelta(element: Element): delta.DeltaAny {
 export function toSlateElement(node: Y.Node, renderer?: TBRenderer): Element {
   const element: Fields = {}
   const properties: Fields = {}
-  for (const [key, value] of Object.entries(node.getAttrs() as Fields)) {
+  const rendered = node.toDelta(renderer ? { renderer } : undefined)
+  // Through a renderer, as it shows them: a block suggested deleted keeps
+  // what it was, though in Y.js it has nothing left
+  const attrs = renderer ? shownAttrs(rendered) : node.getAttrs() as Fields
+  for (const [key, value] of Object.entries(attrs)) {
     if (key.startsWith(PROPERTY)) {
       properties[key.slice(PROPERTY.length)] = value
     } else if (key === 'properties' && isRecord(value)) {
@@ -130,7 +134,68 @@ export function toSlateElement(node: Y.Node, renderer?: TBRenderer): Element {
   if (Object.keys(properties).length) {
     element.properties = properties
   }
-  return { ...element, children: toSlateChildren(node, renderer) } as unknown as Element
+  return { ...element, children: childrenOf(rendered, renderer) } as unknown as Element
+}
+
+// The attributes a rendered delta shows, by their values
+function shownAttrs(rendered: delta.DeltaAny): Fields {
+  const shown: Fields = {}
+  const attrs = (rendered as { attrs?: unknown }).attrs
+  if (isRecord(attrs)) {
+    for (const [key, op] of Object.entries(attrs)) {
+      if (isRecord(op) && op.type === 'insert') {
+        shown[key] = op.value
+      }
+    }
+  }
+  return shown
+}
+
+/**
+ * The child of a Y.js node at an offset, as a renderer shows the node when
+ * given one: then what is suggested deleted counts too, as in Slate
+ */
+export function childAt(parent: Y.Node, offset: number, renderer?: TBRenderer): unknown {
+  if (!renderer) {
+    return parent.get(offset)
+  }
+  let at = 0
+  for (const op of parent.toDelta({ renderer }).children) {
+    const insert = (op as { insert?: unknown }).insert
+    const length = typeof insert === 'string' || Array.isArray(insert) ? insert.length : 0
+    if (Array.isArray(insert) && offset < at + length) {
+      return insert[offset - at]
+    }
+    if (offset < at + length) {
+      return undefined // a character
+    }
+    at += length
+  }
+  return undefined
+}
+
+/** The offset of a child in a Y.js node, as a renderer shows the node when given one */
+export function offsetOfChild(parent: Y.Node, child: Y.Node, renderer?: TBRenderer): number | undefined {
+  if (!renderer) {
+    for (let i = 0; i < parent.length; i++) {
+      if (parent.get(i) === child) {
+        return i
+      }
+    }
+    return undefined
+  }
+  let at = 0
+  for (const op of parent.toDelta({ renderer }).children) {
+    const insert = (op as { insert?: unknown }).insert
+    if (Array.isArray(insert)) {
+      const index = insert.indexOf(child)
+      if (index >= 0) {
+        return at + index
+      }
+    }
+    at += typeof insert === 'string' || Array.isArray(insert) ? insert.length : 0
+  }
+  return undefined
 }
 
 // Who wrote, or deleted, a piece and when, as marks shown only
@@ -149,8 +214,12 @@ function whoAndWhen(attribution: Fields | null | undefined): Marks {
 
 /** A Y.js node's children as Slate children, in the form Slate normalizes to */
 export function toSlateChildren(node: Y.Node, renderer?: TBRenderer): Descendant[] {
+  return childrenOf(node.toDelta(renderer ? { renderer } : undefined), renderer)
+}
+
+function childrenOf(rendered: delta.DeltaAny, renderer?: TBRenderer): Descendant[] {
   const runs: Descendant[] = []
-  for (const op of node.toDelta(renderer ? { renderer } : undefined).children) {
+  for (const op of rendered.children) {
     const insert = (op as { insert?: unknown }).insert
     if (typeof insert === 'string') {
       const format = (op as { format?: Marks | null }).format ?? {}

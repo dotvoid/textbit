@@ -29,6 +29,7 @@ import {
   withChildren,
   yLength,
   yOffset,
+  childAt,
   type TBRenderer
 } from './model'
 
@@ -93,6 +94,21 @@ export function sharedOf(editor: Editor): TBSharedField | undefined {
  * change it. `createTextbitEditor` and `Textbit.Root` do this when given a
  * shared field.
  */
+// Where an editor bound later than it is made, as React's is, takes its binding:
+// at the core of its plugins, as when it is bound as it is made
+const SLOTS = new WeakMap<Editor, { apply: Editor['apply'] }>()
+
+/**
+ * @internal Keeps the core of an editor's plugins for a binding made later,
+ * so every operation the plugins make, as they make it, reaches the field.
+ * Call it before the plugins wrap the editor.
+ */
+export function reserveBinding(editor: Editor): void {
+  const slot = { apply: editor.apply }
+  editor.apply = (op) => slot.apply(op)
+  SLOTS.set(editor, slot)
+}
+
 export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions = {}): TBSharedField {
   const doc = field.doc
   if (!doc) {
@@ -106,13 +122,14 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
   const stats = { local: 0, remote: 0, rereads: 0 }
   // Applying others' changes: neither normalized nor translated
   let remote = false
-  // The origin this editor writes under now, and every one it has written under
+  // The origin this editor writes under now
   let current: unknown = origin
-  const own = new Set<unknown>([origin])
   // Shown through a renderer, the editor follows its own changes too
   let followOwn = false
   // Applying its own operation: Y.js has it, Slate not yet. Anything that
-  // would bring the editor to Y.js now waits until Slate has it too.
+  // would bring the editor to Y.js now waits until Slate has it too. What it
+  // writes is its own by this, not by origin: another editor may write under
+  // the same origin, and what it writes this editor has yet to show.
   let applyingOwn = false
 
   const read = () => fieldToValue(field, renderer)
@@ -122,9 +139,18 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
 
   editor.children = read()
 
-  const { apply, getDirtyPaths, undo, redo } = editor
+  const slot = SLOTS.get(editor)
+  const apply = slot?.apply ?? editor.apply
+  const { getDirtyPaths, undo, redo } = editor
+  const setApply = (to: Editor['apply']) => {
+    if (slot) {
+      slot.apply = to
+    } else {
+      editor.apply = to
+    }
+  }
   editor.getDirtyPaths = (op) => (remote ? [] : getDirtyPaths(op))
-  editor.apply = (op: Operation) => {
+  setApply((op: Operation) => {
     if (remote || op.type === 'set_selection') {
       apply(op)
       return
@@ -145,7 +171,7 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
       followOwn = false
       reconcile()
     }
-  }
+  })
 
   function moveNode(op: Extract<Operation, { type: 'move_node' }>) {
     const node = Node.get(editor, op.path) as Descendant
@@ -271,7 +297,8 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
         }
         continue
       }
-      if (next[key] === undefined) {
+      // Slate removes what is set to null, as it does what is unset
+      if (next[key] === undefined || next[key] === null) {
         y.deleteAttr(key)
       } else {
         y.setAttr(key, next[key])
@@ -280,8 +307,8 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
   }
 
   // Y.js to Slate: inside blocks, block by block; when blocks come or go, the field
-  const observer = (change: delta.DeltaAny, changeOrigin: unknown) => {
-    if (own.has(changeOrigin)) {
+  const observer = (change: delta.DeltaAny) => {
+    if (applyingOwn) {
       followOwn = Boolean(renderer)
       return
     }
@@ -297,7 +324,7 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
       Editor.withoutNormalizing(editor, () => {
         for (const index of blocks) {
           const current = editor.children[index]
-          const node = field.get(index)
+          const node = childAt(field, index, renderer)
           const desired = node instanceof Y.Node ? toSlateElement(node, renderer) : undefined
           if (!current || !desired || !same(current, desired)) {
             whole = true
@@ -428,8 +455,11 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
       return
     }
     const selection = editor.selection
-    const anchor = selection && offsetIn(path, selection.anchor)
-    const focus = selection && offsetIn(path, selection.focus)
+    // The caret stays by the same character: past what changed, it moves by
+    // what was added or removed before it
+    const shift = shifted(Node.string(current), Node.string(desired))
+    const anchor = selection && shift(offsetIn(path, selection.anchor))
+    const focus = selection && shift(offsetIn(path, selection.focus))
     for (let i = a.length - 1; i >= 0; i--) {
       editor.apply({ type: 'remove_node', path: path.concat(i), node: a[i] })
     }
@@ -463,6 +493,25 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
   }
 
   // A point in an element as a character offset, and back
+  // Where an offset in a text is once it changed: before the change it stays,
+  // after the change it moves with the text, in it it goes to its end
+  function shifted(before: string, after: string) {
+    let start = 0
+    while (start < before.length && start < after.length && before[start] === after[start]) {
+      start++
+    }
+    let end = 0
+    while (end < before.length - start && end < after.length - start &&
+      before[before.length - 1 - end] === after[after.length - 1 - end]) {
+      end++
+    }
+    return (offset: number | null) => offset === null || offset <= start
+      ? offset
+      : offset >= before.length - end
+        ? offset + after.length - before.length
+        : after.length - end
+  }
+
   function offsetIn(path: Path, point: Point): number | null {
     if (!Path.isAncestor(path, point.path)) {
       return null
@@ -510,7 +559,6 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
     isApplyingRemote: () => remote,
     currentOrigin: () => current,
     withOrigin: (other, change) => {
-      own.add(other)
       const previous = current
       current = other
       try {
@@ -531,7 +579,7 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
       field.off('delta', observer)
       events?.off('change', shown)
       undoManager.destroy()
-      editor.apply = apply
+      setApply(apply)
       editor.getDirtyPaths = getDirtyPaths
       editor.undo = undo
       editor.redo = redo
@@ -544,10 +592,13 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
 
 /** The Y.js node of a Slate element in a field, by its path */
 export function yNodeAtPath(editor: Editor, field: Y.Node, path: Path): Y.Node {
+  // Through the editor's renderer, as it shows the field: offsets count what
+  // is suggested deleted too
+  const renderer = BOUND.get(editor)?.renderer
   let y = field
   let slate: { children: Descendant[] } = editor
   for (const index of path) {
-    const child = y.get(yOffset(slate, index))
+    const child = childAt(y, yOffset(slate, index), renderer)
     if (!(child instanceof Y.Node)) {
       throw new Error(`textbit: no Y.js node at ${JSON.stringify(path)}`)
     }

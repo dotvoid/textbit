@@ -134,6 +134,53 @@ describe('several editors on one text field', () => {
   })
 })
 
+describe('what the review found', () => {
+  it('keeps a caret by its character when bold text comes before it', () => {
+    const doc = new Y.Doc()
+    const field = doc.get('body')
+    seedField(field, [{ id: 'p', type: 'core/text', class: 'text', children: [{ text: 'hello world' }] }])
+    const one = makeEditor()
+    const two = makeEditor()
+    bindField(one, field)
+    bindField(two, field)
+    Transforms.select(two, { path: [0, 0], offset: 11 })
+    Transforms.insertNodes(one, { text: 'X', bold: true } as Text, { at: { path: [0, 0], offset: 0 } })
+    expect(Editor.string(two, { anchor: Editor.start(two, [0]), focus: two.selection!.anchor }))
+      .toBe('Xhello world')
+  })
+
+  it('follows another editor writing under the same origin', () => {
+    const doc = new Y.Doc()
+    const field = doc.get('body')
+    seedField(field, [{ id: 'p', type: 'core/text', class: 'text', children: [{ text: 'abc' }] }])
+    const agentOrigin = { agent: true }
+    const person = makeEditor()
+    const agent = makeEditor()
+    const personBinding = bindField(person, field)
+    const agentBinding = bindField(agent, field, { origin: agentOrigin })
+    personBinding.withOrigin(agentOrigin, () => {
+      Transforms.insertText(person, 'X', { at: { path: [0, 0], offset: 0 } })
+    })
+    Transforms.insertText(agent, 'Y', { at: { path: [0, 0], offset: 0 } })
+    expect(Node.string(person.children[0])).toBe('YXabc')
+    expect(personBinding.check() && agentBinding.check()).toBe(true)
+  })
+
+  it('removes an attribute set to null, as Slate does', () => {
+    const { field } = seeded()
+    const editor = makeEditor()
+    const binding = bindField(editor, field)
+    Transforms.setNodes(editor, { foo: 'bar' } as Partial<SlateElement>, { at: [0] })
+    // As an operation: setNodes leaves a null out of it, others need not
+    editor.apply({
+      type: 'set_node', path: [0], properties: { foo: 'bar' } as Partial<SlateElement>,
+      newProperties: { foo: null } as unknown as Partial<SlateElement>
+    })
+    expect((field.get(0) as Y.Node).getAttrs()).not.toHaveProperty('foo')
+    expect(binding.check()).toBe(true)
+  })
+})
+
 describe('loading and remote changes never write', () => {
   it('writes nothing when an editor binds or follows others', () => {
     const network = new Network()

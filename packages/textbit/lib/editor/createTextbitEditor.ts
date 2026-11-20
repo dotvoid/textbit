@@ -2,7 +2,7 @@ import { createEditor, type Descendant, type Editor } from 'slate'
 import { withHistory } from 'slate-history'
 import type * as Y from '@y/y'
 import type { Awareness } from '@y/protocols/awareness'
-import { bindField } from '../yjs/binding'
+import { bindField, reserveBinding } from '../yjs/binding'
 import { withSharedCursor, type TBCursorOptions } from '../yjs/cursors'
 import type { TBRenderer } from '../yjs/model'
 import type { PluginDefinition } from '../types'
@@ -96,16 +96,25 @@ export function withTextbit(
 
   if (!options.shared) {
     editor = withHistory(editor)
-  } else if (options.bind !== false) {
+  } else if (options.bind === false) {
+    // Bound later, at the same place
+    reserveBinding(editor)
+  } else {
     // Innermost, so every operation the plugins make reaches the field. Its
     // undo covers the field only: accepting or rejecting a suggestion writes
     // into the shared text, not the fork, and is not undone with the edits.
-    bindField(editor, options.shared, {
+    const binding = bindField(editor, options.shared, {
       origin: options.origin,
       renderer: options.renderer
     })
     if (options.awareness) {
-      withSharedCursor(editor, options.awareness, options.cursor, options.isActive)
+      // Released with the binding: nothing of the editor is shared after
+      const stopCursor = withSharedCursor(editor, options.awareness, options.cursor, options.isActive)
+      const { release } = binding
+      binding.release = () => {
+        stopCursor()
+        release()
+      }
     }
   }
 
