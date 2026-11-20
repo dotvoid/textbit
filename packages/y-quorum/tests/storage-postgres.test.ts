@@ -171,12 +171,12 @@ describe('postgres storage', () => {
     await storage.addVersion('news', 'a', version('v', 1), bytes(2))
     await storage.appendRecord('news', 'a', { seq: 1, kind: 'k', at: 0, actor: alice, data: {} })
     expect(await storage.claimClient('news', 'a', 7, 'alice')).toBe(false)
-    await storage.addPeople('news', 'a', { 'person:alice': alice })
+    await storage.addPeople!('news', 'a', { 'person:alice': alice })
     await storage.create('news', 'a', meta, { states: { content: bytes(1) } })
     const made = await storage.load('news', 'a')
     expect(made).toMatchObject({ records: [], versions: [] })
     expect(made?.historyHead).toBeUndefined()
-    expect(await storage.people('news', 'a')).toEqual({})
+    expect(await storage.people!('news', 'a')).toEqual({})
   })
 
   it('lets a released lease be taken at once, with a higher epoch', async () => {
