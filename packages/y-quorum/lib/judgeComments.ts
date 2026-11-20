@@ -81,7 +81,7 @@ function judgeThread(
   }
 
   if (!before) {
-    if (!isActor(after.author, after.onBehalfOf, actor)) {
+    if (!isActor(after.author, after.onBehalfOf, actor, true)) {
       return 'A thread is opened in your own name'
     }
     if (!after.comments.length || after.resolved) {
@@ -95,6 +95,10 @@ function judgeThread(
   }
   if (!same(before.resolved, after.resolved) && rights !== 'all' && !isActor(before.author, before.onBehalfOf, actor)) {
     return 'Only who opened a thread, or an editor, may resolve it'
+  }
+  if (after.resolved && !same(before.resolved, after.resolved) &&
+    !named(after.resolved.by, actor.principal)) {
+    return 'A thread is resolved in your own name'
   }
 
   const was = new Map(before.comments.map((comment) => [comment.id, comment]))
@@ -144,7 +148,7 @@ function judgeComment(before: Comment, after: Comment, actor: Actor, rights: Com
 function newComments(comments: Comment[], actor: Actor): string | undefined {
   const ids = new Set<string>()
   for (const comment of comments) {
-    if (!isActor(comment.author, comment.onBehalfOf, actor)) {
+    if (!isActor(comment.author, comment.onBehalfOf, actor, true)) {
       return 'A comment is written in your own name'
     }
     if (comment.deleted !== undefined || comment.edited !== undefined) {
@@ -201,11 +205,19 @@ function threadOf(node: Y.Node, root: Y.Node): string | undefined {
   return current && typeof id === 'string' && root.getAttr(id) === current ? id : undefined
 }
 
-/** Whether an author is the one acting: the principal, for whom it acts */
-function isActor(author: CommentAuthor, onBehalfOf: CommentAuthor | undefined, actor: Actor): boolean {
+/**
+ * Whether an author is the one acting: the principal, for whom it acts. By who
+ * they are, so a renamed person keeps their comments; by name too for what is
+ * written now, so nobody signs as someone else.
+ */
+function isActor(
+  author: CommentAuthor,
+  onBehalfOf: CommentAuthor | undefined,
+  actor: Actor,
+  byName = false
+): boolean {
   const as = (who: CommentAuthor, principal: Actor['principal']) =>
-    // By who they are, not what they are called: a renamed person keeps their comments
-    who.kind === principal.kind && who.id === principal.id
+    byName ? named(who, principal) : who.kind === principal.kind && who.id === principal.id
   if (!as(author, actor.principal)) {
     return false
   }
@@ -213,6 +225,10 @@ function isActor(author: CommentAuthor, onBehalfOf: CommentAuthor | undefined, a
     return onBehalfOf !== undefined && as(onBehalfOf, actor.onBehalfOf)
   }
   return onBehalfOf === undefined
+}
+
+function named(who: CommentAuthor, principal: Actor['principal']): boolean {
+  return who.kind === principal.kind && who.id === principal.id && who.name === principal.name
 }
 
 function threadFixed(thread: CommentThread) {

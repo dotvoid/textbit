@@ -254,8 +254,21 @@ export function planEdit(context: AgentContext, editor: Editor, operations: Edit
         const target = resolve(operation.id, index)
         guardUnknown(target.element, index, 'replace')
         const parsed = parse(operation.content, parentType(target.path), index)
-        // One element in place of one keeps its id, so the handle stays
-        if (parsed.length === 1 && !parsed[0].handle) {
+        // One element in place of one keeps its id, so the handle stays: so
+        // does content copied from a read, with the element's own handle
+        const named = parsed.length === 1 && parsed[0].handle !== undefined
+          ? handles.resolve(parsed[0].handle)
+          : undefined
+        const own = named?.found === true && Path.equals(named.path, target.path)
+        if (named && !own) {
+          throw new StepError({
+            code: 'invalid-operation',
+            operation: index,
+            message: `The content names another element, #${parsed[0].handle}`,
+            hint: 'Leave the handle out of new content, or give the element\'s own'
+          })
+        }
+        if (parsed.length === 1 && (!parsed[0].handle || own)) {
           inserted.splice(inserted.indexOf(parsed[0].element.id as string), 1)
           parsed[0].element.id = target.id
         }

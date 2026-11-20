@@ -4,7 +4,7 @@
 import * as Y from '@y/y'
 import { Element, Node, Path, Text, type Editor, type Point, type Range } from 'slate'
 import { sharedOf, yNodeAtPath } from './binding'
-import { yLength, yOffset } from './model'
+import { offsetOfChild, yLength, yOffset } from './model'
 
 /**
  * A point of an editor bound to a text field as a Y.js relative position.
@@ -76,6 +76,7 @@ export function relativePositionsToRange(
 
 // The Slate path of a Y.js node in the field, walking up to the field
 function pathOf(editor: Editor, field: Y.Node, node: Y.Node): Path | undefined {
+  const renderer = sharedOf(editor)?.renderer
   const chain: Y.Node[] = []
   let current: Y.Node | null = node
   while (current && current !== field) {
@@ -89,7 +90,7 @@ function pathOf(editor: Editor, field: Y.Node, node: Y.Node): Path | undefined {
   let parent: Y.Node = field
   let slate: { children: Node[] } = editor
   for (const child of chain) {
-    const offset = offsetOf(parent, child)
+    const offset = offsetOfChild(parent, child, renderer)
     if (offset === undefined) {
       return undefined
     }
@@ -102,15 +103,6 @@ function pathOf(editor: Editor, field: Y.Node, node: Y.Node): Path | undefined {
     slate = slate.children[index] as Element
   }
   return path
-}
-
-function offsetOf(parent: Y.Node, child: Y.Node): number | undefined {
-  for (let i = 0; i < parent.length; i++) {
-    if (parent.get(i) === child) {
-      return i
-    }
-  }
-  return undefined
 }
 
 // The Slate child that starts at a Y.js offset and is an element

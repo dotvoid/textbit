@@ -11,7 +11,7 @@ One process and a SQLite file run everything. Postgres, object storage and more 
 are there when you need them, and a host's own JSON store can be used from the start.
 
 ```bash
-npm install @dotvoid/y-quorum @dotvoid/textbit @y/y @y/protocols slate
+npm install @dotvoid/y-quorum @dotvoid/textbit @dotvoid/textbit-plugins @y/y @y/protocols slate
 ```
 
 Node 22.13 or later.

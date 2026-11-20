@@ -119,8 +119,10 @@ function fillObject(node: Y.Node, schema: ObjectField, values: Record<string, un
       fillObject(child, field, isRecord(value) ? value : {})
     } else if (field.kind === 'list' && Array.isArray(value)) {
       let previous: string | undefined
+      // Items that are not objects with their key are left out, as a value
+      // of the wrong kind is: nothing is half written
       for (const item of value) {
-        if (isRecord(item)) {
+        if (isRecord(item) && typeof item[field.key] === 'string' && item[field.key] !== '') {
           previous = between(previous, undefined)
           addItem(child, field, item, previous)
         }
@@ -318,7 +320,7 @@ export function valueFits(field: ScalarField, value: unknown): boolean {
     case 'boolean':
       return typeof value === 'boolean'
     case 'date':
-      return typeof value === 'string' && ISO_DATE.test(value) && !Number.isNaN(Date.parse(value))
+      return typeof value === 'string' && isDate(value)
     case 'id':
       return typeof value === 'string' && value.length > 0
     case 'oneOf':
@@ -327,7 +329,22 @@ export function valueFits(field: ScalarField, value: unknown): boolean {
 }
 
 // An ISO 8601 date, with a time or without
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/
+const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})(T(\d{2}):(\d{2})(:(\d{2})(\.\d+)?)?(Z|[+-]\d{2}:\d{2})?)?$/
+
+// A day the calendar has, at a time the clock has: not 31 February
+function isDate(value: string): boolean {
+  const parts = ISO_DATE.exec(value)
+  if (!parts) {
+    return false
+  }
+  const [year, month, day] = [Number(parts[1]), Number(parts[2]), Number(parts[3])]
+  const date = new Date(Date.UTC(year, month - 1, day))
+  const calendar = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  const clock = parts[4] === undefined ||
+    (Number(parts[5]) < 24 && Number(parts[6]) < 60 && Number(parts[8] ?? 0) < 60)
+  return calendar && clock && !Number.isNaN(Date.parse(value))
+}
 
 /**
  * What a document's content holds that its type does not allow, but in its

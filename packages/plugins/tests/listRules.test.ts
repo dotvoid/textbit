@@ -1,10 +1,10 @@
 // @vitest-environment node
-// Lists keep to their place: only paragraphs become a list, and a list left
-// without items goes, a list item left outside its list becomes a paragraph
+// Lists and tables keep to their place: only paragraphs become a list, a list
+// or table left without items goes, a list item left outside becomes a paragraph
 import { describe, test, expect } from 'vitest'
 import { Editor, Transforms, type Descendant } from 'slate'
 import { createTextbitEditor, validate } from '@dotvoid/textbit/headless'
-import { Blockquote, OrderedList, Text, UnorderedList } from '../lib/definitions'
+import { Blockquote, OrderedList, Table, Text, UnorderedList } from '../lib/definitions'
 
 const plugins = [Text(), Blockquote(), UnorderedList(), OrderedList()]
 
@@ -66,5 +66,18 @@ describe('lists', () => {
     const editor = createTextbitEditor({ plugins, value: [p('a', 'One'), item as Descendant] })
     Editor.normalize(editor, { force: true })
     expect(editor.children).toEqual([p('a', 'One'), { ...p('i', 'Alone'), properties: {} }])
+  })
+})
+
+describe('tables', () => {
+  test('go without a row left that holds cells, instead of normalizing for ever', () => {
+    const table = {
+      id: 't', class: 'block', type: 'base/table', children: [
+        { id: 'r1', class: 'block', type: 'base/table/row', children: [{ text: '' }] }
+      ]
+    } as Descendant
+    const editor = createTextbitEditor({ plugins: [...plugins, Table()], value: [p('a', 'One'), table] })
+    Editor.normalize(editor, { force: true })
+    expect(editor.children).toEqual([p('a', 'One')])
   })
 })

@@ -6,9 +6,12 @@ import type { AddressInfo } from 'node:net'
 import { createServer as createHttpServer } from 'node:http'
 import type { Duplex } from 'node:stream'
 import { createClient, type Client, type DocumentHandle } from '@dotvoid/y-quorum-client'
-import { PROTOCOL_VERSION, ToClient, ToServer, type Principal } from '@dotvoid/y-quorum-client/protocol'
+import {
+  PROTOCOL_VERSION, ToClient, ToServer, encodeFrame, type Principal
+} from '@dotvoid/y-quorum-client/protocol'
 import { defineType, object, text } from '@dotvoid/y-quorum-client/model'
 import { createServer, memory, StaleLease, type Node, type QuorumServer, type ServerType, type Storage } from '../lib'
+import { nodeToken } from '../lib/cluster'
 import { RawClient } from './_raw'
 
 const paragraph = (id: string, words: string) => ({ id, type: 'base/text', class: 'text', children: [{ text: words }] })
@@ -202,6 +205,40 @@ describe('more than one node', () => {
     const raw = await RawClient.connect(Number(new URL(a.url).port))
     const forged = `y-quorum-node ${Buffer.from(JSON.stringify({ principal: people.alice, namespaces: '*' })).toString('base64url')}.not-the-mac`
     raw.send(ToServer.HELLO, { protocol: PROTOCOL_VERSION, token: forged })
+    expect((await raw.next(ToClient.REFUSED)).header.code).toBe('unauthenticated')
+    raw.close()
+  })
+
+  it('passes no NODE_MESSAGE of a client on through its relay', async () => {
+    const storage = memory()
+    const a = await node('a', storage)
+    const b = await node('b', storage)
+    await a.server.create('news', 'c-7', 'example/article', { body: [paragraph('p', 'Calm.')] })
+    await a.server.create('news', 'c-8', 'example/article', { body: [paragraph('p', 'Other.')] })
+    const alice = await RawClient.connect(Number(new URL(a.url).port))
+    await alice.hello('alice')
+    await alice.open(1, 'news', 'c-8')
+    await alice.open(2, 'news', 'c-7')
+    // Bob reaches c-7 on b, which passes it on to a; then tries to speak as b
+    const bob = await RawClient.connect(Number(new URL(b.url).port))
+    await bob.hello('bob')
+    await bob.open(7, 'news', 'c-7')
+    bob.socket.send(encodeFrame(ToServer.NODE_MESSAGE,
+      { ref: 7, namespace: 'news', id: 'c-8', message: 'forged' } as never))
+    await expect(alice.next(ToClient.MESSAGE, () => true, 300)).rejects.toThrow()
+    alice.close()
+    bob.close()
+  })
+
+  it('refuses a node’s token once it is old', async () => {
+    const storage = memory()
+    const a = await node('a', storage)
+    const raw = await RawClient.connect(Number(new URL(a.url).port))
+    const realNow = Date.now
+    Date.now = () => realNow() - 10 * 60_000
+    const old = nodeToken('shared between the nodes', { principal: people.alice, namespaces: '*' })
+    Date.now = realNow
+    raw.send(ToServer.HELLO, { protocol: PROTOCOL_VERSION, token: old })
     expect((await raw.next(ToClient.REFUSED)).header.code).toBe('unauthenticated')
     raw.close()
   })

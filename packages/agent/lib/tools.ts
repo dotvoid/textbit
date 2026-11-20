@@ -105,7 +105,11 @@ export function createAgentTools(agent: DocumentAgent, options: { prefix?: strin
         ...(typeof input.limit === 'number' ? { limit: input.limit } : {})
       }),
       toText: (result) => {
-        const { revision, total, next, view } = result as ReadResult
+        const { revision, total, next, view, fromNotFound } = result as ReadResult
+        if (fromNotFound) {
+          return `revision: ${revision}\nThe element to start from is not in the document ` +
+            'now: it was removed, or its handle changed. Read again from the start.'
+        }
         // Suggesting, it reads the fork: the document with what is suggested in it
         const fork = agent.context.options.review === 'suggest' ? '\nThis is the document with the suggestions made so far, yours and others\'' : ''
         return `revision: ${revision}\n${total} top-level elements${next ? `; more from ${next}` : ''}${fork}\n\n${view}`

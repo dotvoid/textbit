@@ -26,6 +26,8 @@ export interface ReadResult {
   total: number
   /** Where the next page starts, when there is more */
   next?: string
+  /** The `from` given is no element now: nothing is in view */
+  fromNotFound?: true
 }
 
 /** What `search` takes */
@@ -88,6 +90,17 @@ export interface DocumentAgent {
 
 const DONE = new WeakMap<Editor, Map<string, EditResult>>()
 
+// The path handles, `@2.1`, an edit names its elements by
+function pathHandles(operations: EditOperation[]): string[] {
+  return operations.flatMap((operation) => {
+    const named = operation as Partial<Record<'id' | 'after' | 'before' | 'into', unknown>>
+    return [named.id, named.after, named.before, named.into]
+      .filter((handle): handle is string => typeof handle === 'string')
+      .map((handle) => handle.trim().replace(/^#/, ''))
+      .filter((handle) => handle.startsWith('@'))
+  })
+}
+
 /**
  * An agent's access to one editor's document: a live editor in the browser,
  * or a headless one from `createTextbitEditor`, shared through Y.js or not.
@@ -145,9 +158,11 @@ export function createDocumentAgent(
       const revision = recordRevision(editor)
       const blocks = topLevel(editor)
       let start = 0
+      let fromNotFound = false
       if (input.from) {
         const match = context.handles(editor.children).resolve(input.from)
         start = match.found ? match.path[0] : blocks.length
+        fromNotFound = !match.found
       }
 
       const limit = Math.max(1, input.limit ?? blocks.length)
@@ -168,7 +183,8 @@ export function createDocumentAgent(
         revision,
         view: lines.join('\n'),
         total: blocks.length,
-        ...(end < blocks.length ? { next: handles.of(blocks[end][0], blocks[end][1]) } : {})
+        ...(end < blocks.length ? { next: handles.of(blocks[end][0], blocks[end][1]) } : {}),
+        ...(fromNotFound ? { fromNotFound: true as const } : {})
       }
     },
 
@@ -206,7 +222,11 @@ export function createDocumentAgent(
         return done.get(input.opId)!
       }
 
-      const fail = (error: EditResult & { ok: false }): EditResult => error
+      // Failed: the agent is back to what it was doing, not left reading
+      const fail = (error: EditResult & { ok: false }): EditResult => {
+        presence?.set(recorder ? 'thinking' : 'idle')
+        return error
+      }
       const current = revisionOf(editor.children)
 
       if (options.readOnly) {
@@ -236,9 +256,13 @@ export function createDocumentAgent(
       // Changed since the agent read it: only the elements it changes matter
       if (input.revision && input.revision !== current) {
         const targets = plan.steps.flatMap((step) => step.targets)
-        const changed = changedSince(editor, input.revision, targets)
+        // An element named by its path is checked by what is at that path:
+        // another element there since is a change too
+        const changed = changedSince(editor, input.revision,
+          [...targets, ...pathHandles(input.operations)])
         if (changed === null || changed.length) {
-          const stale = changed ?? targets
+          const ids = changed?.filter((id) => !id.startsWith('@')) ?? []
+          const stale = ids.length ? ids : targets
           return fail({
             ok: false,
             revision: recordRevision(editor),
@@ -249,7 +273,7 @@ export function createDocumentAgent(
                 : 'Elements this changes were changed by someone else',
               hint: 'Plan the changes again from the current content, here in view'
             },
-            view: view(editor, blocksOf(editor, stale.length ? stale : targets))
+            view: view(editor, blocksOf(editor, stale))
           })
         }
       }

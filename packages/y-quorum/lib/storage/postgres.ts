@@ -95,6 +95,11 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
     }
   }
 
+  // Whether the document of $1 and $2 is still there: what is written beside
+  // it once it is deleted, by a node that has not noticed yet, is not kept
+  const there = () =>
+    `EXISTS (SELECT 1 FROM ${t('documents')} d WHERE d.namespace = $1 AND d.id = $2)`
+
   async function query(text: string, params: Param[] = []) {
     await setup()
     return (await db.query(text, params)).rows
@@ -293,7 +298,10 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
 
     appendRecord: async (namespace, id, record) => {
       await query(
-        `INSERT INTO ${t('records')} VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb)`,
+        `INSERT INTO ${t('records')}
+          SELECT $1::text, $2::text, $3::bigint, $4::text, $5::bigint, $6::jsonb, $7::jsonb,
+            $8::jsonb
+          WHERE ${there()}`,
         [
           namespace, id, record.seq, record.kind, record.at, JSON.stringify(record.actor),
           record.onBehalfOf ? JSON.stringify(record.onBehalfOf) : null,
@@ -319,7 +327,8 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
       await query(
         `INSERT INTO ${t('history')} (namespace, id, seq, entry, payload, hash)
           SELECT $1, $2, v.seq, v.entry, v.payload, v.hash
-          FROM (VALUES ${rows.sql}) AS v(seq, entry, payload, hash)`,
+          FROM (VALUES ${rows.sql}) AS v(seq, entry, payload, hash)
+          WHERE ${there()}`,
         [namespace, id, ...rows.params]
       )
     },
@@ -347,7 +356,8 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
     addVersion: async (namespace, id, version, state) => {
       await query(
         `INSERT INTO ${t('versions')} (namespace, id, version_id, seq, info, state)
-          VALUES ($1, $2, $3, $4, $5::jsonb, $6)`,
+          SELECT $1::text, $2::text, $3::text, $4::bigint, $5::jsonb, $6::bytea
+          WHERE ${there()}`,
         [namespace, id, version.id, version.seq, JSON.stringify(version), state]
       )
     },
@@ -362,7 +372,9 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
 
     claimClient: async (namespace, id, client, principal) => {
       await query(
-        `INSERT INTO ${t('claims')} VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+        `INSERT INTO ${t('claims')}
+          SELECT $1::text, $2::text, $3::bigint, $4::text WHERE ${there()}
+          ON CONFLICT DO NOTHING`,
         [namespace, id, client, principal]
       )
       const [row] = await query(
@@ -375,7 +387,8 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
     addPeople: async (namespace, id, people) => {
       for (const [key, person] of Object.entries(people)) {
         await query(
-          `INSERT INTO ${t('people')} VALUES ($1, $2, $3, $4)
+          `INSERT INTO ${t('people')}
+            SELECT $1::text, $2::text, $3::text, $4::jsonb WHERE ${there()}
             ON CONFLICT (namespace, id, key) DO UPDATE SET person = EXCLUDED.person`,
           [namespace, id, key, JSON.stringify(person)]
         )
@@ -396,14 +409,16 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
     },
 
     lease: async (namespace, id, node, ttl) => {
-      // Taken when free or run out, with the next epoch; kept, with its epoch,
-      // by the node holding it. `excluded.until - ttl` is now by the database.
+      // Taken when free or run out, with the next epoch, even by the node that
+      // had it; kept, with its epoch, by the node holding it.
+      // `excluded.until - ttl` is now by the database.
       const [taken] = await query(
         `INSERT INTO ${t('leases')} AS l (namespace, id, holder, address, epoch, until)
           VALUES ($1, $2, $3, $4, 1,
             (extract(epoch FROM clock_timestamp()) * 1000)::bigint + $5::bigint)
           ON CONFLICT (namespace, id) DO UPDATE SET
-            epoch = CASE WHEN l.holder = excluded.holder THEN l.epoch ELSE l.epoch + 1 END,
+            epoch = CASE WHEN l.holder = excluded.holder AND l.until > excluded.until - $5::bigint
+              THEN l.epoch ELSE l.epoch + 1 END,
             holder = excluded.holder, address = excluded.address, until = excluded.until
           WHERE l.holder = excluded.holder OR l.until <= excluded.until - $5::bigint
           RETURNING holder, address, epoch, until`,
@@ -439,20 +454,19 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
     delete: async (namespace, id) => {
       // The lease ended first, with the next epoch: a node still holding the
       // document writes nothing more to it
-      const fence =
-        `UPDATE ${t('leases')} SET holder = '', address = '', epoch = epoch + 1, until = 0`
-      if (id !== undefined) {
-        await query(`${fence} WHERE namespace = $1 AND id = $2`, [namespace, id])
-      } else {
-        await query(`${fence} WHERE namespace = $1`, [namespace])
-      }
-      for (const table of tables) {
-        if (id !== undefined) {
-          await query(`DELETE FROM ${t(table)} WHERE namespace = $1 AND id = $2`, [namespace, id])
-        } else {
-          await query(`DELETE FROM ${t(table)} WHERE namespace = $1`, [namespace])
-        }
-      }
+      // document writes nothing more to it. One statement, so nobody takes
+      // the lease and writes between the two.
+      const where = id !== undefined ? 'namespace = $1 AND id = $2' : 'namespace = $1'
+      const deletes = tables.map((table, index) =>
+        `d${index} AS (DELETE FROM ${t(table)} WHERE ${where})`)
+      await query(
+        `WITH fence AS (
+          UPDATE ${t('leases')} SET holder = '', address = '', epoch = epoch + 1, until = 0
+          WHERE ${where}
+        ), ${deletes.join(', ')}
+        SELECT 1`,
+        id !== undefined ? [namespace, id] : [namespace]
+      )
     }
   }
 }

@@ -10,6 +10,7 @@ import { createClient, type Client, type DocumentHandle, type Rejection } from '
 import {
   COMMENTS,
   addThread,
+  setResolved,
   defineType,
   object,
   oneOf,
@@ -145,6 +146,26 @@ describe('comments', () => {
 
     expect((await refused).reason).toBe('A thread is opened in your own name')
     expect(await server.comments('news', 'c-3')).toEqual([])
+  })
+
+  it('nobody signs with someone else’s name, nor resolves in it', async () => {
+    await start()
+    await seed('c-9')
+    const carol = await open('carol', 'c-9')
+    let refused = rejection(carol)
+    addThread(carol.commentsDoc.get(COMMENTS), {
+      id: 'renamed', author: { ...people.carol, name: 'Alice' }, at: Date.now(),
+      anchor: anchor('c-9'), comment: { id: 'x', body: 'Signed as Alice' }
+    })
+    expect((await refused).reason).toBe('A thread is opened in your own name')
+
+    const thread = carol.comments.create(anchor('c-9'), 'Mine')
+    await saved(carol)
+    refused = rejection(carol)
+    setResolved(carol.commentsDoc.get(COMMENTS), thread,
+      { by: people.alice, at: Date.now() })
+    expect((await refused).reason).toBe('A thread is resolved in your own name')
+    await until(() => carol.comments.threads.every((each) => !each.resolved))
   })
 
   it('only its author edits a comment; who opened a thread, or an editor, resolves it', async () => {

@@ -118,7 +118,11 @@ function checkElement(
 
   checkProperties(known, node, path, issues)
 
+  // One text, as Slate keeps it and the JSON Schema says: nothing in it is shown
   if (known.class === 'void') {
+    if (node.children.length !== 1 || !Text.isText(node.children[0])) {
+      issues.push(issue('invalid-children', 'error', path, `${node.type} holds one empty text, nothing else`, node))
+    }
     return
   }
   // An element with child types holds them, whatever its class: a list is

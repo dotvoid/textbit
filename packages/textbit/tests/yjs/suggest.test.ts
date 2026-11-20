@@ -5,6 +5,7 @@ import { bindField } from '../../lib/yjs/binding'
 import { SUGGESTED_MARK as SUGGESTED, seedField, fieldToValue as toSlateValue } from '../../lib/yjs/model'
 import { addItem, createPlan, findItem, listOf, textField } from './_tree'
 import { makeEditor } from './_helpers'
+import { acceptChange, suggestedChanges } from '../../lib/suggestions/changes'
 
 function setup() {
   const base = new Y.Doc({ gc: false })
@@ -120,5 +121,44 @@ describe('editing the content through the suggestions view', () => {
     Transforms.delete(editor, { at: { anchor: { path: [0, 0], offset: 5 }, focus: { path: [1, 0], offset: 3 } } })
     expect(toSlateValue(baseField).map((block) => Node.string(block))).toEqual(['Helloond.'])
     expect(binding.check()).toBe(true)
+  })
+})
+
+describe('after a block suggested deleted', () => {
+  function forked() {
+    const base = new Y.Doc({ gc: false })
+    const p = (id: string, text: string) => ({ id, type: 'core/text', class: 'text', children: [{ text }] })
+    seedField(base.get('body'), [p('p1', 'First.'), p('p2', 'Second.'), p('p3', 'Third.')])
+    const fork = new Y.Doc({ gc: false, isSuggestionDoc: true })
+    Y.applyUpdate(fork, Y.encodeStateAsUpdate(base))
+    const renderer = Y.createDiffRenderer(base, fork)
+    fork.get('body').useRenderer(renderer)
+    const editor = makeEditor()
+    const binding = bindField(editor, fork.get('body'), { renderer })
+    Transforms.removeNodes(editor, { at: [0] })
+    return { editor, binding, base, fork, renderer }
+  }
+
+  it('shows the block as it was, with its type and id', () => {
+    const { editor } = forked()
+    expect(editor.children[0]).toMatchObject({ id: 'p1', type: 'core/text', class: 'text' })
+  })
+
+  it('writes in the block the caret is in', () => {
+    const { editor, binding, fork, renderer } = forked()
+    Transforms.insertText(editor, 'X', { at: { path: [1, 0], offset: 0 } })
+    expect(toSlateValue(fork.get('body'), renderer).map((block) => Node.string(block)))
+      .toEqual(['First.', 'XSecond.', 'Third.'])
+    expect(binding.check()).toBe(true)
+  })
+
+  it('accepts the change asked for, not another', () => {
+    const { editor, base } = forked()
+    Transforms.insertText(editor, 'X', { at: { path: [1, 0], offset: 0 } })
+    Transforms.insertText(editor, 'Z', { at: { path: [2, 0], offset: 0 } })
+    const change = suggestedChanges(editor).find((each) => each.inserted === 'X')!
+    acceptChange(editor, change)
+    expect(toSlateValue(base.get('body')).map((block) => Node.string(block)))
+      .toEqual(['First.', 'XSecond.', 'Third.'])
   })
 })

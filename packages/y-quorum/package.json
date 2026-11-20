@@ -7,6 +7,9 @@
     "name": "Danne Lundqvist"
   },
   "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
   "sideEffects": false,
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -44,7 +47,7 @@
     "postversion": "node ../../scripts/commit-version.mjs y-quorum@ && git push && git push --tags"
   },
   "dependencies": {
-    "@dotvoid/y-quorum-client": "0.0.0",
+    "@dotvoid/y-quorum-client": "0.0.0 || ^1.0.0",
     "lib0": "^1.0.0-rc.36",
     "ws": "^8.18.0"
   },

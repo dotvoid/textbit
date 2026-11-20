@@ -83,6 +83,8 @@ export interface Peer {
   send(frame: Uint8Array): void
   /** Ends the connection as a passing interruption: its client reconnects and opens again */
   drop?(): void
+  /** The owner ended one of its openings: the document was deleted, or may no longer be read */
+  ended?(opening: Opening): void
 }
 
 /** One connection's opening of the document */
@@ -106,6 +108,8 @@ export interface Opening {
 /** How much one opening may have waiting for what it depends on */
 const HELD_UPDATES = 64
 const HELD_BYTES = 4 * 1024 * 1024
+// Record ids remembered, so a record sent again after a lost acknowledgement is stored once
+const RECORD_IDS = 1000
 
 /**
  * What judging a write found: refused, waiting, or allowed into a layer of
@@ -141,6 +145,7 @@ export class DocumentOwner {
   readonly doc: Y.Doc
   readonly awareness: awarenessProtocol.Awareness
   readonly records: DocumentRecord[]
+  private recordIds = new Set<string>()
   readonly incarnation: string
   /** Each layer a Y.Doc of its own, the content's being `doc` */
   private readonly layers: Map<Layer, Y.Doc>
@@ -729,6 +734,7 @@ export class DocumentOwner {
     clearTimeout(this.checkpointTimer)
     clearTimeout(this.settling)
     clearTimeout(this.repairing)
+    clearTimeout(this.projecting)
     for (const opening of [...this.openings]) {
       this.openings.delete(opening)
       opening.peer.drop?.()
@@ -805,8 +811,35 @@ export class DocumentOwner {
       if (error instanceof StaleLease) {
         this.giveUp()
       }
+      // Not stored: the shadows forget it, so the same update sent again is
+      // judged again, not taken for one already here
+      this.resetShadows()
       throw error
     }
+    try {
+      return await this.committed(entry, from, kind, refs)
+    } catch (error) {
+      // Stored, but not here as it should be: let go, and whoever loads the
+      // document next has it from the log
+      this.giveUp()
+      throw error
+    }
+  }
+
+  private resetShadows() {
+    for (const layer of [...this.shadows.keys()]) {
+      this.shadows.set(layer, this.copy(layer))
+    }
+  }
+
+  // Stored: folded into history, applied and passed on
+  private async committed(
+    entry: LogEntry,
+    from: Opening | undefined,
+    kind: HistoryKind,
+    refs: Record<string, string> | undefined
+  ): Promise<number> {
+    const { layer, actor, update } = entry
     this.seq = entry.seq
     if (this.type.history) {
       await this.fold(entry, from?.peer.id, kind, refs)
@@ -920,9 +953,14 @@ export class DocumentOwner {
 
   private afterChange() {
     // What everyone may do, asked again: content decides it too
-    for (const opening of this.openings) {
+    for (const opening of [...this.openings]) {
       const { principal } = opening.peer
       const capabilities = this.capabilitiesFor({ principal }, opening.roles)
+      if (!capabilities.read) {
+        // Nothing more of it, as when a fresh token takes reading away
+        this.end(opening, 'not-allowed', 'No longer allowed to read this document')
+        continue
+      }
       if (JSON.stringify(capabilities) !== JSON.stringify(opening.capabilities)) {
         opening.capabilities = capabilities
         this.sendTo(opening, ToClient.POLICY, { ref: opening.ref, seq: this.seq, capabilities })
@@ -1068,14 +1106,33 @@ export class DocumentOwner {
   record(opening: Opening, header: Headers[typeof ToServer.RECORD]): Promise<void> {
     return this.serial(async () => {
       const actor = this.actorOf(opening, header.claim)
-      if (!actor || !this.mayRecord(opening.capabilities, header.kind)) {
+      // An agent's record by what the policy lets the agent do
+      const capabilities = actor && header.claim
+        ? this.capabilitiesFor(actor, opening.roles)
+        : opening.capabilities
+      if (!actor || !this.mayRecord(capabilities, header.kind)) {
         this.sendTo(opening, ToClient.REJECTED, { ref: opening.ref, seq: header.seq, code: 'not-allowed', reason: `Not allowed to record ${header.kind}` })
         return
       }
-      await this.appendRecord(actor, header.kind, header.data, opening.peer.id)
+      // Sent again when its acknowledgement was lost: stored once
+      if (header.id === undefined || !this.recordIds.has(header.id)) {
+        await this.appendRecord(actor, header.kind, header.data, opening.peer.id)
+        this.rememberRecord(header.id)
+      }
       // Acknowledged like a change, so the client does not send it again
       this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log: this.seq })
     })
+  }
+
+  // The ids of records lately stored, the oldest forgotten first
+  private rememberRecord(id: string | undefined) {
+    if (id === undefined) {
+      return
+    }
+    this.recordIds.add(id)
+    if (this.recordIds.size > RECORD_IDS) {
+      this.recordIds.delete(this.recordIds.values().next().value!)
+    }
   }
 
   /** Whether a record of this kind may be appended, by what an actor may do */
@@ -1479,17 +1536,25 @@ export class DocumentOwner {
   /** Ends every opening, e.g. when the document is deleted */
   closeAll(code: ReasonCode, reason: string): void {
     for (const opening of [...this.openings]) {
-      this.sendTo(opening, ToClient.CLOSED, { ref: opening.ref, code, reason })
-      this.close(opening)
+      this.end(opening, code, reason)
     }
+  }
+
+  // Ends an opening from here: its client is told, and its connection forgets it
+  private end(opening: Opening, code: ReasonCode, reason: string) {
+    this.sendTo(opening, ToClient.CLOSED, { ref: opening.ref, code, reason })
+    this.close(opening)
+    opening.peer.ended?.(opening)
   }
 
   async unload(): Promise<void> {
     await this.serial(async () => {
       clearTimeout(this.projecting)
-      // Unloading gives the storage the document anyway
+      // Unloading gives the storage the document anyway, and checkpoints it
       clearTimeout(this.settling)
       this.settling = undefined
+      clearTimeout(this.checkpointTimer)
+      this.checkpointTimer = undefined
       // What waits for repair is repaired now, not left for whoever loads it next
       await this.repairNow()
       await this.flushHistory()

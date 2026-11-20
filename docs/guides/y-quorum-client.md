@@ -217,6 +217,7 @@ export const ArticleEditor = ({ handle, person }: { handle: DocumentHandle, pers
   the item named by its key:
 
 ```ts
+import * as Y from '@y/y'
 import { Transforms } from 'slate'
 import { createTextbitEditor } from '@dotvoid/textbit/headless'
 import { Text, Bold, Italic } from '@dotvoid/textbit-plugins/definitions'
@@ -230,7 +231,7 @@ if (notes instanceof Y.Node) {
 }
 ```
 
-`sharedOf(editor).release()` unbinds it. See [Without a user interface](./headless.md).
+`sharedOf(editor)?.release()` unbinds it. See [Without a user interface](./headless.md).
 
 ## Records and messages
 
@@ -243,8 +244,9 @@ handle.on('message', (message) => console.log('from the host', message))
 
 `appendRecord` asks the server, which checks the kind against `capabilities.records`, stamps
 the actor and time, and sends the record to everyone with the document open, the sender too.
-A refused record is emitted as `rejected`, with `record` set. `message` is what the host sends
-with `server.send`.
+A refused record is emitted as `rejected`, with `record` set. A record sent again after a
+lost acknowledgement carries the id it was first sent with, and the server stores it once.
+`message` is what the host sends with `server.send`.
 
 ## Comments
 
@@ -274,6 +276,8 @@ in, and `handle.suggestionsRenderer()` shows the difference between the two, wit
 what. Bind the editor to the fork's field through it:
 
 ```tsx
+import type * as Y from '@y/y'
+
 type Props = { handle: DocumentHandle, suggesting: boolean }
 
 export const SuggestingEditor = ({ handle, suggesting }: Props) => {
@@ -496,7 +500,7 @@ handle.appendRecord('status.changed', { to: 'ready' }, claim)
 - **`claimOrigin(claim)`** gives an origin. Every transaction made with it is sent in frames of
   its own, carrying the claim, so the agent's changes are never mixed with the person's. An
   editor of the person's can make some changes as the agent with
-  `sharedOf(editor).withOrigin(origin, change)`.
+  `sharedOf(editor)?.withOrigin(origin, change)`.
 - **The claim** is `agent` (an id), and optionally `name`, `run` and `model`. The server takes
   the claim only where the person's token allows agents, and gives the agent no more than the
   person's roles; the policy can narrow them further.

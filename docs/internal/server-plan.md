@@ -796,6 +796,42 @@ every call goes through the same write pipeline, policies and history as anyone'
    - the server's `plugins` option, by the names text fields give; the lab passes the demo's.
    Still open: a document loaded broken is repaired only once someone writes to the field;
    repairs inside the suggestions fork; counting repairs per document for hosts to watch.
+   A review of everything on v3 the same day, by area, each finding shown by a test first.
+   Fixed:
+   - the server: a write whose append failed is judged again when resent, not acknowledged
+     unstored (the shadows are reset; a failure after the append lets the document go, to
+     load again from the log); a second HELLO is refused; a ref used again closes what it
+     named; openings and relays finished after their client left are closed; content that
+     takes reading away closes the opening; comment authors and "resolved by" are checked by
+     name too; a record sent again is stored once, by an id the client gives it (remembered
+     in memory, the last thousand); records under a claim follow the agent's policy; a renewed
+     token sets whether agents may act; deleting a document stops its timers; a document
+     opened again while it unloads waits for it, so its history does not fork;
+   - the cluster: NODE_MESSAGE only from a node's link, never passed on from a client's relay;
+     node tokens last five minutes; a node without `nodeSecret` does not start; an owner is
+     fenced from its first write; a lease that ran out is taken with a new epoch, even by its
+     holder, in every store; deleting is one transaction; nothing written beside a deleted
+     document is kept;
+   - the client: what an agent wrote offline keeps its claim; a released document's requests
+     are ended; dates are checked against the calendar; a list is never half written;
+   - the agent: a run's undo takes only its own edits; an element named by path that moved
+     since the read is stale; content with the element's own handle keeps its id; trailing
+     spaces are kept; a failed edit leaves the presence idle; a read from a missing element
+     says so;
+   - core: Textbit.Root binds at the core of the plugins, as the headless editor does, so what
+     they make of an operation reaches Y.js; through a renderer, children are found and blocks
+     suggested deleted shown as the renderer shows them, so typing and accepting go where they
+     should; a remote change keeps the caret by its character; editors writing under one
+     origin follow each other; a null attribute is removed; a released headless editor stops
+     its cursor; comments across blocks are found, and one at the edge of its block does not
+     jump; an agent's change starting at a mark carries its name; `rights: 'none'` stops edits
+     too; a void holding more than its text is an error; `debounce={0}` is 0;
+   - the plugins: a table row holding only text no longer normalizes for ever; the link field
+     follows the link it is on;
+   - the docs, against the code.
+   Still open from the review: history, records and versions written by a node that lost its
+   lease are not fenced by the epoch until its next renewal; record ids are remembered in
+   memory only, so a record resent to another node or after an unload may be stored twice.
 
 ## Testing
 

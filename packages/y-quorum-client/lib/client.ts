@@ -267,11 +267,27 @@ interface LocalUpdate {
   seq?: number
 }
 
+// Local updates in order, those next to each other of one layer and claim together
+function runsOf(local: LocalUpdate[]) {
+  const runs: Array<{ layer: Layer, claim?: ActorClaim, updates: Uint8Array[] }> = []
+  for (const { layer, claim, update } of local) {
+    const last = runs.at(-1)
+    if (last && last.layer === layer && last.claim === claim) {
+      last.updates.push(update)
+    } else {
+      runs.push({ layer, claim, updates: [update] })
+    }
+  }
+  return runs
+}
+
 interface PendingRecord {
   kind: string
   data: unknown
   claim?: ActorClaim
   seq?: number
+  /** The same each time it is sent, so the server stores it once */
+  id?: string
 }
 
 interface Waiter<T> {
@@ -344,6 +360,8 @@ interface Call {
   reject: (error: Error) => void
   send: () => void
   sent: boolean
+  /** The document it is about, when it is about one: ended with it */
+  state?: DocState
 }
 
 class QuorumClient implements Client {
@@ -523,6 +541,7 @@ class QuorumClient implements Client {
     if (state.phase === 'closed') {
       return
     }
+    record.id ??= crypto.randomUUID()
     state.pendingRecords.push(record)
     if (this.isOpen(state)) {
       this.sendRecord(state, record)
@@ -544,7 +563,7 @@ class QuorumClient implements Client {
     return this.call(call, () => {
       const header = { ref: state.ref, call, ...(label !== undefined ? { label } : {}) }
       this.send(encodeFrame(ToServer.SAVE, header, Y.encodeStateVector(state.doc)))
-    }).then((log) => Number(log))
+    }, state).then((log) => Number(log))
   }
 
   /** A version's content, or the content at a log position, as an update */
@@ -553,28 +572,28 @@ class QuorumClient implements Client {
     const which = typeof at === 'number' ? { seq: at } : { id: at }
     return this.request(call, () => {
       this.send(encodeFrame(ToServer.VERSION, { ref: state.ref, call, ...which }))
-    }).then(({ payload }) => payload)
+    }, state).then(({ payload }) => payload)
   }
 
   review(state: DocState, run?: string): Promise<Unreviewed[]> {
     const call = this.nextCall++
     return this.request(call, () => {
       this.send(encodeFrame(ToServer.REVIEW, { ref: state.ref, call, ...(run !== undefined ? { run } : {}) }))
-    }).then(({ value }) => (value as { unreviewed: Unreviewed[] }).unreviewed)
+    }, state).then(({ value }) => (value as { unreviewed: Unreviewed[] }).unreviewed)
   }
 
   unreviewed(state: DocState): Promise<Unreviewed[]> {
     const call = this.nextCall++
     return this.request(call, () => {
       this.send(encodeFrame(ToServer.UNREVIEWED, { ref: state.ref, call }))
-    }).then(({ value }) => value as Unreviewed[])
+    }, state).then(({ value }) => value as Unreviewed[])
   }
 
   restore(state: DocState, id: string): Promise<number> {
     const call = this.nextCall++
     return this.request(call, () => {
       this.send(encodeFrame(ToServer.RESTORE, { ref: state.ref, call, id }))
-    }).then(({ value }) => Number((value as { log: number }).log))
+    }, state).then(({ value }) => Number((value as { log: number }).log))
   }
 
   // The connection
@@ -714,17 +733,23 @@ class QuorumClient implements Client {
     }
   }
 
-  private call(call: number, send: () => void): Promise<unknown> {
-    return this.request(call, send).then(({ value }) => value)
+  private call(call: number, send: () => void, state?: DocState): Promise<unknown> {
+    return this.request(call, send, state).then(({ value }) => value)
   }
 
   /** A call answered with a value, and with a payload for some */
-  private request(call: number, send: () => void): Promise<{ value: unknown, payload: Uint8Array }> {
+  private request(
+    call: number,
+    send: () => void,
+    state?: DocState
+  ): Promise<{ value: unknown, payload: Uint8Array }> {
     if (this.status === 'closed') {
       return Promise.reject(new QuorumError('unavailable', 'y-quorum: the client is closed'))
     }
     return new Promise((resolve, reject) => {
-      const entry: Call = { resolve: (value, payload) => resolve({ value, payload }), reject, send, sent: false }
+      const entry: Call = {
+        resolve: (value, payload) => resolve({ value, payload }), reject, send, sent: false, state
+      }
       this.calls.set(call, entry)
       if (this.welcomed) {
         entry.sent = true
@@ -1040,9 +1065,17 @@ class QuorumClient implements Client {
     }
     state.phase = 'open'
     // Everything the server lacks, offline changes and unacknowledged ones
-    // alike, in one update
+    // alike, in one update. What an agent wrote goes first, in order with the
+    // rest, each with its claim, so it stays the agent's; what it holds is then
+    // in the server's copy, and the update after it only brings what it lacks.
     const hadUnsaved = state.local.length > 0
+    const local = state.local
     state.local = []
+    if (local.some((entry) => entry.claim)) {
+      for (const run of runsOf(local)) {
+        this.sendUpdate(state, run.layer, Y.mergeUpdates(run.updates), run.claim)
+      }
+    }
     const serverState = header.stateVector ? fromBase64(header.stateVector) : undefined
     const diff = Y.encodeStateAsUpdate(state.doc, serverState)
     if (hasContent(diff)) {
@@ -1132,8 +1165,10 @@ class QuorumClient implements Client {
 
   private sendRecord(state: DocState, record: PendingRecord): void {
     record.seq = ++state.seq
-    const { kind, data, claim } = record
-    const header = { ref: state.ref, seq: record.seq, kind, data, ...(claim ? { claim } : {}) }
+    const { kind, data, claim, id } = record
+    const header = {
+      ref: state.ref, seq: record.seq, kind, data, id, ...(claim ? { claim } : {})
+    }
     this.send(encodeFrame(ToServer.RECORD, header))
   }
 
@@ -1276,6 +1311,13 @@ class QuorumClient implements Client {
       }
       for (const waiter of state.waiters.splice(0)) {
         waiter.reject(new QuorumError(refusal.code, refusal.reason))
+      }
+      // Its requests are answered by nobody now
+      for (const [call, entry] of this.calls) {
+        if (entry.state === state) {
+          this.calls.delete(call)
+          entry.reject(new QuorumError(refusal.code, refusal.reason))
+        }
       }
       if (live) {
         state.detach()

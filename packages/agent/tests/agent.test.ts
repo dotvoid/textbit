@@ -2,7 +2,9 @@ import { describe, test, expect } from 'vitest'
 import { Editor, Node, Transforms, type Descendant } from 'slate'
 import { createTextbitEditor } from '@dotvoid/textbit/headless'
 import { Text, Bold, Italic, Link, Image, UnorderedList, Table, Blockquote } from '@dotvoid/textbit-plugins/definitions'
-import { createDocumentAgent, createAgentTools, type EditOperation, type EditResult } from '../lib'
+import {
+  createAgentPresence, createDocumentAgent, createAgentTools, type EditOperation, type EditResult
+} from '../lib'
 
 const PLUGINS = [Text(), Bold(), Italic(), Link(), Image(), UnorderedList(), Table(), Blockquote()]
 
@@ -278,6 +280,53 @@ describe('elements sharing an id', () => {
   })
 })
 
+
+describe('what the review found', () => {
+  test('an element named by its path, moved on since the read, is stale', () => {
+    const copy = structuredClone(document().slice(0, 2))
+    ;(copy[1] as { children: { text: string }[] }).children[0].text = 'Boats '
+    const editor = createTextbitEditor({ plugins: PLUGINS, value: [...document().slice(0, 2), ...copy] })
+    const agent = createDocumentAgent(editor, { plugins: PLUGINS })
+    const { revision } = agent.read()
+    Transforms.insertNodes(editor, {
+      id: 'new', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'Top' }]
+    } as Descendant, { at: [0] })
+    expect(agent.edit({ revision, operations: [{ op: 'replace', id: '@1', content: '[text] X' }] }))
+      .toMatchObject({ ok: false, error: { code: 'stale' } })
+  })
+
+  test('content with the element’s own handle keeps its id; another’s is refused', () => {
+    const { editor, agent } = setup()
+    ok(agent.edit({ operations: [{ op: 'replace', id: 'aaaaaa', content: '[#aaaaaa text] New' }] }))
+    expect(text(editor, ID.title)).toBe('New')
+    expect(agent.edit({ operations: [{ op: 'replace', id: 'aaaaaa', content: '[#bbbbbb text] X' }] }))
+      .toMatchObject({ ok: false, error: { code: 'invalid-operation' } })
+  })
+
+  test('spaces at the end of a line are the text’s', () => {
+    const { editor, agent } = setup()
+    ok(agent.edit({ operations: [{ op: 'replace', id: 'aaaaaa', content: '[text] Word ' }] }))
+    expect(text(editor, ID.title)).toBe('Word ')
+  })
+
+  test('reading from an element no longer there says so', () => {
+    const { agent } = setup()
+    expect(agent.read({ from: 'zzzzzz' })).toMatchObject({ view: '', fromNotFound: true })
+  })
+
+  test('a failed edit leaves the agent idle, not reading', () => {
+    const editor = createTextbitEditor({ plugins: PLUGINS, value: document() })
+    let status: string | undefined
+    const presence = createAgentPresence({ setLocalStateField: (_field, value) => {
+      status = (value as { status?: string } | null)?.status
+    } }, { name: 'Assistant' })
+    const agent = createDocumentAgent(editor, { plugins: PLUGINS, presence })
+    agent.read()
+    expect(status).toBe('reading')
+    agent.edit({ operations: [{ op: 'delete', id: 'zzzzzz' }] })
+    expect(status).toBe('idle')
+  })
+})
 
 test('describeSchema can be called with a schema alone', async () => {
   const { getSchema } = await import('@dotvoid/textbit/headless')

@@ -142,7 +142,9 @@ export function parseElements(schema: DocumentSchema, names: Names, source: stri
         throw new FormatError('children are indented by two spaces under their parent', line.number)
       }
       position++
-      parsed.push(parseOne(schema, names, line.text.trim(), line.number, parentType, (type) => level(depth + 1, type)))
+      // Spaces at the end are the text's own
+      const text = line.text.trimStart().replace(/\r$/, '')
+      parsed.push(parseOne(schema, names, text, line.number, parentType, (type) => level(depth + 1, type)))
     }
     return parsed
   }

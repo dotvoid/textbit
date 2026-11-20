@@ -190,6 +190,29 @@ describe('the client', () => {
     expect(server.framesOf(ToServer.HELLO)).toHaveLength(2)
   })
 
+  it('keeps an agent’s claim on what it wrote offline', async () => {
+    const client = connect()
+    const handle = await client.open('plans', 'one')
+    server.drop()
+    await waitFor(() => client.status === 'disconnected')
+    const origin = handle.claimOrigin({ agent: 'helper' })
+    handle.doc.transact(() => handle.content.setAttr('status', 'by the agent'), origin)
+    await waitFor(() => client.status === 'connected')
+    await waitFor(() => server.doc.get('content').getAttr('status') === 'by the agent')
+    const claimed = server.framesOf(ToServer.UPDATE).filter((frame) => frame.header.claim)
+    expect(claimed.map((frame) => frame.header.claim)).toEqual([{ agent: 'helper' }])
+  })
+
+  it('ends a document’s requests when the document is released', async () => {
+    const client = connect()
+    const handle = await client.open('plans', 'one')
+    server.drop()
+    await waitFor(() => client.status === 'disconnected')
+    const saving = handle.save()
+    handle.release()
+    await expect(saving).rejects.toThrow()
+  })
+
   it('watches fields of a document', async () => {
     const client = connect()
     const watch = await client.watch('plans', 'one', ['title'])

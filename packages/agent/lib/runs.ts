@@ -111,6 +111,11 @@ export function startRun(editor: Editor, onEnd: () => void): { run: AgentRun, re
     finish: () => {
       if (open) {
         open = false
+        // What the agent does later is another run's: this one keeps its own
+        // edits to undo, and takes no more
+        if (origin) {
+          manager?.removeTrackedOrigin(origin)
+        }
         onEnd()
       }
     },

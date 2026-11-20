@@ -109,6 +109,15 @@ describe('validate', () => {
     expect(codes([picture({}, [content])])).toEqual(['too-few@0', 'would-change@0'])
   })
 
+  test('a void holding more than its empty text', () => {
+    const content = {
+      id: 'c', type: 'test/figure/content', class: 'void',
+      children: [{ id: 'x', type: 'base/text', class: 'text', children: [{ text: 'Inside' }] }]
+    } as Descendant
+    const caption = { id: 'cap', type: 'test/figure/caption', class: 'text', children: [{ text: 'x' }] } as Descendant
+    expect(codes([picture({}, [content, caption])])).toContain('invalid-children@0.0')
+  })
+
   test('marks and inline elements a field does not allow', () => {
     const caption = {
       id: 'cap',

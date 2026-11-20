@@ -56,6 +56,19 @@ describe('a run of agent edits', () => {
     expect(strings(person)).toEqual(['One by a person', 'Two'])
   })
 
+  test('undoes only its own run, not one that came after it', () => {
+    const editor = sharedEditor(seeded())
+    const agent = createDocumentAgent(editor, { plugins: PLUGINS })
+    const first = agent.startRun()
+    agent.edit({ operations: [{ op: 'replaceText', id: '11111111', find: 'One', replace: 'First' }] })
+    first.finish()
+    const second = agent.startRun()
+    agent.edit({ operations: [{ op: 'replaceText', id: '22222222', find: 'Two', replace: 'Second' }] })
+    second.finish()
+    expect(first.undo()).toEqual({ ok: true })
+    expect(strings(editor)).toEqual(['One', 'Second'])
+  })
+
   test('the undo of the person at the same editor leaves the agent\'s edits', () => {
     const editor = sharedEditor(seeded())
     const agent = createDocumentAgent(editor, { plugins: PLUGINS })

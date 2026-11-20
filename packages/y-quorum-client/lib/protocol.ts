@@ -230,7 +230,10 @@ export interface Headers {
   [ToServer.CLOSE]: { ref: number }
   [ToServer.UPDATE]: { ref: number, layer: Layer, seq: number, claim?: ActorClaim }
   [ToServer.AWARENESS]: { ref: number }
-  [ToServer.RECORD]: { ref: number, seq: number, kind: string, data: unknown, claim?: ActorClaim }
+  /** `id`: the same for a record sent again, so it is stored once */
+  [ToServer.RECORD]: {
+    ref: number, seq: number, kind: string, data: unknown, claim?: ActorClaim, id?: string
+  }
   [ToServer.RPC]: { call: number, name: string, args: unknown }
   [ToServer.TOKEN]: { token: string }
   [ToServer.PING]: Record<string, never>

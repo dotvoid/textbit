@@ -18,7 +18,7 @@ beta`) are published under the `next` dist-tag.
 
 | Package | Folder | Tag |
 |---------|--------|-----|
-| `@dotvoid/textbit` | `packages/textbit` | `v1.10.0` |
+| `@dotvoid/textbit` | `packages/textbit` | `v3.0.0` |
 | `@dotvoid/textbit-plugins` | `packages/plugins` | `textbit-plugins@0.1.0` |
 | `@dotvoid/textbit-styles` | `packages/styles` | `textbit-styles@0.1.0` |
 | `@dotvoid/textbit-agent` | `packages/agent` | `textbit-agent@0.1.0` |
@@ -66,7 +66,9 @@ so they cannot be released before it:
 6. Narrow y-quorum-client's and y-quorum's range of the editor to `^3.0.0`, and
    y-quorum's range of the agent package to `^1.0.0`, and commit it.
 7. Release y-quorum-client for the first time: `npm version major`, giving 1.0.0.
-8. Point y-quorum's dependency on the client at `^1.0.0`, run `npm install` at the
+   y-quorum's dependency on it reads `0.0.0 || ^1.0.0`, so `npm ci` holds on either
+   side of the release.
+8. Narrow y-quorum's dependency on the client to `^1.0.0`, run `npm install` at the
    root so the lockfile follows, and commit it.
 9. Release y-quorum for the first time: `npm version major`, giving 1.0.0.
 

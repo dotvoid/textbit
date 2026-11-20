@@ -270,7 +270,10 @@ function normalizeTable(editor: Editor, [node, path]: NodeEntry): boolean | unde
     }
   }
 
-  const widths = node.children.map((row) => Element.isElement(row) ? row.children.length : 0)
+  // Cells, not what Slate leaves in a row emptied of them: an empty text
+  const widths = node.children.map((row) => Element.isElement(row)
+    ? row.children.filter((cell) => Element.isElement(cell)).length
+    : 0)
   const empty = widths.indexOf(0)
   if (empty !== -1) {
     Transforms.removeNodes(editor, { at: [...path, empty] })

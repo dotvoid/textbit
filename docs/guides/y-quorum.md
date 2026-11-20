@@ -15,12 +15,12 @@ any Y.js server does. What it adds is the reason it exists:
   from what a client says about itself: the person, or the agent and the person it acted for.
   The history is a hash chain that can be exported, checked and signed.
 
-`@dotvoid/y-quorum` is the server, for Node 22 or later. Its client is
+`@dotvoid/y-quorum` is the server, for Node 22.13 or later. Its client is
 `@dotvoid/y-quorum-client`, for the browser and for Node; see
 [y-quorum, the client](./y-quorum-client.md). Both are built on Y.js 14 (`@y/y`).
 
 ```bash
-npm install @dotvoid/y-quorum @dotvoid/textbit @y/y @y/protocols slate
+npm install @dotvoid/y-quorum @dotvoid/textbit @dotvoid/textbit-plugins @y/y @y/protocols slate
 ```
 
 ## Starting a server
@@ -86,8 +86,9 @@ await server.listen(1234)
   another: leases, presence and deletion work per namespace. A host with customers gives each
   their own; one without may still use several.
 
-A token can be renewed on an open connection (see the client guide). The renewed token must
-belong to the same principal, or the connection is closed; its namespaces may change, and
+A connection says who it is once, in its HELLO; a second is refused. A token can be renewed
+on an open connection (see the client guide). The renewed token must belong to the same
+principal, or the connection is closed; its namespaces may change, and
 documents in a namespace no longer allowed are closed. `authorize` is asked again for every
 document the connection has open: clients are told their new capabilities, and documents they
 may no longer read are closed. Connections relayed to other nodes renew with it.
@@ -247,7 +248,8 @@ server share; the policy is the server's alone.
 The server asks the policy for every write to the content, with its paths, and only `write` in
 the answer counts. **Whenever the content changes, it asks again for every open connection**,
 and tells each client whose capabilities changed, from that log position on. A document that
-becomes published is read-only for everyone at once, without your code calling anything.
+becomes published is read-only for everyone at once, without your code calling anything; one
+that someone may no longer read is closed for them, as a renewed token does.
 `comments`, `suggestions` and `versions` follow the roles, as in the table, unless the policy
 returns them, but `all` goes with `write`: on a document that became read-only, editors no
 longer comment or decide suggestions, while commenters and suggesters keep `own`. A policy that
@@ -639,13 +641,18 @@ await server.listen(1234)
   node that is asked for a document no one holds takes it.
 - **Clients connect to any node.** A node asked for a document another holds passes its frames
   on to that node, over a connection that speaks for the client, signed with `nodeSecret`. No
-  routing by document is needed at the load balancer, though it saves a hop.
+  routing by document is needed at the load balancer, though it saves a hop. A signed token
+  is good for five minutes, for saying hello or renewing: one taken off the wire is of no use
+  for long. Keep the nodes' traffic on a private network, or use `wss`.
 - **Every node needs the same `nodeSecret`,** and each a unique `id` and an `address` the
   others reach. The node reads `address` when it takes a lease, so it may be filled in after
-  `listen`.
-- **Writes are fenced.** Every write carries the lease's epoch; a store refuses a write from a
+  `listen`. A node without `nodeSecret` will not start.
+- **The log is fenced.** Every append carries the lease's epoch; a store refuses one from a
   node whose lease has passed to another, so a node that lost a document, paused or cut off,
-  writes nothing more to it and sends its clients away to reconnect.
+  logs nothing more of it and sends its clients away to reconnect. A lease that ran out is
+  taken with a new epoch, even by the node that had it.
+- **A deleted document takes nothing more.** Deleting ends its lease with the next epoch, and
+  the stores keep nothing written beside it afterwards: history, records, versions, claims.
 
 When a node goes away:
 
@@ -663,7 +670,9 @@ on to the node holding the document.
 
 > **Not yet:** presence per namespace shows only the clients on the follower's own node. A
 > node whose store stalls while its network lives keeps taking relays, and the documents it
-> holds hang until it is restarted.
+> holds hang until it is restarted. Besides the log, what a node writes of a document, such as
+> its history, is not fenced by the epoch: a node that lost a lease it still believes it
+> holds may write history until its next renewal, at most a third of `leaseTtl` later.
 
 ## Code in the server process
 
