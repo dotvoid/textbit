@@ -93,7 +93,11 @@ export function SlateContainer(props: SlateContainerProps) {
   const field = shared?.value
   const renderer = shared?.renderer
   const awareness = collaboration?.awareness
-  const cursor = collaboration?.cursor
+  // The cursor by what it says, not which object it is: an inline `cursor={{ ... }}`
+  // is a new object every render, and must not rebind the field (and lose undo)
+  const cursorKey = JSON.stringify(collaboration?.cursor ?? null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const cursor = useMemo(() => collaboration?.cursor, [cursorKey])
   useLayoutEffect(() => {
     if (!field) {
       return
