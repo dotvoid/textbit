@@ -1,129 +1,114 @@
 # Suggestions
 
-A suggestion is a change proposed for people to accept or reject, block by block, instead of a
-change made. An agent in suggest mode makes them; anything else can too. Until someone decides,
-the document stays as it was, and every editor shows what would change.
+A suggestion is a change proposed for people to accept or reject, instead of a change made.
+Textbit makes them the way Y.js 14 does: in a **fork** of the shared text, a copy that the text
+keeps flowing into. What is typed in the fork stays there until someone accepts it into the
+text. Everyone sees the difference between the two: what would be added, underlined, and what
+would be removed, struck.
 
-## Making suggestions
+Suggestions need a shared document: the text in a Y.js 14 `Y.Doc`, and its fork in another.
 
-**From an agent.** Pass `review: 'suggest'`:
+## The fork and its view
 
-```ts
-const agent = createDocumentAgent(editor, { plugins, presence, review: 'suggest' })
-```
-
-Each batch the agent sends is planned and checked exactly as an edit would be: its handles,
-its content, the document's rules. Instead of being applied, the difference is stored as one
-suggestion. The edit tool tells the model so in its description, its result says "Suggested"
-and shows the blocks as they would be, and reads say how many suggestions wait.
-
-`author` names who a suggestion is from (`{ name, color }`); by default the presence's name,
-else `Agent`. Moving a block cannot be suggested yet: the agent gets `not-allowed` and a hint to
-suggest the content where it should go and its removal where it is.
-
-**From anything else.** Compute it from two versions of the document and store it:
+The fork is a `Y.Doc` of its own, with garbage collection off so it keeps what it deletes:
 
 ```ts
-import { suggestionFor, suggestionStore } from '@dotvoid/textbit'
+import * as Y from '@y/y'
 
-const suggestion = suggestionFor(editor.children, proposedChildren, { name: 'Copy desk', color: '#1971c2' })
-if (suggestion) {
-  suggestionStore(editor).put(suggestion)
-}
+const fork = new Y.Doc({ gc: false, isSuggestionDoc: true })
+Y.applyUpdate(fork, Y.encodeStateAsUpdate(doc))
+const renderer = Y.createDiffRenderer(doc, fork)
 ```
 
-`suggestionFor` compares the top-level blocks by id and gives the blocks that change, are
-inserted and are deleted, or `null` when nothing differs. Both functions are also in
-`@dotvoid/textbit/headless`.
-
-## What people see
-
-Every editor in the document shows each block of a suggestion where it applies:
-
-- **A changed block:** the words it would remove struck through, the words it would add beside
-  them, tinted in the author's colour and underlined. A change of more than words, such as
-  formatting, is noted in the bar.
-- **A deleted block:** struck through whole.
-- **An inserted block:** a preview of its text where it would go.
-- **On each,** who suggests it, and **Accept** and **Reject**. Read-only editors show who,
-  without the buttons.
-
-Unlike what an agent changes directly, suggestions do not fade. They wait.
-
-The marks are not part of the document: they cannot be edited, the caret skips them, copies
-leave them out, and screen readers do not read them as text. New suggestions are announced
-instead: "Writing assistant suggests changes to 3 blocks".
-
-## Reviewing
-
-**`Textbit.Suggestions`** lists every suggestion, with what each block does ("Change “teh” to
-“the”", "Add “…”", "Delete “…”"), its Accept and Reject, and Accept all and Reject all. It is
-what keyboard and screen reader users review with, and a review panel for anyone. Place it
-inside `Textbit.Root`; it renders nothing while there are none.
+`createDiffRenderer` shows the fork as its difference with the text, and keeps the fork in step:
+whatever the text gets flows into it. Bind the editor to the fork's field through it:
 
 ```tsx
-<Textbit.Root value={shared} awareness={provider.awareness} plugins={plugins}>
+<Textbit.Root value={fork.get('body')} renderer={renderer} awareness={awareness}>
   <Textbit.Editable aria-label='Article' />
-  <Textbit.Suggestions aria-label='Suggestions' />
+  <Textbit.Suggestions />
 </Textbit.Root>
 ```
 
-**`useSuggestions()`** gives the same to build your own:
+With [y-quorum](./collaboration.md), the client keeps the fork for you: `handle.suggestionsDoc`
+is it, and `handle.suggestionsRenderer()` the renderer, with who suggested what from the
+server.
 
-| Field | |
-|-------|---|
-| `suggestions` | The suggestions in the document, oldest first |
-| `shown` | Each suggested block as the editor shows it, in document order: `suggestion`, `block`, `state` (`'ready'` or `'stale'`), and for a change `texts` (the word changes per text element) and `formatting` |
-| `accept(suggestionId, blockId?)` | Accept a block, or every block of the suggestion that can be |
-| `reject(suggestionId, blockId?)` | Reject a block, or all of it |
+## Suggesting, or editing with suggestions shown
 
-Without React, use `acceptSuggestedBlock`, `rejectSuggestedBlock`, `acceptSuggestion`,
-`rejectSuggestion`, `suggestedBlockState` and `suggestedTextChanges` from the headless entry.
+`renderer.suggestionMode` decides where typing goes:
 
-## Accepting, rejecting, undoing
+- `true`: into the fork. What a person types, deletes or formats is suggested. Fixing a typo in
+  one's own suggestion keeps it a suggestion.
+- `false`: into the text, through the fork. The person edits as usual and sees what others
+  suggest around it.
 
-- **Accepting is the person's own edit.** It goes into their undo: undoing it brings back the
-  text and the suggestion.
-- **Rejecting** leaves the document as it is. In a shared document the person who rejected can
-  undo it too.
-- **Out of date.** A block someone changed after it was suggested is `stale`: it can only be
-  rejected. Its bar says "changed since".
-- **An inserted block** goes after the block it was suggested after. If that one is itself an
-  insert of the same suggestion not yet accepted, it goes after that one's anchor, and so on.
+y-quorum's `suggestionsRenderer({ suggesting })` sets it; it may change at any time.
 
-## With several people
+## What people see
 
-Everyone in the document sees the same suggestions and may accept or reject them.
+Suggested text carries the `_suggested` mark, `'insert'` or `'delete'`, and through the
+attributions `_by` and `_at`, who suggested it and when. The leaf has `data-tb-change` and
+`data-tb-by`, and the editable `data-tb-view='suggestions'`. The default styles underline what
+would be added and strike what would be removed.
 
-- **Each block is decided on its own.** Two people deciding different blocks of the same
-  suggestion at the same moment both count.
-- **Accepting a block removes it from the suggestion** as part of the same change. Once that
-  has reached the others, they cannot accept it again.
-- **Two people accepting the same block at the same moment,** before either has seen the other,
-  each insert it. Editors then take out the second, an exact copy of the first: the same id and
-  the same content, which no edit means to make. Blocks that share an id but differ are left,
-  as they hold someone's work.
-- **Undo is per person:** each undoes their own decisions, whatever others decided after.
+## Reviewing
 
-## Where suggestions are kept
+`Textbit.Suggestions` lists the changes in the order of the text, each with what it does and
+who suggested it, Accept and Reject, and Accept all and Reject all when there are several. It is
+how keyboard and screen reader users review: the marks in the text are for the eye. Give it
+`people`, names by the keys attributions use (y-quorum's `handle.people`), to say who.
 
-In a shared document, in a map of the same `Y.Doc`, beside the content: `textbitSuggestions`,
-with one entry per suggested block. Everyone sees them, and they outlive whoever made them. In
-a document that is not shared, they are kept in memory with the editor, for everything in the
-same page. The entries are specified in [Formats](./formats.md#suggestions).
+To build your own, `useSuggestions()` gives:
 
-**What that means for storing documents.** The content never holds a suggestion: the editor's
-value, `onChange`, and anything read from the content type (`yTextToSlateElement`) are the
-document without them. The `Y.Doc` does hold them: whatever stores a `Y.Doc` as a whole, such
-as `Y.encodeStateAsUpdate(doc)` or a Hocuspocus `onStoreDocument`, stores the suggestions
-waiting for review with it, and they are there again when it is loaded. That is the point: a
-review can wait for someone. To keep a document without them, store its content, or empty the
-map first.
+| | |
+|---|---|
+| `enabled` | Whether the editor shows a fork through a diff renderer |
+| `changes` | Each change: `kind` (`insert`, `delete` or `replace`), `inserted`, `deleted`, `by`, `at`, `block` (a whole block suggested), `range` in the editor |
+| `accept(change)`, `reject(change)` | Decide one change |
+| `acceptAll()`, `rejectAll()` | Decide all |
+
+Without React, `suggestedChanges(editor)`, `acceptChange(editor, change)` and
+`rejectChange(editor, change)` do the same for an editor bound to the fork through the renderer.
+
+A change is a run of suggested content side by side: an insertion right next to a deletion is
+one replacement, and accepting it takes the whole run, as Y.js does. A whole block suggested,
+added or removed, is one change with everything in it.
+
+## Accepting and rejecting
+
+Accepting writes the suggested items themselves into the text, so the text keeps who wrote them
+and the fork who suggested them. Rejecting takes the suggestion out of the fork and records in
+the text that it was rejected. Both are changes like any other and are undone like one.
+
+With y-quorum the server holds everyone to their role:
+
+| | Suggest | Withdraw own | Accept | Reject others' |
+|---|---|---|---|---|
+| reader, commenter | | | | |
+| suggester | yes | yes | | |
+| editor, owner | yes | yes | yes | yes |
+
+Accepts and rejections are entries of their own in the document's history.
+
+## From an agent
+
+An agent suggests by editing the fork. Give it an editor bound to the fork's field, plainly,
+without a renderer:
+
+```ts
+const forkEditor = createTextbitEditor({ plugins, shared: handle.suggestionsDoc.get('content').getAttr('body') })
+const agent = createDocumentAgent(editor, { plugins, presence, review: 'suggest', suggestIn: forkEditor })
+```
+
+While `review` is `'suggest'` the agent reads, searches and edits the fork: the document with
+the suggestions made so far. What it changes there is suggested, moving blocks included. Its
+tools tell the model so. Without `suggestIn` it refuses to suggest. `review` may change between
+calls.
 
 ## Limits
 
-- **Moves** cannot be suggested yet.
-- **Formatting changes** (marks, properties) show as a note on the bar, not word by word.
-- **An addition to an empty text field** has no character to sit beside: the bar shows the
-  suggestion, the text does not.
-- **Without Y.js,** a reject cannot be undone.
+- The fork is the whole text: there is one set of suggestions per document, not one per
+  person.
+- Changing only a block's properties, such as a heading level, shows in the fork but is not yet
+  listed as a change of its own.

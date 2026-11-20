@@ -193,4 +193,18 @@ describe('suggestions', () => {
       .filter((entry) => entry.kind !== 'edit').map((entry) => [entry.kind, entry.actor.principal.id])
     expect(kinds).toEqual([['reject', 'sam'], ['accept', 'alice']])
   })
+
+  it('names who suggested in a view open before the suggestion came, and in the suggester’s own', async () => {
+    await start()
+    const sam = await open('sam', 's-8')
+    const alice = await open('alice', 's-8')
+    const review = suggesting(alice)
+    const mine = suggesting(sam)
+    Transforms.insertText(mine.editor, 'Please ', { at: { path: [0, 0], offset: 0 } })
+    await saved(sam)
+
+    const by = (editor: Editor) => ((editor.children[0] as Element).children[0] as { _by?: string })._by
+    await until(() => by(review.editor) === 'person:sam')
+    await until(() => by(mine.editor) === 'person:sam')
+  })
 })

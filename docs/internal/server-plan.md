@@ -680,8 +680,15 @@ through MCP is an agent action: people edit over the socket.
    or an editor, anything else as accepting, by an editor only (`accept` and `reject` history
    entries). In the fork, deleting what exists only there withdraws a suggestion: its author's
    or an editor's to do. Capabilities: `suggestions` none, own or all, by role (suggester,
-   editor). To come: the editor's suggesting mode and review on the fork, replacing the
-   interim suggestions map; agents suggesting in the fork; run revert.
+   editor). The editor followed the same day, replacing the interim suggestions map: an
+   editor bound to the fork through the diff renderer shows what is suggested; the renderer's
+   `suggestionMode` decides whether typing is suggested or goes into the text (the talk's open
+   question answered as theirs: into the text, with suggestions shown). `useSuggestions` and
+   `Textbit.Suggestions` read the changes off the marks and accept or reject each by the Y.js
+   item it starts at, reached through a relative position made through the renderer, public
+   API; Y.js widens it to the run. Agents suggest by editing the fork (`suggestIn`). Server and
+   client send a change's attributions before the change, so views name who suggested. To come:
+   run revert as a suggestion; listing property-only changes; a fork per person, if wanted.
 6. **The MCP module.**
 7. **Production:** Postgres and S3, leases and forwarding, audit export, retention and
    redaction.

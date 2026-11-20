@@ -121,8 +121,8 @@ Notes:
   when a task begins and finish it when it ends; see [Runs](./agents-server.md#runs). An MCP
   server does not know where a task ends, so a pause between tool calls is a practical end,
   as the agent lab in this repository does.
-- **Suggesting.** Pass `review: 'suggest'` to `createDocumentAgent` to make every edit a
-  suggestion. If the option changes while the server runs, rebuild the tools and update the
+- **Suggesting.** Pass `review: 'suggest'` and `suggestIn`, an editor on the fork of the
+  document, to `createDocumentAgent` to make every edit a suggestion. If the option changes while the server runs, rebuild the tools and update the
   edit tool's description with `update({ description })` on what `registerTool` returned.
   Declare `capabilities: { tools: { listChanged: true } }`: the SDK then tells clients to fetch
   the new description. The agent lab's `apps/agent-lab/src/mcp.ts` does this.

@@ -422,7 +422,7 @@ options.
 | `useSelectionStats()` | Words and characters in the selection |
 | `usePendingDrops()` | Drops in progress |
 | `useAgents()`, `useAgentChanges()` | Agents in a shared document, and what they changed. See [Agents](./agents.md). |
-| `useSuggestions()` | Suggestions waiting for review. See [Suggestions](./suggestions.md). |
+| `useSuggestions()` | The suggested changes of an editor showing a fork, to accept and reject. See [Suggestions](./suggestions.md). |
 | `useComments()` | The comment threads, where each is in the text, and writing them. See [Comments](#comments). |
 
 Call them inside `Textbit.Root`. Their exact shapes are in the API reference.

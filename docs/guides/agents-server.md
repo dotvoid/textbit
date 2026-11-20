@@ -117,9 +117,10 @@ that the agent's server observes.
 
 ## Edit or suggest
 
-`createDocumentAgent(editor, { plugins, presence, review: 'suggest' })` makes the agent propose
-its changes instead, for people to accept or reject in their editors. See
-[Suggestions](./suggestions.md).
+`createDocumentAgent(editor, { plugins, presence, review: 'suggest', suggestIn: forkEditor })`
+makes the agent propose its changes instead, in the fork of the document, for people to accept
+or reject in their editors. `forkEditor` is bound to the fork's field, with y-quorum
+`handle.suggestionsDoc`. See [Suggestions](./suggestions.md).
 
 ## Starting over without old copies
 

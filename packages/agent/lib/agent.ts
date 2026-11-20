@@ -4,7 +4,6 @@ import { formatElements } from './format'
 import { describeWith } from './describe'
 import { planEdit, runEdit, isStepError, pathOf, type EditOperation, type EditResult } from './edit'
 import { changedSince, recordRevision, revisionOf } from './revisions'
-import { suggestionFor, suggestionStore } from '@dotvoid/textbit/headless'
 import { asAgent, startRun, type AgentRun, type RunRecorder } from './runs'
 import type { AgentPresence } from './presence'
 import { textChanges, textsById } from './changes'
@@ -27,8 +26,6 @@ export interface ReadResult {
   total: number
   /** Where the next page starts, when there is more */
   next?: string
-  /** Suggestions in the document waiting for a person to accept or reject them */
-  suggestions: number
 }
 
 /** What `search` takes */
@@ -97,7 +94,7 @@ const DONE = new WeakMap<Editor, Map<string, EditResult>>()
  * Give it the same plugins as the editor.
  */
 export function createDocumentAgent(
-  editor: Editor,
+  content: Editor,
   options: AgentOptions & { presence?: AgentPresence } = {}
 ): DocumentAgent {
   const context = createContext(options)
@@ -105,16 +102,20 @@ export function createDocumentAgent(
   const { presence } = options
   let recorder: RunRecorder | undefined
 
-  const view = (entries: [Element, Path][]) => formatElements(
+  // The editor the agent works in: the document's, or while it suggests, the
+  // fork's, where its edits are suggestions
+  const target = (): Editor => options.review === 'suggest' && options.suggestIn ? options.suggestIn : content
+
+  const view = (editor: Editor, entries: [Element, Path][]) => formatElements(
     { schema: context.schema, names: context.names, handles: context.handles(editor.children) },
     entries
   )
 
-  const topLevel = (): [Element, Path][] => editor.children.flatMap((node, index): [Element, Path][] =>
+  const topLevel = (editor: Editor): [Element, Path][] => editor.children.flatMap((node, index): [Element, Path][] =>
     Element.isElement(node) ? [[node, [index]]] : [])
 
   /** The top-level elements the elements with these ids are in */
-  const blocksOf = (ids: string[]): [Element, Path][] => {
+  const blocksOf = (editor: Editor, ids: string[]): [Element, Path][] => {
     const indexes = new Set<number>()
     for (const id of ids) {
       try {
@@ -129,54 +130,14 @@ export function createDocumentAgent(
     })
   }
 
-  /** The changes as a suggestion, for people to accept or reject; the document stays */
-  const suggest = (input: EditInput, plan: ReturnType<typeof planEdit>, current: string): EditResult => {
-    if (input.operations.some((operation) => operation?.op === 'move')) {
-      return {
-        ok: false,
-        revision: current,
-        error: {
-          code: 'not-allowed',
-          message: 'Moving a block cannot be suggested yet',
-          hint: 'Suggest the content where it should go, and deleting it where it is'
-        }
-      }
-    }
-    const outcome = runEdit(editor, options.plugins, plan, null)
-    if ('error' in outcome) {
-      return { ok: false, revision: current, error: outcome.error }
-    }
-
-    const author = options.author ?? presence?.identity ?? { name: 'Agent' }
-    const suggestion = suggestionFor(editor.children, outcome.copy.children, author)
-    if (!suggestion) {
-      return { ok: true, revision: current, view: '' }
-    }
-    suggestionStore(editor).put(suggestion)
-
-    // The suggested blocks as they would be
-    const proposed = new Set(suggestion.blocks.map((block) => block.id))
-    const entries = outcome.copy.children.flatMap((node, index): [Element, Path][] =>
-      Element.isElement(node) && typeof node.id === 'string' && proposed.has(node.id) ? [[node, [index]]] : [])
-    const result: EditResult = {
-      ok: true,
-      revision: current,
-      suggestion: suggestion.id,
-      view: formatElements({ schema: context.schema, names: context.names, handles: context.handles(outcome.copy.children) }, entries)
-    }
-    if (input.opId) {
-      DONE.get(editor)?.set(input.opId, result)
-    }
-    return result
-  }
-
   return {
     context,
 
     read: (input = {}) => {
+      const editor = target()
       presence?.set('reading')
       const revision = recordRevision(editor)
-      const blocks = topLevel()
+      const blocks = topLevel(editor)
       let start = 0
       if (input.from) {
         const match = context.handles(editor.children).resolve(input.from)
@@ -188,7 +149,7 @@ export function createDocumentAgent(
       let size = 0
       let end = start
       for (; end < blocks.length && end - start < limit; end++) {
-        const line = view([blocks[end]])
+        const line = view(editor, [blocks[end]])
         if (lines.length && size + line.length > pageSize) {
           break
         }
@@ -201,12 +162,12 @@ export function createDocumentAgent(
         revision,
         view: lines.join('\n'),
         total: blocks.length,
-        suggestions: suggestionStore(editor).list().length,
         ...(end < blocks.length ? { next: handles.of(blocks[end][0], blocks[end][1]) } : {})
       }
     },
 
     search: ({ query, limit = 20 }) => {
+      const editor = target()
       presence?.set('reading')
       const revision = recordRevision(editor)
       const needle = query.toLowerCase()
@@ -221,7 +182,7 @@ export function createDocumentAgent(
         if (holdsText && Node.string(node).toLowerCase().includes(needle)) {
           const top = editor.children[path[0]]
           matches.push({
-            line: view([[node, path]]).trim(),
+            line: view(editor, [[node, path]]).trim(),
             ...(path.length > 1 && Element.isElement(top) ? { in: handles.of(top, [path[0]]) } : {})
           })
         }
@@ -232,6 +193,7 @@ export function createDocumentAgent(
     describe: () => describeWith(context.schema, context.names),
 
     edit: (input) => {
+      const editor = target()
       const done = DONE.get(editor) ?? new Map<string, EditResult>()
       DONE.set(editor, done)
       if (input.opId && done.has(input.opId)) {
@@ -243,6 +205,13 @@ export function createDocumentAgent(
 
       if (options.readOnly) {
         return fail({ ok: false, revision: current, error: { code: 'read-only', message: 'This document is read-only' } })
+      }
+      if (options.review === 'suggest' && !options.suggestIn) {
+        return fail({
+          ok: false,
+          revision: current,
+          error: { code: 'not-allowed', message: 'There is no fork of the document to suggest in', hint: 'Give the agent suggestIn, an editor on the fork' }
+        })
       }
       if (!Array.isArray(input.operations) || !input.operations.length) {
         return fail({ ok: false, revision: current, error: { code: 'invalid-operation', message: 'operations must list at least one change' } })
@@ -274,13 +243,9 @@ export function createDocumentAgent(
                 : 'Elements this changes were changed by someone else',
               hint: 'Plan the changes again from the current content, here in view'
             },
-            view: view(blocksOf(stale.length ? stale : targets))
+            view: view(editor, blocksOf(editor, stale.length ? stale : targets))
           })
         }
-      }
-
-      if (options.review === 'suggest') {
-        return suggest(input, plan, current)
       }
 
       const before = presence ? textsById(editor) : undefined
@@ -290,7 +255,7 @@ export function createDocumentAgent(
       }
       recorder?.edited()
 
-      const changed = blocksOf([...plan.steps.flatMap((step) => step.targets), ...plan.inserted])
+      const changed = blocksOf(editor, [...plan.steps.flatMap((step) => step.targets), ...plan.inserted])
       // The edit is done the moment it is made: show what changed, not a
       // block being written in, which would read as "wait"
       if (presence && before) {
@@ -301,7 +266,7 @@ export function createDocumentAgent(
       const result: EditResult = {
         ok: true,
         revision: recordRevision(editor),
-        view: view(changed)
+        view: view(editor, changed)
       }
       if (input.opId) {
         done.set(input.opId, result)
@@ -313,6 +278,7 @@ export function createDocumentAgent(
     },
 
     startRun: () => {
+      const editor = target()
       // A new task: what the last one changed is no longer news
       presence?.clearChanges()
       presence?.set('thinking')

@@ -45,22 +45,14 @@ export { getSchema, type DocumentSchema as TBDocumentSchema, type ElementTypeSch
 export { validate, type ValidationIssue as TBValidationIssue, type ValidationCode as TBValidationCode } from './schema/validate'
 export { toJsonSchema, type JsonSchema as TBJsonSchema } from './schema/toJsonSchema'
 
-// Suggestions: changes proposed for a person to accept or reject
+// Suggestions: a fork of the shared text, shown through Y.js 14's diff renderer
 export {
-  suggestionStore,
-  SUGGESTIONS_MAP,
-  suggestionFor,
-  suggestedBlockState,
-  suggestedTextChanges,
-  acceptSuggestedBlock,
-  rejectSuggestedBlock,
-  acceptSuggestion,
-  rejectSuggestion,
-  type Suggestion as TBSuggestion,
-  type SuggestedBlock as TBSuggestedBlock,
-  type SuggestionStore as TBSuggestionStore,
-  type ReviewResult as TBReviewResult
-} from './suggestions'
+  suggestedChanges,
+  acceptChange,
+  rejectChange,
+  diffRendererOf,
+  type SuggestedChange as TBSuggestedChange
+} from './suggestions/changes'
 export { hashNode } from './utils/hashNode'
 export { commentAnchor, resolveAnchor } from './comments/anchor'
 export { createCommentStore, type CommentStoreOptions as TBCommentStoreOptions } from './comments/store'

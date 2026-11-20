@@ -105,9 +105,10 @@ export function createAgentTools(agent: DocumentAgent, options: { prefix?: strin
         ...(typeof input.limit === 'number' ? { limit: input.limit } : {})
       }),
       toText: (result) => {
-        const { revision, total, next, view, suggestions } = result as ReadResult
-        const waiting = suggestions ? `\n${suggestions} suggestion${suggestions === 1 ? '' : 's'} waiting for review; the document does not include them` : ''
-        return `revision: ${revision}\n${total} top-level elements${next ? `; more from ${next}` : ''}${waiting}\n\n${view}`
+        const { revision, total, next, view } = result as ReadResult
+        // Suggesting, it reads the fork: the document with what is suggested in it
+        const fork = agent.context.options.review === 'suggest' ? '\nThis is the document with the suggestions made so far, yours and others\'' : ''
+        return `revision: ${revision}\n${total} top-level elements${next ? `; more from ${next}` : ''}${fork}\n\n${view}`
       }
     },
     {
@@ -149,7 +150,7 @@ export function createAgentTools(agent: DocumentAgent, options: { prefix?: strin
       name: `${prefix}edit`,
       description: [
         agent.context.options.review === 'suggest'
-          ? 'Suggest changes to the document: a batch of operations, checked together. Nothing changes: the people in the document see your suggestion and accept or reject it, block by block. Moving a block cannot be suggested.'
+          ? 'Suggest changes to the document: a batch of operations, checked together. The document itself does not change: the people in it see what you suggest and accept or reject each change.'
           : 'Change the document: a batch of operations, applied together or not at all.',
         'Pass the revision of the read you planned from: if someone changed the elements you change since, nothing is applied and you get their current content. Changes elsewhere do not matter.',
         'On success you get the new revision and the changed top-level elements, new handles included.',
@@ -165,16 +166,16 @@ export function createAgentTools(agent: DocumentAgent, options: { prefix?: strin
         required: ['operations']
       },
       handler: (input) => agent.edit(input as unknown as Parameters<DocumentAgent['edit']>[0]),
-      toText: (result) => editText(result as EditResult)
+      toText: (result) => editText(result as EditResult, agent.context.options.review === 'suggest')
     })
   }
 
   return tools
 }
 
-function editText(result: EditResult): string {
-  if (result.ok && result.suggestion) {
-    return `Suggested, for a person to accept or reject; the document has not changed. suggestion: ${result.suggestion}\n\nThe blocks as suggested:\n${result.view}`
+function editText(result: EditResult, suggested: boolean): string {
+  if (result.ok && suggested) {
+    return `Suggested, for a person to accept or reject; the document has not changed. revision: ${result.revision}\n\nThe blocks as suggested:\n${result.view}`
   }
   if (result.ok) {
     return `Done. revision: ${result.revision}\n\n${result.view}`

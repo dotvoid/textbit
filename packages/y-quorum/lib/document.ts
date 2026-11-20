@@ -623,12 +623,8 @@ export class DocumentOwner {
     if (layer === 'content' && forkShadow) {
       Y.applyUpdate(forkShadow, update)
     }
-    for (const opening of this.openings) {
-      if (opening !== from && opening.mode === 'open') {
-        this.sendTo(opening, ToClient.UPDATE, { ref: opening.ref, layer, log: this.seq }, update)
-      }
-    }
-    // Who wrote it, to everyone with it open, the writer too
+    // Who wrote it, to everyone with it open, the writer too: before the
+    // change, so what shows it can attribute it as it arrives
     if (attributed) {
       const payload = Y.encodeContentMap(attributed)
       const people = Object.fromEntries([actor.principal, actor.onBehalfOf]
@@ -638,6 +634,11 @@ export class DocumentOwner {
         if (opening.mode === 'open') {
           this.sendTo(opening, ToClient.ATTRIBUTIONS, { ref: opening.ref, layer, people }, payload)
         }
+      }
+    }
+    for (const opening of this.openings) {
+      if (opening !== from && opening.mode === 'open') {
+        this.sendTo(opening, ToClient.UPDATE, { ref: opening.ref, layer, log: this.seq }, update)
       }
     }
     // Only the content decides what people may do, and what watchers see

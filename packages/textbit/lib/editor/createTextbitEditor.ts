@@ -2,7 +2,6 @@ import { createEditor, type Descendant, type Editor } from 'slate'
 import { withHistory } from 'slate-history'
 import type * as Y from '@y/y'
 import type { Awareness } from '@y/protocols/awareness'
-import { SUGGESTIONS_MAP } from '../suggestions/store'
 import { bindField } from '../yjs/binding'
 import { withSharedCursor, type TBCursorOptions } from '../yjs/cursors'
 import type { TBRenderer } from '../yjs/model'
@@ -100,11 +99,9 @@ export function withTextbit(
   } else if (options.bind !== false) {
     // Innermost, so every operation the plugins make reaches the field. A
     // person's own accepts and rejects of suggestions are undone like their edits.
-    const doc = options.shared.doc
     bindField(editor, options.shared, {
       origin: options.origin,
-      renderer: options.renderer,
-      undoScope: doc ? [doc.get(SUGGESTIONS_MAP)] : []
+      renderer: options.renderer
     })
     if (options.awareness) {
       withSharedCursor(editor, options.awareness, options.cursor, options.isActive)

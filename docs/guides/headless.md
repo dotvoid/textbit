@@ -68,8 +68,8 @@ in textbit keeps it that way. It has:
 - `TEXT_TYPE`, and core's plain paragraph plugin `Text`
 - the helpers `TextbitEditor`, `TextbitElement` and `TextbitPlugin`
 - `getSchema`, `validate` and `toJsonSchema`; see [Schema and validation](./schema-and-validation.md)
-- the suggestion functions, such as `suggestionFor`, `suggestionStore` and
-  `acceptSuggestedBlock`; see [Suggestions](./suggestions.md)
+- the suggestion functions for an editor showing a fork, `suggestedChanges`, `acceptChange`
+  and `rejectChange`; see [Suggestions](./suggestions.md)
 - `AGENT_PRESENCE_FIELD` and `diffWords`, for agents; see [Agents](./agents.md)
 - the types a plugin definition needs: `TBPluginDefinition`, `TBElementSpec`, `TBAction`,
   `TBElementSchema` and the rest

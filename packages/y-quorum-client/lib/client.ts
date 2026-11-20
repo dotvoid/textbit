@@ -299,6 +299,7 @@ interface DocState extends Opening {
   log: number
   /** Renderers handed out, to keep current */
   renderers: Set<LiveAttributionsRenderer>
+  diffRenderers: Set<Y.DiffRenderer>
   seq: number
   /** Local changes not yet acknowledged */
   local: LocalUpdate[]
@@ -850,6 +851,7 @@ class QuorumClient implements Client {
       versions: [],
       log: 0,
       renderers: new Set(),
+      diffRenderers: new Set(),
       seq: 0,
       local: [],
       pendingRecords: [],
@@ -1008,7 +1010,6 @@ class QuorumClient implements Client {
     state.log = Math.max(state.log, header.seq)
     // The whole of who wrote what, again after every opening
     for (const [layer, encoded] of Object.entries(header.attributions ?? {}) as Array<[Layer, string]>) {
-      state.attributions.set(layer, Y.createContentMap())
       this.attributed(state, layer, Y.decodeContentMap(fromBase64(encoded)), header.people ?? {})
     }
     state.phase = 'open'
@@ -1070,10 +1071,34 @@ class QuorumClient implements Client {
   /** Who wrote what in a change, or in all of a layer: kept, and shown by the renderers */
   private attributed(state: DocState, layer: Layer, attributions: Y.ContentMap, people: Record<string, Person>): void {
     Object.assign(state.people, people)
-    state.attributions.set(layer, Y.mergeContentMaps([state.attributions.get(layer) ?? Y.createContentMap(), attributions]))
+    // One map per layer, added to in place: renderers given it read it as content arrives
+    const kept = state.attributions.get(layer)
+    if (kept) {
+      Y.insertIntoIdMap(kept.inserts, attributions.inserts)
+      Y.insertIntoIdMap(kept.deletes, attributions.deletes)
+    } else {
+      state.attributions.set(layer, Y.createContentMap(
+        Y.mergeIdMaps([attributions.inserts]),
+        Y.mergeIdMaps([attributions.deletes])
+      ))
+    }
     if (layer === 'content') {
       for (const renderer of state.renderers) {
         renderer.add(attributions)
+      }
+    }
+    // Suggestions shown before who made them was known, such as one's own:
+    // attributed now, and shown again
+    if (layer === 'suggestions') {
+      for (const renderer of state.diffRenderers) {
+        const inserts = Y.intersectSets(attributions.inserts, Y.createIdSetFromIdMap(renderer.inserts))
+        const deletes = Y.intersectSets(attributions.deletes, Y.createIdSetFromIdMap(renderer.deletes))
+        if (inserts.isEmpty() && deletes.isEmpty()) {
+          continue
+        }
+        renderer.inserts = Y.mergeIdMaps([Y.diffIdMap(renderer.inserts, inserts), inserts])
+        renderer.deletes = Y.mergeIdMaps([Y.diffIdMap(renderer.deletes, deletes), deletes])
+        renderer.emit('change', [Y.mergeIdSets([Y.createIdSetFromIdMap(inserts), Y.createIdSetFromIdMap(deletes)]), null, false])
       }
     }
     emitAll(state.handles, 'attributions', { layer, attributions })
@@ -1296,6 +1321,7 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
     })
     renderer.suggestionMode = suggesting
     this.diffRenderers.add(renderer)
+    this.state.diffRenderers.add(renderer)
     return renderer
   }
   get awareness() { return this.state.awareness }
@@ -1304,7 +1330,14 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   get people() { return this.state.people }
 
   attributions(layer: Layer = 'content'): Y.ContentMap {
-    return this.state.attributions.get(layer) ?? Y.createContentMap()
+    // Kept, so whoever holds it sees what is attributed later
+    const kept = this.state.attributions.get(layer)
+    if (kept) {
+      return kept
+    }
+    const made: Y.ContentMap = Y.createContentMap()
+    this.state.attributions.set(layer, made)
+    return made
   }
 
   attributionsRenderer(options?: { withDeleted?: boolean }): Y.AttributionsRenderer {
@@ -1387,6 +1420,7 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
       this.state.renderers.delete(renderer)
     }
     for (const renderer of this.diffRenderers) {
+      this.state.diffRenderers.delete(renderer)
       renderer.destroy()
     }
     this.state.handles.delete(this)

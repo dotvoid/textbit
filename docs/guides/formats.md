@@ -63,47 +63,17 @@ and `toJsonSchema` give this as data; see [Schema and validation](./schema-and-v
 
 ## Suggestions
 
-In a shared document, suggestions are kept in a `Y.Map` of the document's `Y.Doc`, named
-`textbitSuggestions` (`SUGGESTIONS_MAP`), beside the content. Each suggested block is an entry
-of its own.
+Suggestions are a fork of the shared text, as Y.js 14 makes them: a `Y.Doc` of their own
+(`gc: false`, `isSuggestionDoc: true`) that starts as a copy of the text's and keeps receiving
+everything the text gets. What is suggested is what the fork has and the text has not, or has
+deleted in the fork: Y.js's `createDiffRenderer(text, fork)` shows it. Nothing about suggestions
+is stored in the text itself. Accepting writes the suggested items into the text; rejecting
+deletes them in the fork and writes them into the text already deleted. With y-quorum, the fork
+is the document's `suggestions` layer. See [Suggestions](./suggestions.md).
 
-**The key:** the suggestion's id, the character U+0000, and the block's id.
+## hashNode
 
-**The value,** a plain object:
-
-| Field | Type | |
-|-------|------|---|
-| `id` | string | The suggestion's id, the same in all its entries |
-| `author` | `{ name: string, color?: string }` | Who suggests it |
-| `createdAt` | number | Milliseconds since 1970 |
-| `order` | number | Where the block comes in its suggestion, from 0 |
-| `block` | object | The suggested block, below |
-
-**A suggested block** is one of:
-
-| `kind` | Fields | |
-|--------|--------|---|
-| `change` | `id`, `before`, `after` | Replace the top-level block `id` with the element `after` |
-| `delete` | `id`, `before` | Remove the top-level block `id` |
-| `insert` | `id`, `after`, `node` | Insert the element `node` (whose id is `id`) after the top-level block `after`, or first when `after` is `null` |
-
-`before` is `hashNode` of the block as it was when suggested. A block whose current hash
-differs is out of date and is not accepted.
-
-**A suggestion** is its entries grouped by `id`, ordered by `order`. Suggestions are listed
-oldest first, by `createdAt`.
-
-**Deciding** a block, accepting or rejecting, deletes its entry. Accepting also changes the
-content: for `change`, remove the block and insert `after` at its place; for `delete`, remove
-it; for `insert`, insert `node` after its anchor, or, if the anchor is an insert of the same
-suggestion not yet accepted, after that one's anchor, and so on.
-
-**Writing** a suggestion sets an entry per block and leaves existing entries as they are, so a
-writer does not overwrite what others decided meanwhile.
-
-### hashNode
-
-The hash in `before`, which every peer must compute alike:
+A hash of an element that every peer computes alike, `hashNode` in core:
 
 1. **Canonical JSON** of the element: objects with their keys sorted (by UTF-16 code unit,
    as JavaScript's default sort does), keys whose value is `undefined` left out, arrays in
@@ -189,10 +159,10 @@ as a JSON string, cut at 200 characters with `…`.
 
 | Name | Input | Result |
 |------|-------|--------|
-| `document_read` | `from?` (handle), `limit?` (integer ≥ 1) | `{ revision, view, total, next?, suggestions }` |
+| `document_read` | `from?` (handle), `limit?` (integer ≥ 1) | `{ revision, view, total, next? }` |
 | `document_search` | `query`, `limit?` | `{ revision, matches: [{ line, in? }] }` |
 | `document_types` | none | `{ types }`, a description of the element types |
-| `document_edit` | `operations`, `revision?`, `opId?` | `{ ok: true, revision, view, suggestion? }` or `{ ok: false, revision, error, view? }` |
+| `document_edit` | `operations`, `revision?`, `opId?` | `{ ok: true, revision, view }` or `{ ok: false, revision, error, view? }` |
 
 The prefix `document_` is the default of `createAgentTools`. Operations: `replace`, `insert`,
 `delete`, `move`, `setProperties`, `replaceText`; error codes: `read-only`, `not-found`,

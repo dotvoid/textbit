@@ -3,7 +3,7 @@ import { Editor, Element, Node, type NodeEntry, Path, Range, Text, Transforms } 
 import { Editable, ReactEditor, useFocused, useSlateSelector, type RenderElementProps, type RenderLeafProps } from 'slate-react'
 import { getDecorationRanges } from '../../utils/getDecorationRanges'
 import { useAgentChanges } from '../../hooks/useAgentChanges'
-import { useSuggestionPlacement } from '../../hooks/useSuggestions'
+import { useSuggestions } from '../../hooks/useSuggestions'
 import { useComments } from '../../hooks/useComments'
 import { AgentAnnouncer } from './AgentAnnouncer'
 import { sharedOf } from '../../yjs/binding'
@@ -205,8 +205,8 @@ export function TextbitEditable(props: TextbitEditableProps) {
 
   // What agents changed, shown in the text
   const { changes: agentChanges } = useAgentChanges()
-  // What is suggested, shown in the text
-  const { onBlock: suggestionsOnBlock } = useSuggestionPlacement()
+  // Whether the editor shows a fork of the text, with what is suggested in it
+  const { enabled: showsSuggestions, changes: suggestedChanges } = useSuggestions()
   // The open threads' text, highlighted
   const { threads: commentThreads, active: activeThread } = useComments()
   const commentHighlights = useMemo(() => commentThreads.flatMap(({ thread, range }) =>
@@ -226,7 +226,6 @@ export function TextbitEditable(props: TextbitEditableProps) {
       isSpellingAccepted,
       decorations,
       agentChanges,
-      suggestionsOnBlock,
       commentHighlights
     )
   }, [
@@ -239,7 +238,6 @@ export function TextbitEditable(props: TextbitEditableProps) {
     isSpellingAccepted,
     decorations,
     agentChanges,
-    suggestionsOnBlock,
     commentHighlights
   ])
 
@@ -647,10 +645,12 @@ export function TextbitEditable(props: TextbitEditableProps) {
                   onClick={onClick}
                   scrollSelectionIntoView={scrollSelection}
                   aria-label={props['aria-label']}
+                  // A fork shown with what is suggested in it: inserted text is a suggestion here
+                  data-tb-view={showsSuggestions ? 'suggestions' : undefined}
                 />
                 {props.children}
                 {!hostMenus && <BuiltInContextMenu />}
-                {(sharedOf(editor) !== undefined || suggestionsOnBlock.size > 0) && <AgentAnnouncer />}
+                {(sharedOf(editor) !== undefined || suggestedChanges.length > 0) && <AgentAnnouncer />}
               </PresenceOverlay>
             </PendingDropsProvider>
           </DragStateProvider>

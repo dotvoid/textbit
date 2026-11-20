@@ -24,7 +24,9 @@ would otherwise be wrong forever, and to keep everything else as 2.x hosts know 
 3. **`describeSchema(schema)`** in the agent package: it needed an object nothing exported.
 4. **`useSuggestions()`** gives `suggestions`, `shown` (each suggested block as the editor
    shows it, in document order), `accept` and `reject`. Its internal lookup tables, keyed by
-   block id with `''` for the start, stay inside the editor.
+   block id with `''` for the start, stay inside the editor. Superseded 20 November 2026, when
+   suggestions moved to the Y.js 14 fork: it gives `changes`, `accept`, `reject`, `acceptAll`
+   and `rejectAll`.
 5. **`diffWords`** is in the main entry too, so both entries offer the same headless API.
 6. **`Suggestions`** is exported on its own as well, like every other `Textbit.*` component.
 
