@@ -12,26 +12,35 @@ import type { ResolvedAgentChange } from '../../utils/agentChanges'
  */
 export function AgentAnnouncer() {
   const { changes } = useAgentChanges()
-  const { suggestions } = useSuggestions()
+  const { changes: suggested } = useSuggestions()
   const { labels } = useTextbit()
   const said = useRef(new Set<string>())
   const [message, setMessage] = useState('')
 
   useEffect(() => {
     const fresh = changes.filter((change) => !said.current.has(change.id))
-    const suggested = suggestions.filter((suggestion) => !said.current.has(suggestion.id))
-    if (!fresh.length && !suggested.length) {
+    // New suggestions, counted by who made them
+    const arrived = new Map<string, number>()
+    for (const change of suggested) {
+      // Once per change, however much more is typed into it
+      const key = `suggestion:${change.id}`
+      if (!said.current.has(key)) {
+        said.current.add(key)
+        const who = change.by ?? labels.suggestionSomeone
+        arrived.set(who, (arrived.get(who) ?? 0) + 1)
+      }
+    }
+    if (!fresh.length && !arrived.size) {
       return
     }
     fresh.forEach((change) => said.current.add(change.id))
-    suggested.forEach((suggestion) => said.current.add(suggestion.id))
     setMessage([
       ...fresh.slice(0, 3).map((change) => describe(labels, change)),
-      ...suggested.map((suggestion) => labels.suggestionArrived
-        .replace('{name}', suggestion.author.name)
-        .replace('{count}', String(suggestion.blocks.length)))
+      ...[...arrived].map(([who, count]) => labels.suggestionArrived
+        .replace('{name}', who)
+        .replace('{count}', String(count)))
     ].join('. '))
-  }, [changes, suggestions, labels])
+  }, [changes, suggested, labels])
 
   return (
     <div

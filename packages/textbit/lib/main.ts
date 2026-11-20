@@ -85,7 +85,7 @@ export const Textbit = {
   ContextMenu,
   /** A searchable picker of special characters; needs the `SpecialCharacters` plugin */
   SpecialCharacterPicker,
-  /** The suggestions in the document as an accessible list, with Accept and Reject */
+  /** The suggested changes of a fork as an accessible list, with Accept and Reject */
   Suggestions
 }
 
@@ -244,7 +244,6 @@ export type {
   CommentAuthor as TBCommentAuthor,
   CommentRights as TBCommentRights
 } from './comments/types'
-export type { ShownSuggestion as TBShownSuggestion } from './contexts/SuggestionsContext'
 export type { ResolvedAgentChange as TBShownAgentChange } from './utils/agentChanges'
 export type { PresentAgent as TBPresentAgent } from './contexts/AgentPresenceContext'
 export { AGENT_PRESENCE_FIELD, type AgentPresenceState as TBAgentPresence, type AgentStatus as TBAgentStatus, type AgentChange as TBAgentChange } from './types/agentPresence'
@@ -283,22 +282,14 @@ export { getSchema, type DocumentSchema as TBDocumentSchema, type ElementTypeSch
 export { validate, type ValidationIssue as TBValidationIssue, type ValidationCode as TBValidationCode } from './schema/validate'
 export { toJsonSchema, type JsonSchema as TBJsonSchema } from './schema/toJsonSchema'
 
-// Suggestions: changes proposed for a person to accept or reject
+// Suggestions: a fork of the shared text, shown through Y.js 14's diff renderer
 export {
-  suggestionStore,
-  SUGGESTIONS_MAP,
-  suggestionFor,
-  suggestedBlockState,
-  suggestedTextChanges,
-  acceptSuggestedBlock,
-  rejectSuggestedBlock,
-  acceptSuggestion,
-  rejectSuggestion,
-  type Suggestion as TBSuggestion,
-  type SuggestedBlock as TBSuggestedBlock,
-  type SuggestionStore as TBSuggestionStore,
-  type ReviewResult as TBReviewResult
-} from './suggestions'
+  suggestedChanges,
+  acceptChange,
+  rejectChange,
+  diffRendererOf,
+  type SuggestedChange as TBSuggestedChange
+} from './suggestions/changes'
 export { hashNode } from './utils/hashNode'
 export { diffWords, type TextChange as TBTextChange } from './utils/diffWords'
 

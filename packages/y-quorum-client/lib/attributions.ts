@@ -83,6 +83,29 @@ export function unreviewed(attributions: Y.ContentMap, reviewed: Y.IdSet): Unrev
   return [...groups.entries()].sort(([a], [b]) => first.get(a)! - first.get(b)!).map(([, group]) => group)
 }
 
+/** Which changes to take back: by run, by who made them, from a moment on; all must hold */
+export interface ChangesOf {
+  run?: string
+  /** The actor's key, e.g. `agent:copy` */
+  by?: string
+  /** Milliseconds: changes made at or after it */
+  since?: number
+}
+
+/** The content a run, an actor, or a stretch of time inserted and deleted */
+export function contentOf(attributions: Y.ContentMap, which: ChangesOf): Y.ContentIds {
+  const matches = (verb: 'insert' | 'delete') => (attrs: Array<Y.ContentAttribute<unknown>>) => {
+    const value = (name: string) => attrs.find((attr) => attr.name === name)?.val
+    return (which.run === undefined || value(`${verb}:run`) === which.run) &&
+      (which.by === undefined || value(verb) === which.by) &&
+      (which.since === undefined || Number(value(`${verb}At`) ?? 0) >= which.since)
+  }
+  return Y.createContentIds(
+    Y.createIdSetFromIdMap(Y.filterIdMap(attributions.inserts, matches('insert'))),
+    Y.createIdSetFromIdMap(Y.filterIdMap(attributions.deletes, matches('delete')))
+  )
+}
+
 /** No attributions */
 export function emptyAttributions(): Y.ContentMap {
   return Y.createContentMap()

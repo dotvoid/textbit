@@ -1,3 +1,4 @@
+import type { Editor } from 'slate'
 import type { Descendant } from 'slate'
 import { getSchema, type TBDocumentSchema as DocumentSchema, type TBPluginDefinition } from '@dotvoid/textbit/headless'
 import { createNames, type Names } from './names'
@@ -18,17 +19,17 @@ export interface AgentOptions {
   /** Characters a read returns at most before it pages. Default: 24000. */
   pageSize?: number
   /**
-   * 'apply' (default) makes edits; 'suggest' proposes them instead, for the
-   * people in the document to accept or reject block by block.
+   * 'apply' (default) makes edits; 'suggest' makes them in `suggestIn`, the
+   * fork of the document, where they are suggestions for the people in the
+   * document to accept or reject. It may change between calls.
    */
   review?: 'apply' | 'suggest'
-  /** Who suggestions are from. Default: the presence's name, else "Agent". */
-  author?: {
-    /** The name people see */
-    name: string
-    /** A CSS colour, e.g. `'#7c3aed'` */
-    color?: string
-  }
+  /**
+   * An editor bound to the fork of the document the suggestions are made in,
+   * plainly, without a renderer: what the agent changes there is suggested.
+   * Who suggested is who writes the fork, as the server records it.
+   */
+  suggestIn?: Editor
 }
 
 /** @internal What every part of the agent shares */

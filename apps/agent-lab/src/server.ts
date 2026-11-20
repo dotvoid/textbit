@@ -27,6 +27,7 @@ export const labArticle = defineType('lab/article', {
   }),
   records: { 'agent.undo': { description: 'Someone asked to undo the agent’s last run' } },
   comments: true,
+  suggestions: true,
   history: true
 })
 

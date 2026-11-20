@@ -14,7 +14,6 @@ import { debounce as debounceCall } from '../utils/debounce'
 import { bindField } from '../yjs/binding'
 import { withSharedCursor, type TBCursorOptions } from '../yjs/cursors'
 import { fieldToValue, type TBRenderer } from '../yjs/model'
-import { SUGGESTIONS_MAP } from '../suggestions/store'
 import { TEXT_TYPE } from '../utils/textType'
 import { AgentPresenceProvider } from '../contexts/AgentPresenceProvider'
 import { AgentChangesProvider } from '../contexts/AgentChangesProvider'
@@ -99,11 +98,9 @@ export function SlateContainer(props: SlateContainerProps) {
     if (!field) {
       return
     }
-    const doc = field.doc
     const binding = bindField(editor, field, {
       origin: origin.current,
-      renderer,
-      undoScope: doc ? [doc.get(SUGGESTIONS_MAP)] : []
+      renderer
     })
     const stopCursor = awareness
       ? withSharedCursor(editor, awareness, cursor, () => ReactEditor.isFocused(editor))

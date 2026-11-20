@@ -101,9 +101,7 @@ Everything textbit renders carries a `data-tb` attribute. State is in `data-stat
 | `agent-marker`, `agent-label` | The bar beside a block an agent is in, and the agent's name on it. `data-status='writing'` while it writes. |
 | `agent-tag`, `agent-removed` | The agent's name on its changes, and text it removed |
 | `agent-announcer` | What agents change, for screen readers only. Keep it visually hidden. |
-| `suggested-block`, `suggested-text` | A suggestion in the text. Its `data-state` is `ready`, or `stale` once the block it was made from has changed. |
-| `suggestion-bar`, `suggestion-from`, `suggestion-accept`, `suggestion-reject` | The bar on a suggestion |
-| `suggestions`, `suggestion`, `suggestion-item`, `suggestion-all` | The list of suggestions, `Textbit.Suggestions` |
+| `suggestions`, `suggestion`, `suggestion-item`, `suggestion-all` | The list of suggested changes, `Textbit.Suggestions`. An item's `data-kind` is `insert`, `delete` or `replace`. Suggested text itself is a leaf with `data-tb-change`, in an editable with `data-tb-view="suggestions"`. |
 
 Markers textbit draws in the text, such as agent tags, also carry `data-tb-ui`. They are not
 part of the document: they cannot be selected or copied, and screen readers skip them.

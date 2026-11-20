@@ -40,17 +40,23 @@ export interface TextbitLabels {
   agentAdded: string
   /** Announced when an agent removes text */
   agentDeleted: string
-  /** On a suggestion: who it is from, with {name} */
-  suggestionFrom: string
-  /** On a suggestion that changes more than words */
-  suggestionFormatting: string
-  /** On a suggestion whose block changed since */
-  suggestionStale: string
+  /** A suggestion adding text: `{name}` and `{added}` are filled in */
+  suggestionAdds: string
+  /** A suggestion removing text: `{name}` and `{removed}` */
+  suggestionRemoves: string
+  /** A suggestion replacing text: `{name}`, `{removed}` and `{added}` */
+  suggestionReplaces: string
+  /** Who suggested, when it is not known. Default: `Someone`. */
+  suggestionSomeone: string
   /** The button accepting a suggestion. Default: `Accept`. */
   suggestionAccept: string
   /** The button rejecting a suggestion. Default: `Reject`. */
   suggestionReject: string
-  /** Announced when suggestions arrive: {name} and {count} blocks */
+  /** The button accepting every suggestion. Default: `Accept all`. */
+  suggestionAcceptAll: string
+  /** The button rejecting every suggestion. Default: `Reject all`. */
+  suggestionRejectAll: string
+  /** Announced when suggestions arrive: `{name}` and `{count}` changes */
   suggestionArrived: string
 }
 
@@ -63,12 +69,15 @@ export const DEFAULT_LABELS: TextbitLabels = {
   agentReplaced: '{name} changed “{removed}” to “{added}”',
   agentAdded: '{name} added “{added}”',
   agentDeleted: '{name} removed “{removed}”',
-  suggestionFrom: 'Suggested by {name}',
-  suggestionFormatting: 'also formatting',
-  suggestionStale: 'changed since',
+  suggestionAdds: '{name} adds “{added}”',
+  suggestionRemoves: '{name} removes “{removed}”',
+  suggestionReplaces: '{name} replaces “{removed}” with “{added}”',
+  suggestionSomeone: 'Someone',
   suggestionAccept: 'Accept',
   suggestionReject: 'Reject',
-  suggestionArrived: '{name} suggests changes to {count} blocks'
+  suggestionAcceptAll: 'Accept all',
+  suggestionRejectAll: 'Reject all',
+  suggestionArrived: '{name} suggests {count} changes'
 }
 
 /** The editor's options and state, as `useTextbit()` gives them; see `Textbit.Root` */

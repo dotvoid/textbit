@@ -28,14 +28,22 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
   // A rebuilt content is another Y.Doc: the editor binds to the new one
   const [generation, setGeneration] = useState(0)
   const [composing, setComposing] = useState(false)
-  // Who wrote what: the text shown through the server's attributions
+  // Who wrote what: the text shown through the server's attributions.
+  // Otherwise the fork of the text, with what is suggested in it: typing goes
+  // into the text, or with "I suggest", is suggested
   const [whoWrote, setWhoWrote] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
   const renderer = useMemo(
-    () => (whoWrote && handle ? handle.attributionsRenderer() : undefined),
-    // A rebuilt content is bound again, through a renderer of its own
+    () => (!handle ? undefined : whoWrote ? handle.attributionsRenderer() : handle.suggestionsRenderer()),
+    // A rebuilt layer is bound again, through a renderer of its own
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [whoWrote, handle, generation]
   )
+  useEffect(() => {
+    if (renderer instanceof Y.DiffRenderer) {
+      renderer.suggestionMode = suggesting
+    }
+  }, [renderer, suggesting])
   // The latest callback, without making a new connection when it changes
   const gone = useRef(onGone)
   useEffect(() => {
@@ -59,9 +67,9 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
         }
         opened = document
         document.on('closed', () => gone.current('The lab document was reset. Join again.'))
-        // A rebuilt content is another Y.Doc; rebuilt comments follow by themselves
+        // A rebuilt content or fork is another Y.Doc; rebuilt comments follow by themselves
         document.on('rebuilt', ({ layer }) => {
-          if (layer === 'content') {
+          if (layer !== 'comments') {
             setGeneration((n) => n + 1)
           }
         })
@@ -81,7 +89,7 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
     }
   }, [person.name])
 
-  const body = handle?.content.getAttr('body')
+  const body = (whoWrote ? handle?.content : handle?.suggestionsDoc.get('content'))?.getAttr('body')
   if (!handle || !(body instanceof Y.Node)) {
     return null
   }
@@ -93,11 +101,16 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
         {person.name}{compact ? '' : `, ${status === 'connected' ? 'in the lab document' : `${status} to ${LAB_URL}`}`}
       </p>
       {!compact && (
-        <label className='demo-lab-who'>
-          <input type='checkbox' checked={whoWrote} onChange={(e) => setWhoWrote(e.target.checked)} /> Who wrote what
-        </label>
+        <p className='demo-lab-who'>
+          <label>
+            <input type='checkbox' checked={suggesting} disabled={whoWrote} onChange={(e) => setSuggesting(e.target.checked)} /> I suggest
+          </label>
+          <label>
+            <input type='checkbox' checked={whoWrote} onChange={(e) => setWhoWrote(e.target.checked)} /> Who wrote what
+          </label>
+        </p>
       )}
-      {renderer && <WhoWrote handle={handle} />}
+      {whoWrote && <WhoWrote handle={handle} />}
       <Textbit.Root
         key={`${generation}-${whoWrote}`}
         value={body}
@@ -121,7 +134,7 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
               <EditorContextMenu onComment={() => setComposing(true)} />
             </Textbit.Editable>
           </div>
-          <Textbit.Suggestions className='demo-lab-suggestions' aria-label='Suggestions from the agent' />
+          <Textbit.Suggestions className='demo-lab-suggestions' aria-label='Suggestions' people={handle.people} />
           {!compact && <VersionsPanel handle={handle} plugins={plugins} />}
         </div>
         {!compact && (
@@ -172,6 +185,14 @@ const AgentStatus = ({ handle, onUndo }: { handle: DocumentHandle, onUndo: () =>
     return () => handle.content.off('delta', update)
   }, [handle])
   const said = agents.map((agent) => agent.status === 'idle' ? `${agent.name} is here` : `${agent.name} is working on the document`)
+  // The agents who wrote in the document, known as their attributions arrive
+  const [writers, setWriters] = useState<string[]>([])
+  useEffect(() => {
+    const update = () => setWriters(Object.entries(handle.people).filter(([, who]) => who.kind === 'agent').map(([key]) => key))
+    update()
+    handle.on('attributions', update)
+    return () => handle.off('attributions', update)
+  }, [handle])
 
   return (
     <div className='demo-lab-status'>
@@ -181,6 +202,15 @@ const AgentStatus = ({ handle, onUndo }: { handle: DocumentHandle, onUndo: () =>
         {' '}The agent suggests
       </label>
       {agents.length > 0 && !suggest && <button type='button' onClick={onUndo}>Undo the agent’s last run</button>}
+      {writers.length > 0 && (
+        <button
+          type='button'
+          // Its inverse, suggested: accept it in the list below to take the work back
+          onClick={() => writers.forEach((key) => handle.suggestRevert({ by: key }))}
+        >
+          Suggest taking back the agents’ work
+        </button>
+      )}
     </div>
   )
 }

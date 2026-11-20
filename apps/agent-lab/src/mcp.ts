@@ -50,9 +50,9 @@ handle.on('closed', () => {
   log('the lab document is gone; reconnect the MCP server to join the new one')
   process.exit(1)
 })
-// Its comments rebuilt are followed by themselves; only the content is bound here
+// Its comments rebuilt are followed by themselves; the content and its fork are bound here
 handle.on('rebuilt', ({ layer }) => {
-  if (layer === 'content') {
+  if (layer !== 'comments') {
     log('the server refused a change and the document was rebuilt; reconnect the MCP server')
     process.exit(1)
   }
@@ -65,13 +65,20 @@ if (!(body instanceof Y.Node)) {
   process.exit(1)
 }
 const editor = createTextbitEditor({ plugins, shared: body })
+// The fork of the text, where the agent suggests: what it changes there is a suggestion
+const forkBody = handle.suggestionsDoc.get('content').getAttr('body')
+if (!(forkBody instanceof Y.Node)) {
+  log('The lab document has no suggestions')
+  process.exit(1)
+}
+const forkEditor = createTextbitEditor({ plugins, shared: forkBody })
 
 const presence = createAgentPresence(handle.awareness, { name: NAME, color: COLOR })
 presence.set('idle')
 // Edit, or suggest for people to accept or reject: the demo's switch, a field
 // of the document, else LAB_REVIEW
 const review = () => (handle.content.getAttr('review') ?? process.env.LAB_REVIEW ?? 'apply') === 'suggest' ? 'suggest' : 'apply'
-const agent = createDocumentAgent(editor, { plugins, presence, review: review() })
+const agent = createDocumentAgent(editor, { plugins, presence, review: review(), suggestIn: forkEditor })
 let tools = createAgentTools(agent)
 
 // Runs: the first tool call starts one, a pause ends it

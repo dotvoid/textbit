@@ -1,81 +1,68 @@
-import { Element, Node } from 'slate'
-import { useSlateStatic } from 'slate-react'
-import { useSuggestionPlacement } from '../hooks/useSuggestions'
+import { useSuggestions } from '../hooks/useSuggestions'
 import { useTextbit } from '../hooks/useTextbit'
-import type { ShownSuggestion } from '../contexts/SuggestionsContext'
-import type { SuggestedBlock } from '../suggestions/types'
+import type { SuggestedChange } from '../suggestions/changes'
 
 /**
- * The suggestions in the document as a list, each block with what it does
- * and its Accept and Reject, and each suggestion with Accept all and Reject
- * all. What keyboard and screen reader users review with: the marks in the
- * text are for the eye. Place it inside Textbit.Root; it renders nothing
- * while there are none.
+ * The suggested changes as a list, each with what it does and who suggested
+ * it, Accept and Reject, and Accept all and Reject all. What keyboard and
+ * screen reader users review with: the marks in the text are for the eye.
+ * Place it inside a `Textbit.Root` showing a fork; it renders nothing while
+ * nothing is suggested.
  */
-export function Suggestions({ className, 'aria-label': label = 'Suggestions' }: { className?: string, 'aria-label'?: string }) {
-  const { suggestions, onBlock, after, accept, reject } = useSuggestionPlacement()
+export function Suggestions({ className, people, 'aria-label': label = 'Suggestions' }: {
+  className?: string
+  /** Names for who suggested, by the key attributions name them with */
+  people?: Readonly<Record<string, { name: string }>>
+  'aria-label'?: string
+}) {
+  const { changes, accept, reject, acceptAll, rejectAll } = useSuggestions()
   const { labels, readOnly } = useTextbit()
-  const editor = useSlateStatic()
-  if (!suggestions.length) {
+  if (!changes.length) {
     return null
   }
-
-  const inserted = new Map([...after.values()].flat().map((shown) => [shown.block.id, shown]))
-  const shownFor = (block: SuggestedBlock) => block.kind === 'insert' ? inserted.get(block.id) : onBlock.get(block.id)
+  const describe = (change: SuggestedChange) => {
+    const name = (change.by && people?.[change.by]?.name) || labels.suggestionSomeone
+    const template = change.kind === 'replace'
+      ? labels.suggestionReplaces
+      : change.kind === 'insert' ? labels.suggestionAdds : labels.suggestionRemoves
+    return template
+      .replace('{name}', name)
+      .replace('{added}', quote(change.inserted))
+      .replace('{removed}', quote(change.deleted))
+  }
 
   return (
     <section className={className} data-tb='suggestions' aria-label={label}>
-      {suggestions.map((suggestion) => (
-        <div key={suggestion.id} data-tb='suggestion' role='group' aria-label={labels.suggestionFrom.replace('{name}', suggestion.author.name)}>
-          <p data-tb='suggestion-from'>{labels.suggestionFrom.replace('{name}', suggestion.author.name)}</p>
-          <ul>
-            {suggestion.blocks.map((block) => {
-              const shown = shownFor(block)
-              const what = describe(editor, block, shown)
-              const stale = shown?.state === 'stale'
-              return (
-                <li key={block.id} data-tb='suggestion-item' data-state={stale ? 'stale' : 'ready'}>
-                  <span>{what}{stale ? ` (${labels.suggestionStale})` : ''}</span>
-                  {!readOnly && (
-                    <>
-                      {!stale && (
-                        <button type='button' aria-label={`${labels.suggestionAccept}: ${what}`} onClick={() => accept(suggestion.id, block.id)}>
-                          {labels.suggestionAccept}
-                        </button>
-                      )}
-                      <button type='button' aria-label={`${labels.suggestionReject}: ${what}`} onClick={() => reject(suggestion.id, block.id)}>
-                        {labels.suggestionReject}
-                      </button>
-                    </>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
-          {!readOnly && suggestion.blocks.length > 1 && (
-            <p data-tb='suggestion-all'>
-              <button type='button' onClick={() => accept(suggestion.id)}>{labels.suggestionAccept} ({suggestion.blocks.length})</button>
-              <button type='button' onClick={() => reject(suggestion.id)}>{labels.suggestionReject} ({suggestion.blocks.length})</button>
-            </p>
-          )}
-        </div>
-      ))}
+      <ul data-tb='suggestion'>
+        {changes.map((change) => {
+          const what = describe(change)
+          return (
+            <li key={change.id} data-tb='suggestion-item' data-kind={change.kind}>
+              <span>{what}</span>
+              {!readOnly && (
+                <>
+                  <button type='button' aria-label={`${labels.suggestionAccept}: ${what}`} onClick={() => accept(change)}>
+                    {labels.suggestionAccept}
+                  </button>
+                  <button type='button' aria-label={`${labels.suggestionReject}: ${what}`} onClick={() => reject(change)}>
+                    {labels.suggestionReject}
+                  </button>
+                </>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      {!readOnly && changes.length > 1 && (
+        <p data-tb='suggestion-all'>
+          <button type='button' onClick={acceptAll}>{labels.suggestionAcceptAll} ({changes.length})</button>
+          <button type='button' onClick={rejectAll}>{labels.suggestionRejectAll} ({changes.length})</button>
+        </p>
+      )}
     </section>
   )
 }
 
-/** What a block of a suggestion does, in words */
-function describe(editor: ReturnType<typeof useSlateStatic>, block: SuggestedBlock, shown?: ShownSuggestion): string {
-  const quote = (text: string) => `“${text.length > 60 ? `${text.slice(0, 60)}…` : text}”`
-  if (block.kind === 'insert') {
-    return `Add ${quote(Node.string(block.node))}`
-  }
-  const current = editor.children.find((node) => Element.isElement(node) && node.id === block.id)
-  if (block.kind === 'delete') {
-    return `Delete ${quote(current ? Node.string(current) : '')}`
-  }
-  const words = [...shown?.texts?.values() ?? []].flat().map((change) => change.removed && change.added
-    ? `${quote(change.removed)} to ${quote(change.added)}`
-    : change.added ? `add ${quote(change.added)}` : `remove ${quote(change.removed)}`)
-  return words.length ? `Change ${words.join(', ')}` : 'Change formatting'
+function quote(text: string): string {
+  return text.length > 60 ? `${text.slice(0, 60)}…` : text
 }

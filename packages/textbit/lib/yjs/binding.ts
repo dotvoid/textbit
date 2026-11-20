@@ -55,6 +55,8 @@ export interface TBBindOptions {
 export interface TBSharedField {
   /** The text field */
   field: Y.Node
+  /** The renderer the editor shows the field through, if any */
+  renderer?: TBRenderer
   /** The origin of this editor's changes */
   origin: object
   /** Undoes and redoes this editor's own changes, and only them */
@@ -490,6 +492,7 @@ export function bindField(editor: Editor, field: Y.Node, options: TBBindOptions 
 
   const shared: TBSharedField = {
     field,
+    ...(renderer ? { renderer } : {}),
     origin,
     undoManager,
     stats,

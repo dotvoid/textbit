@@ -74,7 +74,7 @@ export type EditOperation =
  * - `invalid-operation`: an operation is malformed
  * - `parse-error`: content is not valid line format
  * - `not-allowed`: not possible here, e.g. changing an element whose plugin is
- *   missing, or moving one while suggesting
+ *   missing, or suggesting without a fork to suggest in
  * - `text-not-found`, `text-ambiguous`: `find` is not there, or there more than once
  * - `invalid-content`: the result would break the document's rules (see `issues`)
  * - `stale`: what the edit touches changed since `revision`
@@ -117,12 +117,10 @@ export type EditResult =
   | {
     /** The changes were made, or suggested */
     ok: true
-    /** The document's revision now: after the changes, or as it was if they were suggested */
+    /** The revision now of what the agent works in: the document, or while it suggests, its fork */
     revision: string
     /** The top-level elements changed, in the line format, with their handles */
     view: string
-    /** The id of the suggestion, when the changes were suggested, not made */
-    suggestion?: string
   }
   | {
     /** Nothing was changed */

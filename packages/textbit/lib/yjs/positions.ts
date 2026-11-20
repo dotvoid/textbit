@@ -27,7 +27,9 @@ export function pointToRelativePosition(editor: Editor, point: Point, assoc = 0)
   try {
     const node = yNodeAtPath(editor, shared.field, parentPath)
     const offset = yOffset(parent, point.path[point.path.length - 1]) + point.offset
-    return Y.createRelativePositionFromTypeIndex(node, offset, assoc)
+    // Through the editor's renderer, offsets count what it shows, such as
+    // suggested deletions
+    return Y.createRelativePositionFromTypeIndex(node, offset, assoc, shared.renderer ?? null)
   } catch {
     return undefined
   }
@@ -40,7 +42,7 @@ export function relativePositionToPoint(editor: Editor, position: Y.RelativePosi
   if (!shared || !doc) {
     return undefined
   }
-  const absolute = Y.createAbsolutePositionFromRelativePosition(position, doc)
+  const absolute = Y.createAbsolutePositionFromRelativePosition(position, doc, false, shared.renderer ?? null)
   if (!absolute || !(absolute.type instanceof Y.Node)) {
     return undefined
   }

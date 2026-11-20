@@ -6,7 +6,6 @@ import type { SpellingError } from '../../types'
 import { getLeafCommentIds, getLeafMarkIds } from '../../utils/decorationMarks'
 import { AgentRemoved } from './AgentRemoved'
 import { AgentTag } from './AgentTag'
-import { SuggestedText } from './SuggestedText'
 
 /**
  * Render a leaf
@@ -116,27 +115,6 @@ export function LeafElement(props: RenderLeafProps) {
       children: leaf.agentRemovedAt === 'after'
         ? <>{props.children}{removed}</>
         : <>{removed}{props.children}</>
-    }
-  }
-
-  // What a suggestion would change: removed text struck through, new text
-  // beside it. Unlike what agents changed, it stays until someone decides.
-  if (leaf.suggestDelete) {
-    className += ' tb-suggested-delete'
-    const color = (typeof leaf.suggestColor === 'string' && leaf.suggestColor) || 'var(--tb-agent-color, #7c3aed)'
-    style = { ...style, textDecoration: 'line-through', textDecorationColor: color, textDecorationThickness: '2px' }
-  }
-  if (typeof leaf.suggestInsert === 'string' && leaf.suggestInsert) {
-    const color = typeof leaf.suggestColor === 'string' && leaf.suggestColor ? leaf.suggestColor : undefined
-    // After struck text in the same leaf, as at the end of a text, it must not
-    // take the strike through from the leaf: an inline block does not
-    const inStruck = !!leaf.suggestDelete
-    const suggested = <SuggestedText text={leaf.suggestInsert} color={color} stale={!!leaf.suggestStale} replaces={!!leaf.suggestReplaces} block={inStruck} />
-    props = {
-      ...props,
-      children: leaf.suggestInsertAt === 'before'
-        ? <>{suggested}{props.children}</>
-        : <>{props.children}{suggested}</>
     }
   }
 

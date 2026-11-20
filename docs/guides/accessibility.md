@@ -56,14 +56,15 @@ that is taken never reaches the page.
 - **Agents' changes** are announced once each, as a sentence from a polite live region:
   "Writing assistant changed “teh” to “the”". The labels `agentReplaced`, `agentAdded` and
   `agentDeleted` translate it.
-- **New suggestions** are announced by `Textbit.Suggestions`.
+- **New suggestions** are announced in the same way, with who made them and how many:
+  "person:sam suggests 2 changes". The label `suggestionArrived` translates it.
 
 What textbit draws in the text for the eye, such as agents' names on their changes, removed
 text struck through, and suggestions, carries `data-tb-ui` and is hidden from screen readers,
 which would otherwise read it as part of the text. It is also left out of copies. The same
 information reaches screen readers another way: changes through the announcer, and
-suggestions through `Textbit.Suggestions`, which lists each suggestion with what it does
-("Change “teh” to “the”") and its Accept and Reject buttons. Place it in the page whenever
+suggestions through `Textbit.Suggestions`, which lists each change with what it does and who
+made it ("Sam replaces “teh” with “the”") and its Accept and Reject buttons. Place it in the page whenever
 suggestions can appear; it is how keyboard and screen reader users review them. See
 [Suggestions](./suggestions.md).
 

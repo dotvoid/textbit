@@ -48,7 +48,7 @@ The same is available without tools, on the agent itself:
 
 | Method | Returns |
 |--------|---------|
-| `agent.read({ from?, limit? })` | `{ revision, view, total, next?, suggestions }` |
+| `agent.read({ from?, limit? })` | `{ revision, view, total, next? }` |
 | `agent.search({ query, limit? })` | `{ revision, matches: [{ line, in? }] }`; `limit` defaults to 20 |
 | `agent.describe()` | The element types as text, as `document_types` gives them |
 | `agent.edit({ operations, revision?, opId? })` | An edit result, see below |
@@ -90,8 +90,8 @@ The document as one element per line, children indented two spaces under their p
   their text.
 
 A read returns at most `pageSize` characters (24000 by default) and says where the next page
-starts. It also says how many suggestions wait for review; the document it shows does not
-include them.
+starts. While the agent suggests, it reads the fork: the document with the suggestions made so
+far.
 
 The exact grammar is in [Formats](./formats.md#the-agents-line-format). `FORMAT_GUIDE` is the
 same explanation written for a model; `document_read` carries it in its description.
@@ -142,7 +142,7 @@ top-level elements in the line format, new handles included. On failure:
 | `invalid-operation` | An operation is missing a field or cannot be done |
 | `text-not-found`, `text-ambiguous` | `replaceText` finds the text nowhere, or more than once |
 | `invalid-content` | The result would break the document's rules; `issues` says how |
-| `not-allowed` | The operation would change or remove an unknown element, or move a block in suggest mode |
+| `not-allowed` | The operation would change or remove an unknown element, or the agent is to suggest without a fork to suggest in |
 | `stale` | Someone changed an element the batch changes since the given revision; `view` has it as it is now |
 | `read-only` | The agent may only read |
 
@@ -221,9 +221,9 @@ A new run clears what the last one published as changes; an undone run clears it
 
 ## Apply or suggest
 
-`review: 'apply'`, the default, makes edits. `review: 'suggest'` changes nothing: each batch is
-checked as an edit would be and stored as a suggestion, block by block, for people to accept or
-reject. See [Suggestions](./suggestions.md).
+`review: 'apply'`, the default, makes edits. `review: 'suggest'` makes them in `suggestIn`, an
+editor on the fork of the document, where they are suggestions for people to accept or reject,
+change by change. The document itself does not change. See [Suggestions](./suggestions.md).
 
 - **Apply** when the person who asked is the one reviewing, the change is easy to see and to
   undo, or the agent works on its own text: fixing spelling, tidying, filling in.
