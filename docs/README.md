@@ -12,6 +12,8 @@ which `npm run docs:api` generates into `docs/reference` from the doc comments i
 | [Styling](guides/styling.md) | The styles package, tokens, the `data-tb` hooks |
 | [Accessibility](guides/accessibility.md) | Keyboard use, screen readers, what textbit does and what hosts do |
 | [Collaboration](guides/collaboration.md) | Editing together over Y.js: cursors, presence, repairs |
+| [y-quorum](guides/y-quorum.md) | The server for shared documents: types, rights, history, storage, MCP |
+| [The y-quorum client](guides/y-quorum-client.md) | Opening documents from a browser or Node, and binding editors to them |
 | [Without a user interface](guides/headless.md) | `createTextbitEditor` on a server or in a script |
 | [Schema and validation](guides/schema-and-validation.md) | `getSchema`, `validate`, `toJsonSchema`, describing a plugin |
 | [Agents](guides/agents.md) | AI agents in the document: what they see and do |
@@ -19,7 +21,8 @@ which `npm run docs:api` generates into `docs/reference` from the doc comments i
 | [Agents on a server](guides/agents-server.md) | A headless editor joined to the shared document, presence, runs and undo |
 | [Suggestions](guides/suggestions.md) | Proposed changes people accept or reject, and how they are stored |
 | [Formats](guides/formats.md) | Specifications: what is stored in documents and sent between peers |
-| [Upgrading from 2.x](guides/upgrading-from-2.md) | Every breaking change, with before and after |
+| [What's new in 3.0](guides/whats-new-in-3.md) | Agents, Y.js 14, comments, suggestions, y-quorum, and what is still to come |
+| [Upgrading from 2.x](guides/upgrading-from-2.md) | Every breaking change, with before and after, and a checklist |
 
 ## Background
 

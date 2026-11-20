@@ -12,6 +12,9 @@ on:
       - 'textbit-plugins@[0-9]+.[0-9]+.[0-9]+*'
       - 'textbit-styles@[0-9]+.[0-9]+.[0-9]+*'
       - 'textbit-agent@[0-9]+.[0-9]+.[0-9]+*'
+      # @dotvoid/y-quorum and @dotvoid/y-quorum-client
+      - 'y-quorum@[0-9]+.[0-9]+.[0-9]+*'
+      - 'y-quorum-client@[0-9]+.[0-9]+.[0-9]+*'
   workflow_dispatch:
 
 permissions:
@@ -43,6 +46,8 @@ jobs:
             textbit-plugins@*) echo "dir=packages/plugins" >> "$GITHUB_OUTPUT" ;;
             textbit-styles@*)  echo "dir=packages/styles" >> "$GITHUB_OUTPUT" ;;
             textbit-agent@*)   echo "dir=packages/agent" >> "$GITHUB_OUTPUT" ;;
+            y-quorum-client@*) echo "dir=packages/y-quorum-client" >> "$GITHUB_OUTPUT" ;;
+            y-quorum@*)        echo "dir=packages/y-quorum" >> "$GITHUB_OUTPUT" ;;
             *)                 echo "dir=packages/textbit" >> "$GITHUB_OUTPUT" ;;
           esac
       - name: Check the tag matches the package version

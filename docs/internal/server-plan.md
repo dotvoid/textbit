@@ -754,7 +754,25 @@ every call goes through the same write pipeline, policies and history as anyone'
      it holds hang until it is restarted;
    - after a token is renewed, relays to other nodes keep the authentication they began with;
    - Postgres's `prune` has no test of its own; the audit export as W3C PROV.
-8. **Documentation, migration from 2.x, and the release** with Y.js 14.0.
+8. **Documentation, migration from 2.x, and the release** with Y.js 14.0. Done but the
+   release (20 November 2026): guides for Y.js 14, y-quorum and its client, what's new, the
+   upgrade from 2.x; the y-quorum packages in the publish workflow and the release steps.
+   Found in the code while writing them, still open:
+   - `defineType` takes no `policy`: a server type is `{ ...defineType(...), policy }`;
+   - the policy sees an agent without `onBehalfOf` when its comment and suggestion rights are
+     worked out (`capabilitiesFor`);
+   - comment rights follow the role, not `write`: an editor keeps `all` on a read-only
+     document unless the policy says otherwise;
+   - without history, `save` needs no capability, so a reader can set off `onSave`;
+   - `server.appendRecord` skips the policy and the type's record kinds;
+   - `host()`: `store` runs only on unload, not on a debounce as it says, and `load()`'s
+     `version` is never used;
+   - `attach()` takes every WebSocket upgrade on the HTTP server, with no path option;
+   - roles of documents already open are not authorized again when the token is renewed;
+   - with more than one node, `delete` closes openings on the local node only, and `send`
+     does nothing where the document is not loaded;
+   - every `transact` claims a new client id, so claims pile up;
+   - watchers are never listed in presence, so `watching` never shows.
 
 ## Testing
 

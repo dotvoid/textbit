@@ -1,58 +1,57 @@
 # Agents on a server
 
 The usual setup for an agent in a shared document: people edit in their browsers, the
-document is shared through a Y.js collaboration server, and the agent runs on a server too,
+document is shared through a Y.js 14 collaboration server, and the agent runs on a server too,
 joined to the same document as a peer of its own. Its edits then reach everyone as they are
 made, with its name on them, and nobody waits for anybody.
 
-This guide uses Hocuspocus as the collaboration server and its provider to join it. Any Y.js
-provider works the same way: the agent needs the document's `Y.Doc` and the provider's
-awareness. For collaboration in general, see [Collaboration](./collaboration.md).
+This guide uses [y-quorum](./y-quorum.md) as the collaboration server and
+[its client](./y-quorum-client.md) to join it. Any Y.js 14 provider works the same way: the
+agent needs the document's text field and the provider's awareness. For collaboration in
+general, see [Collaboration](./collaboration.md).
 
 ```bash
 npm install @dotvoid/textbit @dotvoid/textbit-plugins @dotvoid/textbit-agent \
-  @hocuspocus/provider @slate-yjs/core slate yjs
+  @dotvoid/y-quorum-client @y/y @y/protocols slate
 ```
 
 ## Joining the document
 
 ```ts
-import { HocuspocusProvider } from '@hocuspocus/provider'
-import * as Y from 'yjs'
-import { YjsEditor } from '@slate-yjs/core'
-import type { Editor } from 'slate'
+import * as Y from '@y/y'
+import { createClient } from '@dotvoid/y-quorum-client'
 import { createTextbitEditor } from '@dotvoid/textbit/headless'
 import { Text, Bold, Italic, Link, Image } from '@dotvoid/textbit-plugins/definitions'
 
 // The same plugins, with the same options, as the editors in the document
 const plugins = [Text({ headings: [1, 2] }), Bold(), Italic(), Link(), Image()]
 
-const ydoc = new Y.Doc()
-const provider = new HocuspocusProvider({
+const client = createClient({
   url: 'ws://localhost:1234',
-  name: 'article-123',
-  document: ydoc,
   token: process.env.DOCUMENT_TOKEN ?? ''
 })
+await client.ready
+const handle = await client.open('articles', 'article-123')
 
-// Until the provider has synced, the document is empty
-await new Promise<void>((resolve) => provider.on('synced', () => resolve()))
-
-const editor = createTextbitEditor({ plugins, shared: ydoc.get('content', Y.XmlText) })
-YjsEditor.connect(editor as YjsEditor & Editor)
+const body = handle.content.getAttr('body')
+if (!(body instanceof Y.Node)) {
+  throw new Error('The document has no body')
+}
+const editor = createTextbitEditor({ plugins, shared: body })
 ```
 
-- **Node 22 or later** has `WebSocket` built in, which the provider uses.
+- **Node 22 or later** has `WebSocket` built in, which the client uses.
 - **`@dotvoid/textbit/headless` and `@dotvoid/textbit-plugins/definitions`** load no React. The
   definitions have the same names and options as the plugins the browsers use, without their
   views.
-- **The shared type's name,** `content` here, must be the one the browsers use for
-  `Textbit.Root`'s `value`.
-- **Wait for `synced`.** An agent that reads before then sees an empty document.
-- **`YjsEditor.disconnect(editor)` and `provider.destroy()`** when the agent leaves.
+- **The text field,** `body` here, must be the one the browsers give `Textbit.Root` as `value`.
+- **`client.open` resolves once the document has arrived,** so the editor shows it from the
+  start. The editor is bound at once: there is nothing to connect.
+- **When the agent leaves,** release the editor's binding with `sharedOf(editor)?.release()`,
+  then `handle.release()` and `client.close()`.
 
 Anything a server writes to a shared document should go through such an editor rather than
-into the Y.js types directly: the editor repairs what it writes, by the plugins' rules, before
+into the Y.js nodes directly: the editor repairs what it writes, by the plugins' rules, before
 it reaches the others. See [Without a user interface](./headless.md).
 
 ## The agent
@@ -60,12 +59,23 @@ it reaches the others. See [Without a user interface](./headless.md).
 ```ts
 import { createAgentPresence, createAgentTools, createDocumentAgent } from '@dotvoid/textbit-agent'
 
-const presence = createAgentPresence(provider.awareness!, { name: 'Writing assistant', color: '#7c3aed' })
+const presence = createAgentPresence(handle.awareness, { name: 'Writing assistant', color: '#7c3aed' })
 const agent = createDocumentAgent(editor, { plugins, presence })
 const tools = createAgentTools(agent)
 ```
 
 Serve `tools` to a model as in [Agents over MCP](./agents-mcp.md).
+
+The agent's token decides who it is to the server. With a token of its own, it is a
+participant like any other, and the history names it. Working through a person's connection
+instead, it gives its changes an origin that claims them as the agent's:
+
+```ts
+const origin = handle.claimOrigin({ agent: 'assistant', name: 'Writing assistant' })
+const agent = createDocumentAgent(editor, { plugins, presence, origin })
+```
+
+The server then records the changes as the agent's, made for the person.
 
 ## Presence
 
@@ -112,15 +122,27 @@ earlier one's undo.
   come for, say, 20 seconds. The agent lab in this repository does this.
 
 To offer "Undo the assistant's last change" to the people in the document, keep the last run
-and let them ask for its undo, for example through a value in a `Y.Map` of the same document
-that the agent's server observes.
+and let them ask for its undo, for example through a record appended to the document
+(y-quorum's `handle.appendRecord`) that the agent's server watches for. With y-quorum's history,
+`handle.suggestRevert({ run })` instead suggests taking a run back, for people to accept; see
+[Suggestions](./suggestions.md#taking-back-an-agents-work).
 
 ## Edit or suggest
 
-`createDocumentAgent(editor, { plugins, presence, review: 'suggest', suggestIn: forkEditor })`
-makes the agent propose its changes instead, in the fork of the document, for people to accept
-or reject in their editors. `forkEditor` is bound to the fork's field, with y-quorum
-`handle.suggestionsDoc`. See [Suggestions](./suggestions.md).
+To have the agent propose its changes instead, give it an editor on the fork of the document,
+plainly, without a renderer, and `review: 'suggest'`:
+
+```ts
+const forkBody = handle.suggestionsDoc.get('content').getAttr('body')
+if (!(forkBody instanceof Y.Node)) {
+  throw new Error('The document has no suggestions')
+}
+const forkEditor = createTextbitEditor({ plugins, shared: forkBody })
+const agent = createDocumentAgent(editor, { plugins, presence, review: 'suggest', suggestIn: forkEditor })
+```
+
+What it changes in the fork, people accept or reject in their editors. See
+[Suggestions](./suggestions.md).
 
 ## Starting over without old copies
 
@@ -128,9 +150,11 @@ A Y.js peer keeps its copy of a document, and merges it in when it connects agai
 makes offline editing work, and it has a consequence for any server that can throw a document
 away and start it again, for example a test server that seeds a fresh document on start. A
 browser tab or agent that still holds the old copy reconnects, and the two copies merge: every
-element twice, with the same ids. Editors take out exact copies, but copies someone edited stay.
+element twice, with the same ids.
 
-So give each incarnation of a document a name of its own, and turn away clients that ask for an
-old one. The agent lab does this: the server names the document `lab-<time it was created>`,
-hands the name out over HTTP, and refuses any other in `onAuthenticate`. Clients that are turned
-away ask for the current name and start from a new, empty `Y.Doc`.
+y-quorum prevents this: each time a document is created it has a new incarnation, and a client
+holding a copy of an earlier one discards it rather than merging it in. The handle then emits
+`rebuilt`, with the content in a new `Y.Doc`, or `closed` when the document is gone. The agent's
+editors are bound to the old one: leave and join again, as the agent lab in this repository
+does. With another server, give each incarnation of a document a name of its own, and turn away
+clients that ask for an old one.

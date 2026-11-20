@@ -19,9 +19,10 @@ npm install @dotvoid/textbit @dotvoid/textbit-plugins @dotvoid/textbit-styles
 | `@dotvoid/textbit-styles` | A default look, in plain CSS with custom properties |
 
 The editor's peer dependencies are installed along with it by npm: `react` and `react-dom`
-(18 or 19), `slate` and `slate-react` (0.147), `yjs`, `@slate-yjs/core` and
-`@slate-yjs/react`. The Y.js packages are needed even when you do not collaborate: the
-editor is built to collaborate, and loads them either way.
+(18 or 19), `slate` and `slate-react` (0.147), and Y.js 14: `@y/y` and `@y/protocols`. The Y.js
+packages are needed even when you do not collaborate: the editor is built to collaborate, and
+loads them either way. Y.js 14 is a release candidate, so npm installs the exact version textbit
+names.
 
 ## A first editor
 
@@ -140,7 +141,7 @@ keyboard reaches the toolbar with Alt+F10 (⌥F10 on macOS); see
   keyboard.
 - [Plugins](./plugins.md): the ready-made plugins and their options, and writing your own.
 - [Styling](./styling.md): the default look, and styling textbit yourself.
-- [Collaboration](./collaboration.md): editing together over Y.js.
+- [Collaboration](./collaboration.md): editing together over Y.js 14.
 - [Agents](./agents.md): AI agents reading and editing the document with people.
 
 Every component, hook, type and function is in the API reference.

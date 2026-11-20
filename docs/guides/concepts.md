@@ -96,7 +96,8 @@ A plugin's element can say how many of each child it has (an image has exactly o
 whether Enter may break it, and more. Textbit keeps documents within those rules as people
 edit: it inserts a missing caption, removes a second one, and puts children in order. These
 repairs are Slate's normalization, and run after every change, in the same tick, so what an
-edit leaves behind is already repaired.
+edit leaves behind is already repaired. In a shared document an editor repairs only its own
+edits; see [Collaboration](./collaboration.md#repairs-in-a-shared-document).
 
 Content textbit has no plugin for is never repaired or changed: see
 [Objects whose plugin is missing](./the-editor.md#objects-whose-plugin-is-missing).
@@ -109,7 +110,7 @@ Content textbit has no plugin for is never repaired or changed: see
 |---|---|---|
 | a string | a string, paragraphs separated by line breaks | A plain text field |
 | an array of elements | the array | Documents you store yourself |
-| a `Y.XmlText` | the array | Documents edited together, see [Collaboration](./collaboration.md) |
+| a text field, a `Y.Node` of a Y.js 14 document | the array | Documents edited together, see [Collaboration](./collaboration.md) |
 
 ## Next
 
