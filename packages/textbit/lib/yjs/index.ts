@@ -1,4 +1,5 @@
 export { bindField, sharedOf, yNodeAtPath, type TBBindOptions, type TBSharedField } from './binding'
+export { repairField, type TBRepairOptions } from './repair'
 export {
   fieldToValue,
   seedField,

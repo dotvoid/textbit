@@ -263,6 +263,7 @@ export {
   sharedOf,
   fieldToValue,
   seedField,
+  repairField,
   SUGGESTED_MARK,
   BY_MARK,
   AT_MARK,
@@ -274,6 +275,7 @@ export {
   remoteCursors,
   type TBBindOptions,
   type TBSharedField,
+  type TBRepairOptions,
   type TBRenderer,
   type TBCursorOptions,
   type TBRemoteCursor
