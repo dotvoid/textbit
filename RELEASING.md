@@ -7,7 +7,7 @@ from a developer machine.
 Release a package from its folder:
 
 ```bash
-cd packages/textbit           # or packages/plugins, packages/styles, packages/agent
+cd packages/textbit           # or packages/plugins, packages/styles, packages/agent, ...
 npm version minor -m "%s: what changed"
 ```
 
@@ -22,6 +22,8 @@ beta`) are published under the `next` dist-tag.
 | `@dotvoid/textbit-plugins` | `packages/plugins` | `textbit-plugins@0.1.0` |
 | `@dotvoid/textbit-styles` | `packages/styles` | `textbit-styles@0.1.0` |
 | `@dotvoid/textbit-agent` | `packages/agent` | `textbit-agent@0.1.0` |
+| `@dotvoid/y-quorum-client` | `packages/y-quorum-client` | `y-quorum-client@1.0.0` |
+| `@dotvoid/y-quorum` | `packages/y-quorum` | `y-quorum@1.0.0` |
 
 npm skips its own commit and tag for packages in a workspace;
 `scripts/commit-version.mjs`, run by each package's `postversion`, does both.
@@ -61,6 +63,17 @@ so they cannot be released before it:
 4. Release the plugins and the styles: `npm version major` in each, giving 1.0.0.
 5. Release the agent package for the first time, as below: `npm version major`, giving
    1.0.0.
+6. Narrow y-quorum-client's and y-quorum's range of the editor to `^3.0.0`, and
+   y-quorum's range of the agent package to `^1.0.0`, and commit it.
+7. Release y-quorum-client for the first time: `npm version major`, giving 1.0.0.
+8. Point y-quorum's dependency on the client at `^1.0.0`, run `npm install` at the
+   root so the lockfile follows, and commit it.
+9. Release y-quorum for the first time: `npm version major`, giving 1.0.0.
+
+The agent package, y-quorum-client and y-quorum are all first releases: set up the
+token once, release all three while it exists, then add the three trusted publishers.
+All of them wait for Y.js 14.0: first move every `@y/y` and `@y/protocols` range off
+the release candidate and run everything again.
 
 ## The first release of a new package
 

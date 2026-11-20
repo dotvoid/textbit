@@ -15,11 +15,12 @@ Read [Agents](./agents.md) first for what the tools do.
 
 An MCP server over stdio, for a document shared through a collaboration server. It joins the
 document as a peer of its own, like a browser, so people see the agent's edits as it makes
-them. How the joining works is explained in [Agents on a server](./agents-server.md).
+them. It uses the [y-quorum client](./y-quorum-client.md); how the joining works is explained
+in [Agents on a server](./agents-server.md).
 
 ```bash
 npm install @dotvoid/textbit @dotvoid/textbit-plugins @dotvoid/textbit-agent \
-  @modelcontextprotocol/server @hocuspocus/provider @slate-yjs/core slate yjs
+  @modelcontextprotocol/server @dotvoid/y-quorum-client @y/y @y/protocols slate
 ```
 
 ```ts
@@ -32,10 +33,8 @@ import {
   type jsonSchemaValidator
 } from '@modelcontextprotocol/server'
 import { serveStdio } from '@modelcontextprotocol/server/stdio'
-import { HocuspocusProvider } from '@hocuspocus/provider'
-import * as Y from 'yjs'
-import { YjsEditor } from '@slate-yjs/core'
-import type { Editor } from 'slate'
+import * as Y from '@y/y'
+import { createClient } from '@dotvoid/y-quorum-client'
 import { createTextbitEditor } from '@dotvoid/textbit/headless'
 import { Text, Bold, Italic, Link, Image } from '@dotvoid/textbit-plugins/definitions'
 import { createAgentPresence, createAgentTools, createDocumentAgent } from '@dotvoid/textbit-agent'
@@ -47,20 +46,20 @@ const log = (...args: unknown[]) => console.error('[agent]', ...args)
 const plugins = [Text(), Bold(), Italic(), Link(), Image()]
 
 // Join the shared document
-const ydoc = new Y.Doc()
-const provider = new HocuspocusProvider({
+const client = createClient({
   url: process.env.DOCUMENT_URL ?? 'ws://localhost:1234',
-  name: process.env.DOCUMENT_NAME ?? 'article-123',
-  document: ydoc,
   token: process.env.DOCUMENT_TOKEN ?? ''
 })
-await new Promise<void>((resolve) => provider.on('synced', () => resolve()))
-
-const editor = createTextbitEditor({ plugins, shared: ydoc.get('content', Y.XmlText) })
-YjsEditor.connect(editor as YjsEditor & Editor)
+await client.ready
+const handle = await client.open('articles', process.env.DOCUMENT_ID ?? 'article-123')
+const body = handle.content.getAttr('body')
+if (!(body instanceof Y.Node)) {
+  throw new Error('The document has no body')
+}
+const editor = createTextbitEditor({ plugins, shared: body })
 
 // The agent, with a presence people see
-const presence = createAgentPresence(provider.awareness!, { name: 'Writing assistant', color: '#7c3aed' })
+const presence = createAgentPresence(handle.awareness, { name: 'Writing assistant', color: '#7c3aed' })
 const agent = createDocumentAgent(editor, { plugins, presence })
 const tools = createAgentTools(agent)
 
@@ -77,7 +76,8 @@ serveStdio(() => {
     { name: 'textbit-document', version: '1.0.0' },
     {
       capabilities: { tools: {} },
-      instructions: 'A shared document people are editing at the same time. Read it first, make small, targeted edits, and pass the revision of your read.'
+      instructions: 'A shared document people are editing at the same time. Read it first, '
+        + 'make small, targeted edits, and pass the revision of your read.'
     }
   )
   for (const tool of tools) {
@@ -97,7 +97,8 @@ log('ready')
 
 const quit = () => {
   presence.clear()
-  provider.destroy()
+  handle.release()
+  client.close()
   process.exit(0)
 }
 process.on('SIGINT', quit)
@@ -122,10 +123,14 @@ Notes:
   server does not know where a task ends, so a pause between tool calls is a practical end,
   as the agent lab in this repository does.
 - **Suggesting.** Pass `review: 'suggest'` and `suggestIn`, an editor on the fork of the
-  document, to `createDocumentAgent` to make every edit a suggestion. If the option changes while the server runs, rebuild the tools and update the
-  edit tool's description with `update({ description })` on what `registerTool` returned.
-  Declare `capabilities: { tools: { listChanged: true } }`: the SDK then tells clients to fetch
-  the new description. The agent lab's `apps/agent-lab/src/mcp.ts` does this.
+  document, to `createDocumentAgent` to make every edit a suggestion; see
+  [Edit or suggest](./agents-server.md#edit-or-suggest). If the option changes while the
+  server runs, rebuild the tools and update the edit tool's description with
+  `update({ description })` on what `registerTool` returned. Declare
+  `capabilities: { tools: { listChanged: true } }`: the SDK then tells clients to fetch the new
+  description. The agent lab's `apps/agent-lab/src/mcp.ts` does this, and is a
+  complete example of an MCP server on the y-quorum client: runs, the switch between editing
+  and suggesting, and undo asked for by the people in the document.
 
 ### Connecting a client
 
@@ -145,7 +150,7 @@ Start a new session and check that `/mcp` lists the server.
     "textbit-document": {
       "command": "/full/path/to/node",
       "args": ["/absolute/path/to/agent-server.js"],
-      "env": { "DOCUMENT_NAME": "article-123" }
+      "env": { "DOCUMENT_ID": "article-123" }
     }
   }
 }
@@ -246,7 +251,8 @@ run.finish()
 An agent can work on the live editor too. Its edits then go through the editor like any
 other change. In a document that is not shared, the person's undo takes back each batch. In
 a shared one it does not: agent edits have an origin of their own there, and the run undoes
-them.
+them. With y-quorum, make that origin `handle.claimOrigin({ agent, name })` and pass it as
+`origin`, so the server records the agent's changes as its own, made for the person.
 
 ```tsx
 import { Textbit, useEditor, type TBPlugin } from '@dotvoid/textbit'

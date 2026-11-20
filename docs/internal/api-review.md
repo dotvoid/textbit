@@ -12,9 +12,10 @@ would otherwise be wrong forever, and to keep everything else as 2.x hosts know 
    headless entry carries the prefix, as most already did; it keeps them apart from Slate's
    `Element`, `Text` and `Editor`. Renamed: `TBEditorOptions`, `TBDocumentSchema`,
    `TBElementTypeSchema`, `TBValidationIssue`, `TBValidationCode`, `TBJsonSchema`,
-   `TBSuggestion`, `TBSuggestedBlock`, `TBSuggestionStore`, `TBReviewResult`,
+   `TBSuggestedChange` (one change in the Y.js 14 fork, with `suggestedChanges`,
+   `acceptChange`, `rejectChange` and the mark `SUGGESTED_MARK`),
    `TBAgentPresence`, `TBAgentStatus`, `TBAgentChange` (as an agent publishes it),
-   `TBShownAgentChange` (as an editor shows it, like `TBShownSuggestion`), `TBPresentAgent`,
+   `TBShownAgentChange` (as an editor shows it), `TBPresentAgent`,
    `TBSelectionStats`, `TBPendingDrop`, `TBTextChange`. The agent package keeps its own plain
    names, which are specific already (`DocumentAgent`, `AgentTool`, `EditOperation`).
 2. **`ActionHandlerArgs.api` is gone**, an untyped bag marked FIXME, used only for handing
@@ -51,7 +52,9 @@ would otherwise be wrong forever, and to keep everything else as 2.x hosts know 
 
 ## Frozen, and documented as specifications
 
-- the suggestions map `textbitSuggestions`, one entry per suggested block, and `hashNode`;
+- suggestions as Y.js 14 keeps them: changes in the document's fork, told apart by their
+  attributions, with nothing of textbit's own beside them;
+- `hashNode`, the hash of an element every peer computes alike;
 - the awareness field `textbitAgent`, with `changes` placed by Y.js relative positions;
 - the agent's tool names, operations, error codes, result shapes and options, and the grammar
   of its line format (`FORMAT_GUIDE`'s wording and the tool descriptions may improve);

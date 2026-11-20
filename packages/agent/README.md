@@ -31,10 +31,11 @@ const tools = createAgentTools(agent)
   and writes the same lines back.
 - It edits with six operations, applied together or not at all, checked against the
   document's schema, refused with a clear error when something is wrong.
-- In a shared document its presence and what it changed show in everyone's editor, and a run
-  of its edits can be undone as one.
-- With `review: 'suggest'` it changes nothing: people accept or reject its suggestions, block
-  by block.
+- In a shared Y.js 14 document its presence and what it changed show in everyone's editor, and
+  a run of its edits can be undone as one. Give it `origin`, such as a y-quorum handle's
+  `claimOrigin({ agent })`, and the server records its changes as the agent's.
+- With `review: 'suggest'` it changes nothing: it edits a fork of the document, and people
+  accept or reject its suggestions, change by change.
 
 ## Documentation
 
@@ -43,7 +44,7 @@ const tools = createAgentTools(agent)
 - [Agents over MCP](https://github.com/dotvoid/textbit/blob/main/docs/guides/agents-mcp.md): a
   complete MCP server, model SDKs, and an agent in the page
 - [Agents on a server](https://github.com/dotvoid/textbit/blob/main/docs/guides/agents-server.md):
-  joining a shared document from Node
+  joining a shared Y.js 14 document from Node
 - [Suggestions](https://github.com/dotvoid/textbit/blob/main/docs/guides/suggestions.md)
 - [Formats](https://github.com/dotvoid/textbit/blob/main/docs/guides/formats.md): the line
   format, tools and what is sent between peers, as specifications

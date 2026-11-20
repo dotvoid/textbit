@@ -53,9 +53,11 @@ as it is made, as in the editor.
 | `plugins` | The plugin definitions. Plugins with views work too; the views are not used. Without any, core's plain paragraph. |
 | `value` | The document, when it is not shared |
 | `lang` | The document's language, `'en'` when not given |
-| `shared` | A `Y.XmlText` to collaborate through. See below. |
-| `localOrigin` | The origin of this editor's own changes to the shared document |
+| `shared` | A text field of a Y.js 14 document to edit, a `Y.Node`. See below. |
+| `origin` | With `shared`: the origin of this editor's own changes, to recognise them elsewhere |
+| `renderer` | With `shared`: show the field through a Y.js 14 renderer, such as the suggestions view of a fork |
 | `awareness`, `cursor` | Share a cursor, as for `Textbit.Root` |
+| `isActive` | With `awareness`: whether the editor is in use, so its cursor is sent. Default: always. |
 | `onSpellcheck`, `spellcheckDebounce` | Spellcheck the text, as for `Textbit.Root` |
 | `editor` | A Slate editor to build on, instead of a new one |
 
@@ -70,6 +72,9 @@ in textbit keeps it that way. It has:
 - `getSchema`, `validate` and `toJsonSchema`; see [Schema and validation](./schema-and-validation.md)
 - the suggestion functions for an editor showing a fork, `suggestedChanges`, `acceptChange`
   and `rejectChange`; see [Suggestions](./suggestions.md)
+- for shared documents, `bindField`, `sharedOf`, `seedField` and `fieldToValue`, the relative
+  positions `pointToRelativePosition` and the rest, and `withSharedCursor` and `remoteCursors`;
+  see [Collaboration](./collaboration.md)
 - `AGENT_PRESENCE_FIELD` and `diffWords`, for agents; see [Agents](./agents.md)
 - the types a plugin definition needs: `TBPluginDefinition`, `TBElementSpec`, `TBAction`,
   `TBElementSchema` and the rest
@@ -84,31 +89,58 @@ import that file. See [Plugins](./plugins.md#writing-a-plugin).
 
 ## A shared document
 
-With `shared`, the editor reads and writes a Y.js document. Connect it to start and disconnect
-it when done; disconnecting sends what it has not sent yet:
+With `shared`, the editor is bound to a text field of a Y.js 14 document at once: it shows the
+field, and each change goes into it as it is made. There is nothing to connect or flush. Release
+the binding when done:
 
 ```ts
-import * as Y from 'yjs'
+import type * as Y from '@y/y'
 import { Transforms } from 'slate'
-import { YjsEditor } from '@slate-yjs/core'
-import { createTextbitEditor } from '@dotvoid/textbit/headless'
+import { createTextbitEditor, sharedOf } from '@dotvoid/textbit/headless'
 import { Text } from '@dotvoid/textbit-plugins/definitions'
 
-export function replaceTitle(ydoc: Y.Doc, title: string) {
-  const editor = createTextbitEditor({ plugins: [Text()], shared: ydoc.get('content', Y.XmlText) })
-
-  YjsEditor.connect(editor)
+export function replaceTitle(field: Y.Node, title: string) {
+  const editor = createTextbitEditor({ plugins: [Text()], shared: field })
   try {
     Transforms.insertText(editor, title, { at: [0] })
   } finally {
-    YjsEditor.disconnect(editor)
+    sharedOf(editor)?.release()
   }
 }
 ```
 
-Anything that writes to a shared document outside an editor should write this way. What it
-writes is repaired before it reaches the document, instead of by every connected editor on
-arrival. See [Collaboration](./collaboration.md#repairs-in-a-shared-document).
+Anything that writes to a shared document outside an editor should write this way, so what it
+writes is repaired before it reaches the document. Loading the field writes nothing, and neither
+does following what others change: only the editor's own changes are repaired. See
+[Collaboration](./collaboration.md#repairs-in-a-shared-document).
+
+## Repairing a shared document
+
+What an editor finds broken in a shared document, it shows as it is. Repairing it is for the
+document's owner, such as the server holding it, and nobody else, so that two peers never make
+the same repair at once. Load the field into an editor with the document's plugins and normalize
+it all:
+
+```ts
+import type * as Y from '@y/y'
+import { Editor } from 'slate'
+import { createTextbitEditor, sharedOf } from '@dotvoid/textbit/headless'
+import { Text, Bold, Image } from '@dotvoid/textbit-plugins/definitions'
+
+const plugins = [Text(), Bold(), Image()]
+
+/** Run by the document's owner: repairs a field to the plugins' rules */
+export function repairField(field: Y.Node) {
+  const editor = createTextbitEditor({ plugins, shared: field, origin: { repair: true } })
+  try {
+    Editor.normalize(editor, { force: true })
+  } finally {
+    sharedOf(editor)?.release()
+  }
+}
+```
+
+The repairs go into the field as the editor's own changes, under its `origin`.
 
 ## What it is not
 

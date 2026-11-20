@@ -10,9 +10,8 @@ so a reader can tell it apart.
 
 ## Documents
 
-A document is an array of top-level elements, as Slate holds it. In a shared document it is
-the `Y.XmlText` the host passes as `Textbit.Root`'s `value`, in the layout `@slate-yjs/core`
-uses.
+A document is an array of top-level elements, as Slate holds it. In a shared document it is a
+text field of a Y.js 14 document, laid out as in [Shared documents](#shared-documents).
 
 **An element:**
 
@@ -61,6 +60,26 @@ Marks: `base/bold`, `base/italic`, `base/underline`, `base/strikethrough`, `base
 Core's own paragraph is `base/text` without properties. For any editor, `getSchema(plugins)`
 and `toJsonSchema` give this as data; see [Schema and validation](./schema-and-validation.md).
 
+### Shared documents
+
+A **text field** is a `Y.Node` of a Y.js 14 document whose children are the document's
+top-level elements, in order. `seedField` writes one and `fieldToValue` reads one.
+
+- **An element** is a node without a name. Its `id`, `type`, `class` and `lang` are attributes
+  of the same names, and each of its properties is an attribute of its own, `p:` and the
+  property's name: `properties.src` is `p:src`. Two people changing different properties at once
+  therefore keep both changes. The type being an attribute, changing it keeps the element, and
+  what is anchored in it.
+- **Its children** are the node's children: text as formatted text, and elements as child
+  nodes. Inline elements are child nodes between the runs of text.
+- **A mark** is a format on the text, by the mark's name, set to `true`. Marks whose name starts
+  with `_`, such as `_suggested`, are only shown in the editor and never stored.
+- **Empty text** is not stored. A `void` element's node has no children.
+
+Documents written by textbit 2 keep all of an element's properties in one `properties`
+attribute. They load as they are, and a property changed by textbit 3 moves to its own
+attribute.
+
 ## Suggestions
 
 Suggestions are a fork of the shared text, as Y.js 14 makes them: a `Y.Doc` of their own
@@ -103,11 +122,24 @@ An agent says what it does in its Y.js awareness state, in the field `textbitAge
 |-------|------|---|
 | `id` | string | Unique |
 | `block` | string | Id of the top-level element it is in |
-| `from`, `to` | number[] | The start and end of the added text, each the bytes of `Y.encodeRelativePosition` of a relative position in the content `Y.XmlText`, as `@slate-yjs/core`'s `slatePointToRelativePosition` makes them; equal for a removal |
+| `from`, `to` | number[] | The start and end of the added text, each the bytes of `Y.encodeRelativePosition` of a relative position in the text field, as `pointToRelativePosition` makes them; equal for a removal |
 | `added` | string | The text added; optional |
 | `removed` | string | The text removed; optional |
 
 An editor shows a change while the text between `from` and `to` still equals `added`.
+
+## Cursors
+
+A person's cursor is in their Y.js awareness state, in two fields, named by the editor's
+`cursor` option:
+
+| Field | Default name | Type | |
+|-------|--------------|------|---|
+| position | `selection` | `{ anchor, focus }` or `null` | Each the bytes of `Y.encodeRelativePosition` of a relative position in the text field, as a number array, as `pointToRelativePosition` makes them. `null` when the editor has no selection. |
+| data | `data` | object | What others see: `name` and `color` label the cursor |
+
+An editor sends its cursor only while it is in use, and shows the others' cursors that are in
+its own text field.
 
 ## The agent's line format
 

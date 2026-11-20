@@ -1,7 +1,7 @@
 # @dotvoid/textbit
 
 A plugin-based rich text editor for React, built on Slate, with collaborative editing over
-Y.js, and room in the document for AI agents.
+Y.js 14, and room in the document for AI agents.
 
 - **Plugins for everything:** on its own, textbit edits plain paragraphs. Headings, formatting,
   lists, links, tables, images and the rest are plugins, each a definition (its elements,
@@ -9,7 +9,7 @@ Y.js, and room in the document for AI agents.
 - **Unstyled:** semantic HTML with `data-tb` hooks. A default look is a separate package.
 - **Accessible:** keyboard access throughout, named controls, announcements for screen
   readers.
-- **Together:** edit one document with others over Y.js, cursors and all.
+- **Together:** edit one document with others over Y.js 14, cursors and all.
 - **Without a user interface:** the same editor, rules and plugins in Node, to read, change or
   check documents on a server.
 - **With agents:** a schema of every document type, validation, agents' presence and changes
@@ -21,8 +21,7 @@ Y.js, and room in the document for AI agents.
 npm install @dotvoid/textbit @dotvoid/textbit-plugins @dotvoid/textbit-styles
 ```
 
-`react`, `react-dom`, `slate`, `slate-react`, `yjs`, `@slate-yjs/core` and `@slate-yjs/react`
-are peer dependencies.
+`react`, `react-dom`, `slate`, `slate-react`, `@y/y` and `@y/protocols` are peer dependencies.
 
 ## A first editor
 
@@ -58,7 +57,9 @@ The guides, from a first editor to agents. The API reference is generated from t
 - [Plugins](https://github.com/dotvoid/textbit/blob/main/docs/guides/plugins.md)
 - [Styling](https://github.com/dotvoid/textbit/blob/main/docs/guides/styling.md)
 - [Accessibility](https://github.com/dotvoid/textbit/blob/main/docs/guides/accessibility.md)
-- [Collaboration](https://github.com/dotvoid/textbit/blob/main/docs/guides/collaboration.md)
+- [Collaboration](https://github.com/dotvoid/textbit/blob/main/docs/guides/collaboration.md),
+  with [y-quorum](https://github.com/dotvoid/textbit/blob/main/docs/guides/y-quorum.md) and
+  [its client](https://github.com/dotvoid/textbit/blob/main/docs/guides/y-quorum-client.md)
 - [Without a user interface](https://github.com/dotvoid/textbit/blob/main/docs/guides/headless.md)
 - [Schema and validation](https://github.com/dotvoid/textbit/blob/main/docs/guides/schema-and-validation.md)
 - [Agents](https://github.com/dotvoid/textbit/blob/main/docs/guides/agents.md),
@@ -73,7 +74,7 @@ The guides, from a first editor to agents. The API reference is generated from t
 | Import | For |
 |---|---|
 | `@dotvoid/textbit` | The editor: components, hooks, and everything below |
-| `@dotvoid/textbit/headless` | The editor without React or a browser: `createTextbitEditor`, `getSchema`, `validate`, suggestions, and the types a plugin definition needs |
+| `@dotvoid/textbit/headless` | The editor without React or a browser: `createTextbitEditor`, shared documents (`seedField`, `fieldToValue`, `sharedOf`), `getSchema`, `validate`, suggestions, and the types a plugin definition needs |
 
 ## Related packages
 
@@ -83,6 +84,9 @@ The guides, from a first editor to agents. The API reference is generated from t
   a default look
 - [`@dotvoid/textbit-agent`](https://github.com/dotvoid/textbit/tree/main/packages/agent):
   tools for AI agents to read and edit documents
+- [`@dotvoid/y-quorum`](https://github.com/dotvoid/textbit/tree/main/packages/y-quorum) and
+  [`@dotvoid/y-quorum-client`](https://github.com/dotvoid/textbit/tree/main/packages/y-quorum-client):
+  a Y.js 14 server for shared documents, and its client
 
 ## Licence
 
