@@ -6,13 +6,16 @@
 // agent's run" is a record people append and the agent acts on.
 //
 // Anyone may join with a name as token; a token starting with "agent:" joins
-// as an agent. `npm run lab:reset` removes the state: the next start makes a
+// as an agent. The rpc `history` gives the latest entries of the document's
+// history, for the demo to list. `npm run lab:reset` removes the state: the next start makes a
 // new document, with a new incarnation, and clients still holding the old one
 // discard it rather than merge it in.
 import { mkdirSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createServer, defineType, number, object, oneOf, sqlite, text } from '@dotvoid/y-quorum'
+import {
+  createServer, defineType, number, object, oneOf, sqlite, text, type QuorumServer
+} from '@dotvoid/y-quorum'
 import { document as article } from '../../demo/src/document.ts'
 import { plugins } from './plugins.ts'
 
@@ -48,8 +51,52 @@ const server = createServer({
   // Everyone in the lab owns the document: they may restore versions too
   authorize: () => ['owner'],
   // What the editors render: repairs and checks of the body go by them
-  plugins: { demo: plugins }
+  plugins: { demo: plugins },
+  rpc: {
+    history: async (_args, { server: quorum }) => latestHistory(quorum)
+  }
 })
+
+/** One entry of the history as the demo lists it: who, as a name, and what */
+export interface HistoryRow {
+  seq: number
+  at: number
+  kind: string
+  layer: string
+  by: string
+  onBehalfOf?: string
+  run?: string
+  model?: string
+  /** The log positions it folds */
+  from: number
+  to: number
+}
+
+// The latest entries, newest first, with people by name rather than key
+async function latestHistory(quorum: QuorumServer, count = 30): Promise<HistoryRow[]> {
+  const lines = (await quorum.exportHistory('lab', 'article')).split('\n').filter(Boolean)
+  const people = await quorum.people('lab', 'article')
+  const name = (key: string) => people[key]?.name ?? key
+  return lines.slice(-count).reverse().map((line) => {
+    const entry = JSON.parse(line) as {
+      seq: number, at: number, kind: string, layer: string, from: number, to: number
+      actor: { by: string, onBehalfOf?: string, run?: string, model?: string }
+    }
+    const { actor } = entry
+    return {
+      seq: entry.seq,
+      at: entry.at,
+      kind: entry.kind,
+      layer: entry.layer,
+      from: entry.from,
+      to: entry.to,
+      by: name(actor.by),
+      ...(actor.onBehalfOf ? { onBehalfOf: name(actor.onBehalfOf) } : {}),
+      ...(actor.run ? { run: actor.run } : {}),
+      ...(actor.model ? { model: actor.model } : {})
+    }
+  })
+}
 
 if (!(await server.read('lab', 'article'))) {
   await server.create('lab', 'article', 'lab/article', { body: article, review: 'apply', created: Date.now() })
