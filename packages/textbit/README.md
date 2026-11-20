@@ -74,7 +74,7 @@ The guides, from a first editor to agents. The API reference is generated from t
 | Import | For |
 |---|---|
 | `@dotvoid/textbit` | The editor: components, hooks, and everything below |
-| `@dotvoid/textbit/headless` | The editor without React or a browser: `createTextbitEditor`, shared documents (`seedField`, `fieldToValue`, `sharedOf`), `getSchema`, `validate`, suggestions, and the types a plugin definition needs |
+| `@dotvoid/textbit/headless` | The editor without React or a browser: `createTextbitEditor`, shared documents (`seedField`, `fieldToValue`, `sharedOf`, `repairField`), `getSchema`, `validate`, suggestions, and the types a plugin definition needs |
 
 ## Related packages
 

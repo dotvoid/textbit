@@ -376,8 +376,9 @@ After the handshake:
 6. Append to the log (committed in groups every 10 to 20 ms), apply, broadcast (coalesced per
    tick), acknowledge, fire events, re-evaluate policies if content changed.
 7. People's writes with a wrong shape are repaired afterwards by the owner, and only the owner,
-   as a `system` change: text fields by textbit's rules, other fields back to their last valid
-   value.
+   as a change of `REPAIRER` (`service:y-quorum`), history kind `repair`: text fields by
+   textbit's rules (`repairField`), other fields back to their last valid value, list items
+   with a key an earlier one has removed.
 
 **A refused write is not lost, and does not wedge the client.** Once the server refuses an
 update, the client's state covers changes the server will never have, and every later update
@@ -647,7 +648,7 @@ every call goes through the same write pipeline, policies and history as anyone'
    the model shared by both from the client's `/protocol` and `/model`; the lab and the demo run
    on them. Carried forward:
    - repairs by the owner (textbit's normalization on the server), and agent and API writes
-     validated against the schema before they apply;
+     validated against the schema before they apply (done 20 November 2026, see step 8);
    - outside changes to a host's JSON merged into a live document; today a document is seeded
      from the host only when the cache lacks it;
    - local copies in IndexedDB keyed by person, and the client's budget demoting documents
@@ -775,6 +776,26 @@ every call goes through the same write pipeline, policies and history as anyone'
      `send` reaches the node holding a document by `leaseOf` and a node-only frame;
    - `transact` writes under one client id per actor while the document is loaded;
    - watching is not presence, as decided above: the `watching` mode is gone.
+   Repairs, the same day. Random edits by two people at once, with real plugins, showed what
+   breaks: blocks two people moved at once are there twice (Y.js moves by copying), lists
+   holding both item kinds, a list emptied by both, a list item left outside its list. And,
+   with one person alone, the list toggle turning a quote's text into a list item when the
+   selection reached into it: a plugin bug, fixed. Built:
+   - `repairField(field, { plugins, origin })` in core's headless entry: textbit's
+     normalization of every element, and ids made unique (the first stays; a later exact copy
+     goes, a later one that differs gets a new id). Shared editors no longer remove exact
+     copies themselves. Y.js 14 takes the same view: validate the value after the fact, as a
+     node cannot be kept valid against remote updates;
+   - core: a part of another element standing alone at the top level becomes a paragraph; the
+     list plugin removes a list without items;
+   - the model: `fieldIssues`, `valueFits`, `writeField`;
+   - the owner notes the text fields people's writes touch and the plain fields they break
+     (with the value before), and repairs on a copy `repairAfter` later, committed as one
+     change; on unload what waits is repaired first; a field repaired 20 times in a minute is
+     left alone. Agents' and code's writes that add a problem are refused with `invalid`;
+   - the server's `plugins` option, by the names text fields give; the lab passes the demo's.
+   Still open: a document loaded broken is repaired only once someone writes to the field;
+   repairs inside the suggestions fork; counting repairs per document for hosts to watch.
 
 ## Testing
 

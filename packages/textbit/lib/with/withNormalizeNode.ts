@@ -4,6 +4,7 @@ import type { PluginRegistryComponent } from '../contexts/PluginRegistry/lib/typ
 import { TextbitElement } from '../utils/textbit-element'
 import { TEXT_TYPE } from '../utils/textType'
 import { hashNode } from '../utils/hashNode'
+import { sharedOf } from '../yjs/binding'
 
 export function withNormalizeNode(editor: Editor, _: PluginDefinition[], components: Map<string, PluginRegistryComponent>) {
   const { normalizeNode } = editor
@@ -11,7 +12,9 @@ export function withNormalizeNode(editor: Editor, _: PluginDefinition[], compone
   editor.normalizeNode = (nodeEntry) => {
     const [node, path] = nodeEntry
 
-    if (Editor.isEditor(node) && removeExactCopy(editor)) {
+    // Shared, the copies two people make at once are the repairing process's
+    // to remove (`repairField`): editors removing them at once could remove all
+    if (Editor.isEditor(node) && !sharedOf(editor) && removeExactCopy(editor)) {
       return
     }
 
@@ -46,6 +49,14 @@ export function withNormalizeNode(editor: Editor, _: PluginDefinition[], compone
       }
 
       return normalizeNode(nodeEntry)
+    }
+
+    // A part of another element standing alone at the top level, such as a
+    // list item left outside its list by two people's changes at once:
+    // core's paragraph, keeping its text
+    if (path.length === 1 && item.parent && item.class === 'text' && components.has(TEXT_TYPE)) {
+      Transforms.setNodes(editor, { type: TEXT_TYPE, class: 'text', properties: {} }, { at: path })
+      return
     }
 
     // Declarative child-constraint enforcement (excess → missing → order).

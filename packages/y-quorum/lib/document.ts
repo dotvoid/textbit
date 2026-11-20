@@ -46,6 +46,13 @@ import { StaleLease, type Actor, type LogEntry, type ServerOptions, type ServerT
 import { differsFromFork } from './suggestionActs'
 import { judgeComments } from './judgeComments'
 import { GENESIS, seal, signedHead, type HistoryActor, type HistoryKind } from './history'
+import { REPAIRER, Repairs, checkWrite, repair } from './repairs'
+
+/** The origin of the owner's repairs in its copies */
+const REPAIRED = { yQuorum: 'repair' }
+/** How often one text field may be repaired within a window before it is left alone */
+const REPAIRS_PER_WINDOW = 20
+const REPAIR_WINDOW = 60_000
 
 /** How long writes of one actor are folded into one history entry at most */
 const BATCH_MS = 10_000
@@ -141,6 +148,11 @@ export class DocumentOwner {
   private shadows = new Map<Layer, Y.Doc>()
   /** The client id each actor writes under from this process, by principal id */
   private transactClients = new Map<string, number>()
+  /** What people's writes left to repair, and when it is next repaired */
+  private repairs = new Repairs()
+  private repairing: ReturnType<typeof setTimeout> | undefined
+  /** Repairs of each text field lately, to stop rules that never settle */
+  private repairCounts = new Map<string, { count: number, since: number }>()
   /** For a type with history: who wrote what in each layer, as Y.js 14 keeps it */
   private attributions = new Map<Layer, Y.ContentMap>()
   /** The people the attributions name, by their key */
@@ -491,16 +503,7 @@ export class DocumentOwner {
   transact(actor: Actor, roles: string[], change: (content: Y.Node) => void): Promise<boolean> {
     return this.serial(async () => {
       const copy = this.copy()
-      // A client id of its own, claimed for the actor once, as any writer's,
-      // and kept for its later changes, so they do not fill the claims
-      const held = this.transactClients.get(actor.principal.id)
-      if (held !== undefined) {
-        copy.clientID = held
-      } else if (
-        await this.storage.claimClient(this.namespace, this.id, copy.clientID, actor.principal.id)
-      ) {
-        this.transactClients.set(actor.principal.id, copy.clientID)
-      } else {
+      if (!(await this.writeAs(actor, copy))) {
         return false
       }
       const before = Y.encodeStateVector(copy)
@@ -517,6 +520,25 @@ export class DocumentOwner {
       await this.retryHeld()
       return true
     })
+  }
+
+  /**
+   * A copy written in this process takes the client id its actor writes under
+   * here: claimed once, as any writer's, and kept for its later changes, so
+   * they do not fill the claims. False when the id is someone else's.
+   */
+  private async writeAs(actor: Actor, copy: Y.Doc): Promise<boolean> {
+    const held = this.transactClients.get(actor.principal.id)
+    if (held !== undefined) {
+      copy.clientID = held
+      return true
+    }
+    const { namespace, id } = this
+    if (!(await this.storage.claimClient(namespace, id, copy.clientID, actor.principal.id))) {
+      return false
+    }
+    this.transactClients.set(actor.principal.id, copy.clientID)
+    return true
   }
 
   // Whether a write to a layer may be applied, judged on that layer alone
@@ -645,6 +667,17 @@ export class DocumentOwner {
     if (!allowed) {
       return refuse(paths.length ? `Not allowed to change ${paths.map((p) => p.join('.')).join(', ')}` : 'Not allowed to write here')
     }
+    // A person's write is repaired afterwards, never refused for its shape;
+    // an agent's or code's is checked first
+    if (actor.principal.kind === 'person') {
+      this.repairs.note(this.root, root, this.type.content, paths)
+    } else {
+      const wrong = checkWrite(this.root, root, this.type.content, paths, this.options.plugins)
+      if (wrong) {
+        reset()
+        return { code: 'invalid', reason: wrong }
+      }
+    }
     return kind ? { layer, kind, refs: this.suggestedBy(suggested, acceptedDeletes), claims } : { layer, claims }
   }
 
@@ -695,6 +728,7 @@ export class DocumentOwner {
     clearTimeout(this.batch?.timer)
     clearTimeout(this.checkpointTimer)
     clearTimeout(this.settling)
+    clearTimeout(this.repairing)
     for (const opening of [...this.openings]) {
       this.openings.delete(opening)
       opening.peer.drop?.()
@@ -812,8 +846,61 @@ export class DocumentOwner {
     if (layer === 'content' || layer === 'comments') {
       this.settleSoon()
     }
+    if (layer === 'content' && actor.principal !== REPAIRER && !this.repairs.isEmpty) {
+      this.repairSoon()
+    }
     this.settleSaves()
     return this.seq
+  }
+
+  /** What people's writes broke is repaired a moment later, once what is arriving with it has */
+  private repairSoon() {
+    clearTimeout(this.repairing)
+    this.repairing = setTimeout(() => {
+      this.repairing = undefined
+      void this.serial(() => this.repairNow()).catch(() => undefined)
+    }, this.options.repairAfter ?? 100)
+    this.repairing.unref?.()
+  }
+
+  /**
+   * Repairs what people's writes left, on a copy, and stores the repair as one
+   * change of the server's own. Only here, by the document's one owner: two
+   * clients repairing the same thing at once would duplicate or delete it.
+   */
+  private async repairNow() {
+    clearTimeout(this.repairing)
+    this.repairing = undefined
+    if (this.repairs.isEmpty) {
+      return
+    }
+    const work = this.repairs.take()
+    // A field repaired again and again has rules that never settle: left alone a while
+    const now = Date.now()
+    work.text = work.text.filter((path) => {
+      const key = path.join('\u0000')
+      const recent = this.repairCounts.get(key)
+      const counted = recent && now - recent.since < REPAIR_WINDOW
+        ? recent
+        : { count: 0, since: now }
+      this.repairCounts.set(key, { ...counted, count: counted.count + 1 })
+      return counted.count < REPAIRS_PER_WINDOW
+    })
+    const copy = this.copy()
+    const actor: Actor = { principal: REPAIRER }
+    if (!(await this.writeAs(actor, copy))) {
+      return
+    }
+    const before = Y.encodeStateVector(copy)
+    repair(copy.get(CONTENT), this.type.content, work, this.options.plugins, REPAIRED)
+    const update = Y.encodeStateAsUpdate(copy, before)
+    const ids = Y.createContentIdsFromUpdate(update)
+    if (ids.inserts.isEmpty() && ids.deletes.isEmpty()) {
+      return
+    }
+    // Not judged: the owner's own, on what it has. The shadow follows it.
+    Y.applyUpdate(this.shadows.get('content')!, update)
+    await this.commit(actor, 'content', update, undefined, 'repair')
   }
 
   /** A storage that keeps JSON is given the document a while after it last changed */
@@ -1403,6 +1490,8 @@ export class DocumentOwner {
       // Unloading gives the storage the document anyway
       clearTimeout(this.settling)
       this.settling = undefined
+      // What waits for repair is repaired now, not left for whoever loads it next
+      await this.repairNow()
       await this.flushHistory()
       await this.checkpoint()
       await this.storage.unloaded?.(this.namespace, this.id, Y.encodeStateAsUpdate(this.doc), this.json(), this.type.name, this.comments())

@@ -100,6 +100,8 @@ The other options:
 | `onSave` | | Called when a client saves, see [Versions](#versions-and-restoring) |
 | `limits` | `{ open: 500, watch: 2000, frame: 4 MiB }` | Documents one connection may open and watch, and the largest frame in bytes. Clients are told them when they connect. |
 | `idle` | `5000` | Milliseconds a document stays loaded after the last connection leaves |
+| `plugins` | | The plugins of text fields, by the name each gives in `text({ plugins })`, `default` for none: what [repairs](#repairs) and checks go by |
+| `repairAfter` | `100` | Milliseconds after a person's write before what it broke is repaired |
 | `settleAfter` | `2000` | Milliseconds after the last change before a storage that keeps JSON is given an open document, see [Hosts that store JSON](#hosts-that-store-json) |
 | `checkpointEvery` | `200` | Log entries between checkpoints |
 | `signer` | | Signs the history, see [Signing](#signing) |
@@ -300,11 +302,48 @@ Reason codes are fixed strings in a fixed place, never message text: `not-allowe
 `not-found`, `gone`, `over-limit`, `invalid`, `conflict`, `client-id-taken`, `unavailable`,
 `unauthenticated` and `stale-protocol`.
 
-> **Not yet:** repairs. A person's write with a wrong shape is meant to be repaired by the
-> owner afterwards (text fields by textbit's rules, other fields back to their last valid
-> value), and agent and API writes checked against the schema before they apply. Today the
-> server does neither: a client can set a `oneOf` field to any value. Where it matters, refuse
-> it in the policy by reading `next`.
+### Repairs
+
+Two people's changes can each be valid and still merge into a shape neither made: a block both
+moved at once is there twice, as Y.js moves by copying; a list one person numbered while the
+other added a bullet item holds both kinds; two people add the list item `check` at once. No
+single write shows it, so refusing writes cannot prevent it. The server repairs instead, a
+moment after (`repairAfter`, 100 ms by default), and only the server: two clients repairing the
+same thing at once would duplicate or delete it.
+
+- **Text fields** that people's writes touched are repaired by textbit's rules with
+  `repairField` (see [Without a user interface](./headless.md#repairing-a-shared-document)),
+  with the plugins the field names. Give the server the plugins your editors have, by the name
+  each text field gives:
+
+  ```ts
+  import { Text, Bold, UnorderedList } from '@dotvoid/textbit-plugins/definitions'
+
+  createServer({ types: [planType], storage, authenticate, plugins: {
+    default: [Text(), Bold(), UnorderedList()],
+    singleLine: [Text()]
+  } })
+  ```
+
+  Without `plugins`, core's rules alone apply, and objects of plugins the server does not have
+  are left as they are.
+- **Plain values** of the wrong kind, such as a `oneOf` value the type does not list, go back to
+  what they were before the write. A field that is not what the type says is written back from
+  what it held.
+- **List items** with a key an earlier item has are removed, the first by position staying; so
+  is an item without its key.
+
+A repair is one change of the server's own, by `REPAIRER` (`service:y-quorum`), sent to
+everyone like any other and in the history as its own entry, kind `repair`. Nobody is made the
+author of a repair, and it is not counted as anyone's work to review. A field that keeps
+needing repairs, from plugins whose rules never settle, is left alone after 20 repairs in a
+minute.
+
+**Agents and code are checked first instead.** A write by an agent, or by code in the server
+process (`transact`), that adds a problem is refused with `invalid` before it applies: a value
+the type does not allow, or an error by the plugins' rules in a text field it changed that the
+field did not have before. They are told why and can try again; a person's typing is never
+thrown away for its shape.
 
 ## Comments and suggestions
 
@@ -382,7 +421,7 @@ if (!verdict.ok) {
 
 An entry has `doc`, `seq`, the log positions it folds (`from`, `to`), `layer`, `at` and
 `until`, `actor` (`by`, `onBehalfOf`, `run`, `model`, all keys or plain values), `connection`,
-`kind` (`edit`, `accept`, `reject`, `restore`, `review`, `record` or `signature`), `refs`
+`kind` (`edit`, `accept`, `reject`, `restore`, `repair`, `review`, `record` or `signature`), `refs`
 (such as the version a restore restored), the `payload` (the Y.js update, base64),
 `payloadHash`, `prevHash` and `hash`.
 
@@ -649,7 +688,7 @@ const accepted = await server.transact('team-1', 'plan-1', importer, (content) =
 | Method | Does |
 |---|---|
 | `create(namespace, id, type, initial?, actor?)` | Creates a document, filled from JSON |
-| `transact(namespace, id, actor, change)` | Makes `change` on a copy of the content and sends it through the write pipeline, with the roles `authorize` gives the actor (or whom it acts for). Resolves to whether it was accepted. |
+| `transact(namespace, id, actor, change)` | Makes `change` on a copy of the content and sends it through the write pipeline, with the roles `authorize` gives the actor (or whom it acts for), and refused when it adds a problem (see [Repairs](#repairs)). Resolves to whether it was accepted. |
 | `read(namespace, id)` | The content as JSON, or nothing when there is no such document |
 | `comments(namespace, id)` | The comment threads, oldest first |
 | `appendRecord(namespace, id, actor, kind, data)` | Appends a record, see [Records](#records) |

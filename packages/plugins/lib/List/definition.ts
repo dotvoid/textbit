@@ -170,6 +170,17 @@ function toggleList(editor: Editor, type: string): void {
     return
   }
 
+  // Only paragraphs become a list: the text parts of a quote or a table stay
+  // where they are, whatever the selection spans
+  const blocks = [...Editor.nodes(editor, {
+    at: Editor.unhangRange(editor, selection),
+    match: (_, path) => path.length === 1
+  })]
+  const paragraphs = blocks.every(([node]) => Element.isElement(node) && node.type === 'base/text')
+  if (!blocks.length || !paragraphs) {
+    return
+  }
+
   Editor.withoutNormalizing(editor, () => {
     Transforms.setNodes(editor, { type: `${type}/list-item`, properties: {} }, {
       match: (n) => !Editor.isEditor(n) && TextbitElement.isElement(n) && n.class === 'text'
@@ -188,7 +199,8 @@ function normalizeList(editor: Editor, [node, path]: NodeEntry, type: string): b
     return undefined
   }
 
-  if (node.children.length === 0) {
+  // Without items: as Slate reads an emptied list, one empty text
+  if (!node.children.some((child) => Element.isElement(child))) {
     Transforms.removeNodes(editor, { at: path })
     return true
   }

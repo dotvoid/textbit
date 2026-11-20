@@ -4,7 +4,8 @@ A collaboration server for documents that people and agents write together, on Y
 Documents are typed trees of rich text fields, plain values and keyed lists, with comments,
 suggestions and records beside them. The server judges every change by rules you give it, holds
 agents to the rights of the person they act for, and keeps a history of who changed what, as a
-hash chain that can be exported, checked and signed.
+hash chain that can be exported, checked and signed. What two people's valid changes break
+between them it repairs, once, by textbit's rules.
 
 One process and a SQLite file run everything. Postgres, object storage and more than one node
 are there when you need them, and a host's own JSON store can be used from the start.
@@ -19,6 +20,7 @@ Node 22.13 or later.
 
 ```ts
 import { createServer, defineType, object, sqlite, text } from '@dotvoid/y-quorum'
+import { Bold, Italic, Text } from '@dotvoid/textbit-plugins/definitions'
 
 const note = defineType('example/note', {
   content: object({ title: text({ plugins: 'singleLine' }), body: text() }),
@@ -33,7 +35,9 @@ const server = createServer({
   // Yours to decide: here, one fixed token
   authenticate: (token) => token === process.env.TOKEN
     ? { principal: { kind: 'person', id: 'alice', name: 'Alice' }, namespaces: ['demo'] }
-    : null
+    : null,
+  // The plugins your editors have, by the name each text field gives
+  plugins: { default: [Text(), Bold(), Italic()], singleLine: [Text()] }
 })
 
 if (!(await server.read('demo', 'note-1'))) {

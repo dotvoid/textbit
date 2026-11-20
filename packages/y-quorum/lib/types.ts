@@ -2,6 +2,7 @@ import type * as Y from '@y/y'
 import type { IncomingMessage } from 'node:http'
 import type { Capabilities, DocumentRecord, Layer, Limits, Person, Principal, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
 import type { CommentThread, Path, TypeDefinition, Unreviewed } from '@dotvoid/y-quorum-client/model'
+import type { TBPluginDefinition } from '@dotvoid/textbit/headless'
 import type { HistoryEntry } from './history'
 
 /** Who made a change: the principal, and whom it acted for */
@@ -251,6 +252,14 @@ export interface ServerOptions {
    * is given an open document. Default: 2000.
    */
   settleAfter?: number
+  /**
+   * The plugins of text fields, by the name a field gives in `text({ plugins })`,
+   * `default` for none: what repairs and checks of text fields go by. Give the
+   * ones the editors have. Without, core's rules alone.
+   */
+  plugins?: Record<string, TBPluginDefinition[]>
+  /** Milliseconds after a person's write before what it broke is repaired. Default: 100. */
+  repairAfter?: number
 }
 
 /** The server */
