@@ -107,4 +107,26 @@ describe('what a type does not allow', () => {
       due: undefined
     })
   })
+
+  it('finds a day the calendar does not have', () => {
+    const doc = new Y.Doc()
+    const content = doc.get('content')
+    createContent(content, plan.content, initial)
+    for (const due of ['2024-02-31', '2026-13-01', '2026-12-01T25:00']) {
+      content.setAttr('due', due)
+      expect(fieldIssues(content, plan.content).map((issue) => issue.code)).toEqual(['value'])
+    }
+    content.setAttr('due', '2024-02-29T23:59:59Z')
+    expect(fieldIssues(content, plan.content)).toEqual([])
+  })
+
+  it('writes a list back whole, leaving out items without their key', () => {
+    const doc = new Y.Doc()
+    const content = doc.get('content')
+    createContent(content, plan.content, initial)
+    const field = plan.content.fields.assignments
+    writeField(content, 'assignments', field, [{ id: 'c', status: 'todo' }, { status: 'todo' }])
+    expect(itemsOf(content.getAttr('assignments') as Y.Node).map((item) => item.getAttr('id')))
+      .toEqual(['c'])
+  })
 })
