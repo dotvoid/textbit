@@ -154,6 +154,48 @@ describe('more than one node', () => {
     await expect(storage.append('news', 'c-4', [entry], first.epoch)).rejects.toBeInstanceOf(StaleLease)
   })
 
+  it('closes a document deleted on another node, and its node writes nothing more', async () => {
+    const storage = memory()
+    const a = await node('a', storage)
+    const b = await node('b', storage)
+    await a.server.create('news', 'c-5', 'example/article', { body: [paragraph('p', 'Calm.')] })
+    const raw = await RawClient.connect(Number(new URL(a.url).port))
+    await raw.hello('alice')
+    const { doc } = await raw.open(1, 'news', 'c-5')
+    const held = await storage.leaseOf!('news', 'c-5')
+    expect(held?.holder).toBe('a')
+
+    await b.server.delete('news', 'c-5')
+    expect((await raw.next(ToClient.CLOSED, (h) => h.ref === 1)).header.code).toBe('gone')
+    expect(await storage.load('news', 'c-5')).toBeUndefined()
+    // The old lease no longer writes: a deleted document stays deleted
+    const entry = {
+      seq: 1, at: 0, layer: 'content' as const, actor: { principal: people.alice },
+      update: Y.encodeStateAsUpdate(doc)
+    }
+    await expect(storage.append('news', 'c-5', [entry], held!.epoch))
+      .rejects.toBeInstanceOf(StaleLease)
+    raw.close()
+  })
+
+  it('passes a host’s message to the node holding the document', async () => {
+    const storage = memory()
+    const a = await node('a', storage)
+    const b = await node('b', storage)
+    await a.server.create('news', 'c-6', 'example/article', { body: [paragraph('p', 'Calm.')] })
+    const raw = await RawClient.connect(Number(new URL(a.url).port))
+    await raw.hello('alice')
+    await raw.open(1, 'news', 'c-6')
+
+    b.server.send('news', 'c-6', { hello: 'from b' })
+    expect((await raw.next(ToClient.MESSAGE)).header)
+      .toMatchObject({ ref: 1, message: { hello: 'from b' } })
+    // Nobody but another node sends that frame
+    raw.send(ToServer.NODE_MESSAGE, { namespace: 'news', id: 'c-6', message: 'forged' })
+    await expect(raw.next(ToClient.MESSAGE, () => true, 200)).rejects.toThrow()
+    raw.close()
+  })
+
   it('refuses someone pretending to be a node', async () => {
     const storage = memory()
     const a = await node('a', storage)

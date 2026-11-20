@@ -30,7 +30,7 @@ import { DocumentOwner, type Opening, type Peer } from './document'
 import type { Actor, Authenticated, Lease, QuorumServer, ServerOptions, ServerType, StoredDocument } from './types'
 import type { HostStore } from './storage/host'
 import { toJSONLine } from './history'
-import { openRelay, readNodeToken, type Relay } from './cluster'
+import { nodeToken, openRelay, readNodeToken, type Relay } from './cluster'
 
 const DEFAULT_LIMITS: Limits = { open: 500, watch: 2000, frame: 4 * 1024 * 1024 }
 
@@ -45,6 +45,8 @@ interface Connection extends Peer {
   /** Relays to other nodes, by their address, and which openings go through which */
   relays: Map<string, Promise<Relay>>
   remote: Map<number, Relay>
+  /** Another node, by the secret the nodes share */
+  fromNode?: boolean
 }
 
 export function createServer(options: ServerOptions): QuorumServer {
@@ -204,6 +206,12 @@ export function createServer(options: ServerOptions): QuorumServer {
     const renew = async () => {
       const lease = await options.storage.lease!(owner.namespace, owner.id, node!, ttl)
       if (lease.holder !== node!.id || (owner.epoch !== undefined && lease.epoch !== owner.epoch)) {
+        // Taken again here with a new epoch: the lease ran out, or the document
+        // was deleted on another node, which ends its lease
+        if (lease.holder === node!.id && !(await options.storage.load(owner.namespace, owner.id))) {
+          owner.closeAll('gone', 'The document was deleted')
+          void options.storage.releaseLease?.(owner.namespace, owner.id, node!.id)
+        }
         owner.giveUp()
         return
       }
@@ -430,7 +438,44 @@ export function createServer(options: ServerOptions): QuorumServer {
       follow(connection, frame.header)
     } else if (isFrame(frame, ToServer.RPC)) {
       await call(connection, frame.header)
+    } else if (isFrame(frame, ToServer.NODE_MESSAGE) && connection.fromNode) {
+      const { namespace, id, message } = frame.header
+      void owners.get(keyOf(namespace, id))?.then((owner) => owner?.message(message))
     }
+  }
+
+  // Links to other nodes for what the server itself sends them, by address
+  const nodeLinks = new Map<string, Promise<Relay>>()
+
+  function linkTo(address: string): Promise<Relay> {
+    let link = nodeLinks.get(address)
+    if (!link) {
+      const self: Principal = { kind: 'service', id: `node:${node!.id}`, name: `Node ${node!.id}` }
+      const auth = { principal: self, namespaces: '*' as const, agents: false }
+      link = openRelay(address, options.nodeSecret!, auth,
+        () => undefined, () => nodeLinks.delete(address))
+      nodeLinks.set(address, link)
+      link.catch(() => nodeLinks.delete(address))
+    }
+    return link
+  }
+
+  /** A host's message: to those with the document open here, or on the node holding it */
+  async function sendMessage(namespace: string, id: string, message: unknown) {
+    const here = owners.get(keyOf(namespace, id))
+    if (here) {
+      (await here)?.message(message)
+      return
+    }
+    const lease = node && options.nodeSecret
+      ? await options.storage.leaseOf?.(namespace, id)
+      : undefined
+    // Nobody holds it: nobody has it open
+    if (!lease || lease.holder === node!.id || lease.until <= Date.now()) {
+      return
+    }
+    const frame = encodeFrame(ToServer.NODE_MESSAGE, { namespace, id, message })
+    ;(await linkTo(lease.address)).send(frame)
   }
 
   async function hello(connection: Connection, header: Headers[typeof ToServer.HELLO]) {
@@ -439,11 +484,13 @@ export function createServer(options: ServerOptions): QuorumServer {
       return
     }
     // Another node speaking for a client is who it says, by the secret they share
-    const auth = readNodeToken(options.nodeSecret, header.token) ?? await options.authenticate(header.token, connection.request)
+    const fromNode = readNodeToken(options.nodeSecret, header.token)
+    const auth = fromNode ?? await options.authenticate(header.token, connection.request)
     if (!auth) {
       refuse(connection, 'unauthenticated', 'The token was refused', CloseCode.UNAUTHENTICATED)
       return
     }
+    connection.fromNode = Boolean(fromNode)
     connection.auth = auth
     connection.principal = auth.principal
     connection.agents = auth.agents ?? auth.principal.kind === 'person'
@@ -452,7 +499,9 @@ export function createServer(options: ServerOptions): QuorumServer {
 
   // A fresh token: the same principal, maybe other rights
   async function renew(connection: Connection, token: string) {
-    const auth = await options.authenticate(token, connection.request)
+    // A relay renews with a node's token, as it began with one
+    const auth = readNodeToken(options.nodeSecret, token) ??
+      await options.authenticate(token, connection.request)
     if (!auth || auth.principal.id !== connection.principal.id) {
       refuse(connection, 'unauthenticated', auth ? 'The token is for someone else' : 'The token was refused',
         auth ? CloseCode.PRINCIPAL_CHANGED : CloseCode.UNAUTHENTICATED)
@@ -465,6 +514,27 @@ export function createServer(options: ServerOptions): QuorumServer {
         connection.openings.delete(ref)
         owner.close(opening)
         connection.send(encodeFrame(ToClient.CLOSED, { ref, code: 'not-allowed', reason: 'No longer allowed here' }))
+        continue
+      }
+      // Roles may have changed with the token: each document is asked again
+      const roles = options.authorize
+        ? await options.authorize({
+          principal: auth.principal, namespace: owner.namespace, id: owner.id, type: owner.type.name
+        })
+        : ['editor']
+      if (!roles || !owner.reauthorize(opening, roles)) {
+        connection.openings.delete(ref)
+        owner.close(opening)
+        const reason = 'No longer allowed to read this document'
+        connection.send(encodeFrame(ToClient.CLOSED, { ref, code: 'not-allowed', reason }))
+        changed(owner)
+      }
+    }
+    // Relays to other nodes speak with the new authentication from now on
+    if (options.nodeSecret) {
+      const renewed = encodeFrame(ToServer.TOKEN, { token: nodeToken(options.nodeSecret, auth) })
+      for (const relay of connection.relays.values()) {
+        void relay.then((open) => open.send(renewed), () => undefined)
       }
     }
   }
@@ -508,7 +578,7 @@ export function createServer(options: ServerOptions): QuorumServer {
       changed(owner)
       return
     }
-    const capabilities = owner.capabilitiesFor(connection.principal, roles)
+    const capabilities = owner.capabilitiesFor({ principal: connection.principal }, roles)
     if (!capabilities.read) {
       closed('not-allowed', 'Not allowed to read this document')
       changed(owner)
@@ -522,7 +592,7 @@ export function createServer(options: ServerOptions): QuorumServer {
       roles,
       capabilities,
       awarenessClients: new Set(),
-      presence: { mode: header.mode === 'watch' ? 'watching' : 'reading', visible: true },
+      presence: { mode: 'reading', visible: true },
       held: []
     }
     connection.openings.set(header.ref, { owner, opening })
@@ -574,9 +644,13 @@ export function createServer(options: ServerOptions): QuorumServer {
 
   // ---- The server ---------------------------------------------------------
 
-  function attach(httpServer: HttpServer) {
+  function attach(httpServer: HttpServer, { path }: { path?: string } = {}) {
     sockets ??= new WebSocketServer({ noServer: true, maxPayload: limits.frame })
     httpServer.on('upgrade', (request, socket, head) => {
+      // With a path, upgrades elsewhere are left to the server's other listeners
+      if (path !== undefined && new URL(request.url ?? '/', 'http://localhost').pathname !== path) {
+        return
+      }
       sockets!.handleUpgrade(request, socket, head, (ws) => {
         ws.on('pong', () => {
           for (const connection of connections) {
@@ -652,12 +726,16 @@ export function createServer(options: ServerOptions): QuorumServer {
       if (!owner) {
         throw new Error(`y-quorum: no document ${namespace}/${id}`)
       }
-      const record = await owner.appendRecord(actor, kind, data)
+      const principal = actor.onBehalfOf ?? actor.principal
+      const roles = options.authorize
+        ? await options.authorize({ principal, namespace, id, type: owner.type.name })
+        : ['editor']
+      const record = await owner.recordFrom(actor, roles ?? [], kind, data)
       changed(owner)
       return record
     },
     send: (namespace, id, message) => {
-      void owners.get(keyOf(namespace, id))?.then((owner) => owner?.message(message))
+      void sendMessage(namespace, id, message).catch(() => undefined)
     },
     people: async (namespace, id) => {
       const owner = await localOwner(namespace, id)
@@ -687,6 +765,9 @@ export function createServer(options: ServerOptions): QuorumServer {
     },
     close: async () => {
       clearInterval(keepalive)
+      for (const link of nodeLinks.values()) {
+        void link.then((open) => open.close(), () => undefined)
+      }
       // Leases are no longer renewed: a node shutting down lets its documents go
       for (const timer of renewals.values()) {
         clearInterval(timer)

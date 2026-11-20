@@ -66,12 +66,13 @@ await server.listen(1234)
   import { createServer as createHttpServer } from 'node:http'
 
   const http = createHttpServer(app)
-  server.attach(http)
+  server.attach(http, { path: '/collab' })
   http.listen(8080)
   ```
 
-  It takes every upgrade on that server, whatever the path. TLS is the HTTP server's, or a
-  proxy's in front of it.
+  With `path`, it takes only upgrades to that path and leaves the others to the server's other
+  listeners; without, it takes every upgrade. Clients then connect to
+  `wss://example.com/collab`. TLS is the HTTP server's, or a proxy's in front of it.
 - **`authenticate(token, request)`** is asked once per connection, with the token the client
   sends first and the HTTP request it came with. It returns the **principal** (`kind` is
   `'person'`, `'agent'` or `'service'`, with an `id` and a `name`; anything else you add, such
@@ -87,8 +88,9 @@ await server.listen(1234)
 
 A token can be renewed on an open connection (see the client guide). The renewed token must
 belong to the same principal, or the connection is closed; its namespaces may change, and
-documents in a namespace no longer allowed are closed. Roles on documents already open stay as
-they were until the documents are opened again.
+documents in a namespace no longer allowed are closed. `authorize` is asked again for every
+document the connection has open: clients are told their new capabilities, and documents they
+may no longer read are closed. Connections relayed to other nodes renew with it.
 
 The other options:
 
@@ -98,6 +100,7 @@ The other options:
 | `onSave` | | Called when a client saves, see [Versions](#versions-and-restoring) |
 | `limits` | `{ open: 500, watch: 2000, frame: 4 MiB }` | Documents one connection may open and watch, and the largest frame in bytes. Clients are told them when they connect. |
 | `idle` | `5000` | Milliseconds a document stays loaded after the last connection leaves |
+| `settleAfter` | `2000` | Milliseconds after the last change before a storage that keeps JSON is given an open document, see [Hosts that store JSON](#hosts-that-store-json) |
 | `checkpointEvery` | `200` | Log entries between checkpoints |
 | `signer` | | Signs the history, see [Signing](#signing) |
 | `node`, `nodeSecret`, `leaseTtl` | | More than one node, see [More than one node](#more-than-one-node) |
@@ -224,7 +227,9 @@ Give the server `planType` rather than `plan`. `defineType` makes the definition
 server share; the policy is the server's alone.
 
 - **`actor`** is who acts: `principal`, and for an agent working through a person's connection,
-  `onBehalfOf`, `run` and `model` (as the agent claims it, never verified).
+  `onBehalfOf`, `run` and `model` (as the agent claims it, never verified). Every question
+  about an agent's rights carries it, comments and suggestions too. When the server asks what
+  a connection may do in general, `actor` is the connection's principal alone.
 - **`roles`** are the principal's, from `authorize`. For an agent working for a person, the
   person's.
 - **`content`** is the document as it is: the root `Y.Node`, plain values read with
@@ -242,7 +247,9 @@ the answer counts. **Whenever the content changes, it asks again for every open 
 and tells each client whose capabilities changed, from that log position on. A document that
 becomes published is read-only for everyone at once, without your code calling anything.
 `comments`, `suggestions` and `versions` follow the roles, as in the table, unless the policy
-returns them.
+returns them, but `all` goes with `write`: on a document that became read-only, editors no
+longer comment or decide suggestions, while commenters and suggesters keep `own`. A policy that
+wants editors commenting on published documents returns `comments: 'all'` for them.
 
 A write that touches a field the policy refuses is refused whole. That is why the client sends
 each editor's changes in frames of their own.
@@ -437,8 +444,8 @@ const server = createServer({
 })
 ```
 
-For a type without history, a save makes no version: it only waits until the server has
-everything the client had, then calls `onSave`.
+For a type without history, a save makes no version and takes `write`: it waits until the
+server has everything the client had, then calls `onSave`.
 
 **Restoring** a version, which takes `versions: 'restore'`, is a new change in the restorer's
 name, never a rewrite: what was inserted since is deleted and what was deleted since comes
@@ -484,8 +491,9 @@ puts it in the chain.
 await server.appendRecord('team-1', 'plan-1', importer, 'status.changed', { to: 'ready' })
 ```
 
-Code in the server process is trusted: `appendRecord` from code is not checked against the
-policy, nor against the type's kinds.
+A record from code is checked as a client's is: `authorize` gives the actor's roles (or those
+of whom it acts for), the policy's `records` must allow the kind, and the type must keep it.
+Otherwise `appendRecord` throws.
 
 ## Storage
 
@@ -522,8 +530,9 @@ const withBlobs = s3(postgres(pool), bucket, { prefix: 'documents' })
 
 A host that keeps documents as JSON in its own database uses `host`. Y.js state, the log and
 the rest are kept in `cache`; a document the cache lacks is made from the host's JSON (its
-content, and its comments for a type with them); the JSON goes back to the host when the
-document is unloaded.
+content, and its comments for a type with them). The JSON goes back to the host a while after
+each change to the content or the comments (`settleAfter`, 2 seconds by default) while the
+document is open, and when it is unloaded.
 
 ```ts
 import { host, sqlite } from '@dotvoid/y-quorum'
@@ -538,8 +547,7 @@ With `memory()` as the cache, the default, every restart seeds documents from th
 with a new incarnation: clients drop the copies they hold and start again from the server.
 
 > **Not yet:** changes made to the JSON outside the server are not merged into a live
-> document; a document is seeded from the host only when the cache lacks it. The JSON is stored
-> when a document is unloaded, not while it is open.
+> document; a document is seeded from the host only when the cache lacks it.
 
 ### Retention
 
@@ -561,7 +569,9 @@ the chain and the register: retention limits the content, never the record of wh
 
 `server.delete(namespace, id)` deletes a document everywhere it is kept: log, checkpoints,
 versions, records, history, register and claims. Those who have it open are told it is `gone`.
-`server.delete(namespace)` deletes a whole namespace.
+`server.delete(namespace)` deletes a whole namespace. With more than one node, the document's
+lease ends first: the node holding it writes nothing more, and closes it as `gone` when it next
+renews its lease.
 
 ## More than one node
 
@@ -609,14 +619,12 @@ When a node goes away:
   documents again. Changes not yet acknowledged are sent again; nothing a client typed is lost.
 
 Code in the server process (below) works on the node that holds the document. On another node,
-`transact`, `read` and the rest throw, naming the node that holds it; `send` reaches a
-document's clients only on the node where it is loaded.
+`transact`, `read` and the rest throw, naming the node that holds it; `send` passes the message
+on to the node holding the document.
 
 > **Not yet:** presence per namespace shows only the clients on the follower's own node. A
 > node whose store stalls while its network lives keeps taking relays, and the documents it
-> holds hang until it is restarted. After a client renews its token, connections relayed to
-> other nodes keep the authentication they began with. `server.delete` closes the document's
-> openings only on the node it is called on.
+> holds hang until it is restarted.
 
 ## Code in the server process
 

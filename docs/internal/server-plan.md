@@ -153,9 +153,10 @@ defineType('example/plan', {
   comments: true,
   suggestions: true,
   records: { 'status.changed': statusChange },
-  policy: planPolicy,
   history: true
 })
+// The policy is the server's alone, never in what the client shares:
+// const planType: ServerType = { ...plan, policy: planPolicy }
 
 defineType('example/tag', { content: object({ name: string(), kind: oneOf(tagKinds) }) })
 ```
@@ -246,8 +247,8 @@ or it refuses the very write that publishes.
 - **Presence per namespace** says who has which documents open, for lists and dashboards,
   separately from the cursors inside one document. Per-document awareness is only sent to
   views that ask for it.
-- **Presence has a mode:** watching, reading or editing. Having a document open and working on
-  it mean different things to people. Watched projections do not count as presence at all.
+- **Presence has a mode:** reading or editing. Having a document open and working on it mean
+  different things to people. Watched projections do not count as presence at all.
 - **Liveness comes from the connection,** not from timers in the page: browsers throttle timers
   in background tabs to about once a minute and mobile systems close sockets. Visibility is sent
   as an explicit state when it changes. The client keeps the connection alive with protocol
@@ -752,27 +753,28 @@ every call goes through the same write pipeline, policies and history as anyone'
    - presence per namespace sees only the node a follower is on;
    - a node whose store stalls while its network lives still takes relays, and the documents
      it holds hang until it is restarted;
-   - after a token is renewed, relays to other nodes keep the authentication they began with;
    - Postgres's `prune` has no test of its own; the audit export as W3C PROV.
 8. **Documentation, migration from 2.x, and the release** with Y.js 14.0. Done but the
    release (20 November 2026): guides for Y.js 14, y-quorum and its client, what's new, the
    upgrade from 2.x; the y-quorum packages in the publish workflow and the release steps.
-   Found in the code while writing them, still open:
-   - `defineType` takes no `policy`: a server type is `{ ...defineType(...), policy }`;
-   - the policy sees an agent without `onBehalfOf` when its comment and suggestion rights are
-     worked out (`capabilitiesFor`);
-   - comment rights follow the role, not `write`: an editor keeps `all` on a read-only
-     document unless the policy says otherwise;
-   - without history, `save` needs no capability, so a reader can set off `onSave`;
-   - `server.appendRecord` skips the policy and the type's record kinds;
-   - `host()`: `store` runs only on unload, not on a debounce as it says, and `load()`'s
-     `version` is never used;
-   - `attach()` takes every WebSocket upgrade on the HTTP server, with no path option;
-   - roles of documents already open are not authorized again when the token is renewed;
-   - with more than one node, `delete` closes openings on the local node only, and `send`
-     does nothing where the document is not loaded;
-   - every `transact` claims a new client id, so claims pile up;
-   - watchers are never listed in presence, so `watching` never shows.
+   Found in the code while writing them, and fixed the same day:
+   - `defineType` takes no `policy`, by design: the definition is shared with clients, the
+     policy is the server's (`{ ...defineType(...), policy }`); the example above follows;
+   - the policy sees the whole actor, `onBehalfOf` included, when comment and suggestion
+     rights are worked out;
+   - `all` for comments goes with `write`, as for suggestions: on a read-only document editors
+     no longer comment unless the policy says;
+   - without history, saving takes `write`;
+   - `server.appendRecord` is checked as a client's record: `authorize`, the policy, the kinds;
+   - `host()` stores a while after each change (`settleAfter`) as well as on unload, through a
+     storage hook `settled`; the unused `version` from `load()` is gone until merging is built;
+   - `attach(http, { path })` takes only upgrades to its path;
+   - a renewed token asks `authorize` again for every open document, and relays renew with it;
+   - deleting ends the lease with the next epoch (Postgres no longer deletes lease rows, which
+     let an old holder match a new epoch), the holder closes it as `gone` when it next renews;
+     `send` reaches the node holding a document by `leaseOf` and a node-only frame;
+   - `transact` writes under one client id per actor while the document is loaded;
+   - watching is not presence, as decided above: the `watching` mode is gone.
 
 ## Testing
 

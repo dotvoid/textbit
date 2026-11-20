@@ -172,9 +172,15 @@ export function s3(inner: Storage, bucket: S3Bucket, options: S3Options = {}): S
   }
 
   return {
+    // What the inner store keeps that has no blobs passes straight through
     ...passed('clientHolder'),
     ...passed('lease'),
+    ...passed('leaseOf'),
     ...passed('releaseLease'),
+    ...passed('addPeople'),
+    ...passed('people'),
+    ...passed('prune'),
+    ...passed('settled'),
     ...passed('unloaded'),
     ...passed('close'),
     load: (namespace, id) => load(namespace, id),
@@ -202,19 +208,12 @@ export function s3(inner: Storage, bucket: S3Bucket, options: S3Options = {}): S
     },
     appendHistory: (namespace, id, entries) => inner.appendHistory(namespace, id, entries),
     history: (namespace, id, from) => inner.history(namespace, id, from),
-    ...(inner.prune ? { prune: (namespace: string, id: string, limits: { before: number, upTo: number }) => inner.prune!(namespace, id, limits) } : {}),
     versionState: async (namespace, id, versionId) => {
       const kept = await inner.versionState(namespace, id, versionId)
       return kept && resolve(kept)
     },
     claimClient: (namespace, id, client, principal) =>
       inner.claimClient(namespace, id, client, principal),
-    // What the inner store keeps that has no blobs passes straight through
-    ...(inner.clientHolder ? { clientHolder: inner.clientHolder.bind(inner) } : {}),
-    ...(inner.lease ? { lease: inner.lease.bind(inner) } : {}),
-    ...(inner.releaseLease ? { releaseLease: inner.releaseLease.bind(inner) } : {}),
-    ...(inner.addPeople ? { addPeople: inner.addPeople.bind(inner) } : {}),
-    ...(inner.people ? { people: inner.people.bind(inner) } : {}),
     delete: async (namespace, id) => {
       // The references first: a failure between leaves objects nothing points
       // at, never a reference to nothing

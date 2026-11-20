@@ -206,6 +206,19 @@ describe('postgres storage', () => {
     expect(kept?.versions).toHaveLength(1)
   })
 
+  it('ends a deleted document’s lease: its holder writes nothing more', async () => {
+    await storage.create('news', 'a', meta, { states: { content: bytes(1) } })
+    const held = await lease('n1')
+    expect(await storage.leaseOf!('news', 'a')).toMatchObject({ holder: 'n1', epoch: held.epoch })
+    await storage.delete('news', 'a')
+    // Renewing finds it taken again with a new epoch, not the old one kept
+    const renewed = await lease('n1')
+    expect(renewed.epoch).toBeGreaterThan(held.epoch)
+    await expect(storage.append('news', 'a', [entry(1)], held.epoch))
+      .rejects.toBeInstanceOf(StaleLease)
+    expect(await storage.log('news', 'a')).toEqual([])
+  })
+
   it('keeps its tables in the schema it is given', async () => {
     const other = postgres(pg, { schema: 'tenant one' })
     await other.create('news', 'a', meta, { states: { content: bytes(1) } })
