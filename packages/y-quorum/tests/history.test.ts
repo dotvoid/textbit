@@ -85,14 +85,14 @@ describe('history', () => {
     await type(bob, 'g')
 
     const entries = parsed(await server.exportHistory('news', 'h-1'))
-    expect(entries.map((entry) => [(entry.actor as { principal: { id: string } }).principal.id, entry.from, entry.to])).toEqual([
+    expect(entries.map((entry) => [(entry.actor as { by: string }).by.split(':')[1], entry.from, entry.to])).toEqual([
       ['bob', 1, 3],
       ['alice', 4, 4],
       ['copy', 5, 5],
       ['bob', 6, 6],
       ['bob', 7, 7]
     ])
-    expect(entries[2].actor).toMatchObject({ onBehalfOf: { id: 'bob' }, run: 'r1' })
+    expect(entries[2].actor).toMatchObject({ onBehalfOf: 'person:bob', run: 'r1' })
     expect(verifyHistory(await server.exportHistory('news', 'h-1'))).toMatchObject({ ok: true, entries: 5 })
   })
 
@@ -122,7 +122,7 @@ describe('history', () => {
 
     // Someone else's name on a change
     const renamed = [...lines]
-    renamed[1] = renamed[1].replace('"alice"', '"bob"')
+    renamed[1] = renamed[1].replace('person:alice', 'person:bob')
     expect(verifyHistory(renamed)).toMatchObject({ ok: false, seq: 2, reason: 'It was changed after it was stored' })
     // A change taken out
     expect(verifyHistory([lines[0], lines[2]])).toMatchObject({ ok: false, seq: 3, reason: 'Entry 2 is missing' })
@@ -193,7 +193,7 @@ describe('history', () => {
 
     const exported = await server.exportHistory('news', 'h-5')
     const reviews = parsed(exported).filter((entry) => entry.kind === 'review')
-    expect(reviews.map((entry) => [(entry.actor as { principal: { id: string } }).principal.id, entry.refs])).toEqual([
+    expect(reviews.map((entry) => [(entry.actor as { by: string }).by.split(':')[1], entry.refs])).toEqual([
       ['alice', { run: 'r1' }],
       ['alice', { scope: 'agents' }]
     ])
@@ -249,7 +249,7 @@ describe('a history that survives a crash and shows a gap', () => {
       const lines = await second.exportHistory('news', 'r-1')
       expect(verifyHistory(lines)).toMatchObject({ ok: true })
       const entries = parsed(lines)
-      expect(entries.at(-1)).toMatchObject({ actor: { principal: people.bob }, refs: { recovered: 'true' } })
+      expect(entries.at(-1)).toMatchObject({ actor: { by: 'person:bob' }, refs: { recovered: 'true' } })
     } finally {
       rmSync(folder, { recursive: true, force: true })
     }
@@ -300,7 +300,7 @@ describe('records in the history', () => {
     const lines = await server.exportHistory('news', 'rec-1')
     expect(verifyHistory(lines)).toMatchObject({ ok: true })
     const record = parsed(lines).find((entry) => entry.kind === 'record')
-    expect(record).toMatchObject({ actor: { principal: people.bob }, refs: { record: '1', kind: 'status.changed' } })
+    expect(record).toMatchObject({ actor: { by: 'person:bob' }, refs: { record: '1', kind: 'status.changed' } })
   })
 })
 
@@ -376,5 +376,18 @@ describe('retention', () => {
     } finally {
       rmSync(folder, { recursive: true, force: true })
     }
+  })
+})
+
+describe('who acted, by key', () => {
+  it('keeps names out of the chain and in the register, which says who each key is', async () => {
+    const server = await start()
+    await server.create('news', 'k-1', 'example/article', { body: [paragraph('p', 'Calm.')] })
+    const bob = await open('bob', 'k-1')
+    await type(bob, 'Cold. ')
+    const exported = await server.exportHistory('news', 'k-1')
+    expect(exported).not.toContain('Bob')
+    expect(parsed(exported).at(-1)).toMatchObject({ actor: { by: 'person:bob' } })
+    expect(await server.people('news', 'k-1')).toMatchObject({ 'person:bob': { kind: 'person', id: 'bob', name: 'Bob' } })
   })
 })

@@ -741,9 +741,14 @@ every call goes through the same write pipeline, policies and history as anyone'
    - retention: `server.prune` drops old log and history payloads, keeping the chain, the
      checkpoint and the versions; time travel says when a past is no longer kept.
    Still open:
-   - **erasure needs a decision:** the chain hashes each actor with their name, so a name
-     cannot be erased without breaking it. Pseudonymous ids in the chain and names kept apart
-     would change the history's format;
+   - **who did what is not erasable** (decided 20 November 2026): traceability is what the
+     history is for, and the GDPR's right to erasure gives way where it is needed for freedom of
+     expression, a legal obligation or legal claims (article 17(3)), with journalism exempted
+     further by member states (article 85; in Sweden the Data Protection Act, chapter 1
+     section 7). The chain holds actors by key only (`person:alice`); names are kept apart, in
+     each document's register of people, for the host to look after as its controller decides.
+     Retention limits the content, never the record of who acted. To be confirmed by a lawyer
+     before it goes into public documentation;
    - presence per namespace sees only the node a follower is on;
    - a node whose store stalls while its network lives still takes relays, and the documents
      it holds hang until it is restarted;

@@ -41,6 +41,10 @@ export function sqlite(file: string): Storage {
       entry TEXT NOT NULL, payload BLOB, hash TEXT NOT NULL,
       PRIMARY KEY (namespace, id, seq)
     );
+    CREATE TABLE IF NOT EXISTS people (
+      namespace TEXT NOT NULL, id TEXT NOT NULL, key TEXT NOT NULL, person TEXT NOT NULL,
+      PRIMARY KEY (namespace, id, key)
+    );
     CREATE TABLE IF NOT EXISTS leases (
       namespace TEXT NOT NULL, id TEXT NOT NULL,
       holder TEXT NOT NULL, address TEXT NOT NULL, epoch INTEGER NOT NULL, until INTEGER NOT NULL,
@@ -240,6 +244,18 @@ export function sqlite(file: string): Storage {
           .run(namespace, id, before)
       })
     },
+    addPeople: async (namespace, id, people) => {
+      transaction(() => {
+        const put = db.prepare('INSERT OR REPLACE INTO people VALUES (?, ?, ?, ?)')
+        for (const [key, person] of Object.entries(people)) {
+          put.run(namespace, id, key, JSON.stringify(person))
+        }
+      })
+    },
+    people: async (namespace, id) => Object.fromEntries(
+      (db.prepare('SELECT key, person FROM people WHERE namespace = ? AND id = ?').all(namespace, id) as Array<{ key: string, person: string }>)
+        .map((row) => [row.key, JSON.parse(row.person) as Person])
+    ),
     clientHolder: async (namespace, id, client) =>
       (findClaim.get(namespace, id, client) as { principal: string } | undefined)?.principal,
     claimClient: async (namespace, id, client, principal) => {
@@ -251,7 +267,7 @@ export function sqlite(file: string): Storage {
       return true
     },
     delete: async (namespace, id) => {
-      for (const table of ['documents', 'layer_checkpoints', 'log', 'records', 'versions', 'history', 'claims']) {
+      for (const table of ['documents', 'layer_checkpoints', 'log', 'records', 'versions', 'history', 'claims', 'people']) {
         if (id !== undefined) {
           db.prepare(`DELETE FROM ${table} WHERE namespace = ? AND id = ?`).run(namespace, id)
         } else {

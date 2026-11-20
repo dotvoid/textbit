@@ -45,7 +45,7 @@ import {
 import { StaleLease, type Actor, type LogEntry, type ServerOptions, type ServerType, type Storage, type StoredDocument } from './types'
 import { differsFromFork } from './suggestionActs'
 import { judgeComments } from './judgeComments'
-import { GENESIS, seal, signedHead, type HistoryKind } from './history'
+import { GENESIS, seal, signedHead, type HistoryActor, type HistoryKind } from './history'
 
 /** How long writes of one actor are folded into one history entry at most */
 const BATCH_MS = 10_000
@@ -832,6 +832,39 @@ export class DocumentOwner {
     await this.signHead()
   }
 
+  /**
+   * An actor as the chain holds it: by key. Whoever it names goes into the
+   * register first, with the name they have now, so the chain never names
+   * someone the register does not know.
+   */
+  private async keyed(actor: Actor): Promise<HistoryActor> {
+    const fresh: Record<string, Person> = {}
+    for (const who of [actor.principal, actor.onBehalfOf]) {
+      if (who) {
+        const key = actorKey(who)
+        const person: Person = { kind: who.kind, id: who.id, name: who.name }
+        if (this.people[key]?.name !== person.name) {
+          this.people[key] = person
+          fresh[key] = person
+        }
+      }
+    }
+    if (Object.keys(fresh).length) {
+      await this.storage.addPeople?.(this.namespace, this.id, fresh)
+    }
+    return {
+      by: actorKey(actor.principal),
+      ...(actor.onBehalfOf ? { onBehalfOf: actorKey(actor.onBehalfOf) } : {}),
+      ...(actor.run ? { run: actor.run } : {}),
+      ...(actor.model ? { model: actor.model } : {})
+    }
+  }
+
+  /** The register of people the history names */
+  register(): Record<string, Person> {
+    return { ...this.people }
+  }
+
   /** Retention: what is older than `before` goes, the chain of hashes and the versions stay */
   prune(before: number): Promise<void> {
     return this.serial(async () => {
@@ -930,7 +963,12 @@ export class DocumentOwner {
     if (this.type.history) {
       // A record is part of the history too: in the chain, beside the writes
       await this.sealAside('record', actor, connection, { record: String(record.seq), kind },
-        new TextEncoder().encode(JSON.stringify(record)))
+        // In the chain by key, as everyone in it: names are in the register
+        new TextEncoder().encode(JSON.stringify({
+          ...record,
+          actor: actorKey(record.actor),
+          ...(record.onBehalfOf ? { onBehalfOf: actorKey(record.onBehalfOf) } : {})
+        })))
     }
     this.records.push(record)
     for (const opening of this.openings) {
@@ -1047,7 +1085,7 @@ export class DocumentOwner {
       doc: `${this.namespace}/${this.id}`,
       seq: this.historyHead.seq + 1,
       from: batch.from, to: batch.to, layer: batch.layer, at: batch.at, until: batch.until,
-      actor: batch.actor, kind: batch.kind,
+      actor: await this.keyed(batch.actor), kind: batch.kind,
       ...(batch.connection ? { connection: batch.connection } : {}),
       ...(batch.refs ? { refs: batch.refs } : {}),
       payload: Y.mergeUpdates(batch.updates)
@@ -1068,6 +1106,8 @@ export class DocumentOwner {
       return
     }
     await this.serial(async () => {
+      // The register as it is now, beside what the checkpoint knew
+      Object.assign(this.people, await this.storage.people?.(this.namespace, this.id))
       for (const entry of await this.storage.log(this.namespace, this.id, this.historyHead.to)) {
         await this.fold(entry, undefined, 'edit', { recovered: 'true' })
       }
@@ -1086,7 +1126,7 @@ export class DocumentOwner {
     const entry = seal({
       doc: `${this.namespace}/${this.id}`, seq: this.historyHead.seq + 1,
       from: this.historyHead.to, to: this.historyHead.to, layer: 'content', at, until: at,
-      actor, ...(connection ? { connection } : {}), kind, refs, payload
+      actor: await this.keyed(actor), ...(connection ? { connection } : {}), kind, refs, payload
     }, this.historyHead.hash)
     await this.storage.appendHistory(this.namespace, this.id, [entry])
     this.historyHead = { seq: entry.seq, hash: entry.hash, to: entry.to }

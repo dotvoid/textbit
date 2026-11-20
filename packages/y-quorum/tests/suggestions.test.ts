@@ -191,10 +191,10 @@ describe('suggestions', () => {
     await until(() => content(sam) === 'Kindly Write 600 words.')
 
     const kinds = (await server.exportHistory('news', 's-7')).split('\n')
-      .map((line) => JSON.parse(line) as { kind: string, actor: { principal: { id: string } }, refs?: { suggestedBy?: string } })
-      .filter((entry) => entry.kind !== 'edit').map((entry) => [entry.kind, entry.actor.principal.id, entry.refs?.suggestedBy])
+      .map((line) => JSON.parse(line) as { kind: string, actor: { by: string }, refs?: { suggestedBy?: string } })
+      .filter((entry) => entry.kind !== 'edit').map((entry) => [entry.kind, entry.actor.by, entry.refs?.suggestedBy])
     // Both on record: who decided, and whose suggestion it was
-    expect(kinds).toEqual([['reject', 'sam', 'person:sam'], ['accept', 'alice', 'person:sam']])
+    expect(kinds).toEqual([['reject', 'person:sam', 'person:sam'], ['accept', 'person:alice', 'person:sam']])
   })
 
   it('names who suggested in a view open before the suggestion came, and in the suggester’s own', async () => {

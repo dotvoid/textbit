@@ -209,6 +209,12 @@ export function s3(inner: Storage, bucket: S3Bucket, options: S3Options = {}): S
     },
     claimClient: (namespace, id, client, principal) =>
       inner.claimClient(namespace, id, client, principal),
+    // What the inner store keeps that has no blobs passes straight through
+    ...(inner.clientHolder ? { clientHolder: inner.clientHolder.bind(inner) } : {}),
+    ...(inner.lease ? { lease: inner.lease.bind(inner) } : {}),
+    ...(inner.releaseLease ? { releaseLease: inner.releaseLease.bind(inner) } : {}),
+    ...(inner.addPeople ? { addPeople: inner.addPeople.bind(inner) } : {}),
+    ...(inner.people ? { people: inner.people.bind(inner) } : {}),
     delete: async (namespace, id) => {
       // The references first: a failure between leaves objects nothing points
       // at, never a reference to nothing
