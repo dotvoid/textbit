@@ -354,3 +354,23 @@ describe('suggestion acts that are not what was suggested', () => {
     expect(await server.read('news', 'f-5')).toMatchObject({ slug: 'winter' })
   })
 })
+
+describe('typing through the suggestions view, not suggesting', () => {
+  it('is writing, in the history, not accepting', async () => {
+    await start()
+    const alice = await open('alice', 's-9')
+    const { editor } = suggesting(alice, { suggesting: false })
+    for (const [at, change] of [[5, 'x'], [6, 'y']] as const) {
+      Transforms.insertText(editor, change, { at: { path: [0, 0], offset: at } })
+      await saved(alice)
+    }
+    Transforms.delete(editor, { at: { path: [0, 0], offset: 5 }, distance: 1 })
+    await saved(alice)
+    expect(content(alice)).toBe('Writey 600 words.')
+    const kinds = (await server.exportHistory('news', 's-9')).split('\n')
+      .map((line) => JSON.parse(line) as { kind: string, layer: string })
+      .filter((entry) => entry.layer === 'content')
+      .map((entry) => entry.kind)
+    expect(new Set(kinds)).toEqual(new Set(['edit']))
+  })
+})

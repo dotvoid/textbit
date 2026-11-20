@@ -103,6 +103,12 @@ export interface Opening {
   presence: { mode: 'reading' | 'editing', visible: boolean }
   /** Updates that arrived before what they depend on, waiting for it, in order */
   held: Array<{ header: Headers[typeof ToServer.UPDATE], update: Uint8Array }>
+  /**
+   * What its last write to the suggestions wrote and deleted. Typing through
+   * the suggestions view, not suggesting, Y.js writes it in the fork, then the
+   * same items into the content: that is the person's own writing, not an accept.
+   */
+  echo?: { inserts: Y.IdSet, deletes: Y.IdSet }
 }
 
 /** How much one opening may have waiting for what it depends on */
@@ -442,7 +448,7 @@ export class DocumentOwner {
       ? { code: 'not-allowed', reason: 'Agents may not act for this principal' }
       : header.layer !== 'content' && !this.extraLayers.includes(header.layer)
         ? { code: 'invalid', reason: `This document has no layer ${String(header.layer)}` }
-        : await this.judge(opening.peer.principal.id, actor, opening.roles, header.layer, update)
+        : await this.judge(opening.peer.principal.id, actor, opening.roles, header.layer, update, opening)
     if (judgement === 'pending') {
       return 'pending'
     }
@@ -463,6 +469,12 @@ export class DocumentOwner {
       }
     }
     const log = await this.commit(actor!, judgement.layer, update, opening, judgement.kind, judgement.refs)
+    if (judgement.layer === 'suggestions') {
+      const { inserts, deletes } = Y.createContentIdsFromUpdate(update)
+      opening.echo = { inserts, deletes }
+    } else if (judgement.layer === 'content') {
+      opening.echo = undefined
+    }
     this.sendTo(opening, ToClient.ACK, { ref: opening.ref, seq: header.seq, log })
     return 'committed'
   }
@@ -547,7 +559,14 @@ export class DocumentOwner {
   }
 
   // Whether a write to a layer may be applied, judged on that layer alone
-  private async judge(principalId: string, actor: Actor, roles: string[], layer: Layer, update: Uint8Array): Promise<Judgement> {
+  private async judge(
+    principalId: string,
+    actor: Actor,
+    roles: string[],
+    layer: Layer,
+    update: Uint8Array,
+    from?: Opening
+  ): Promise<Judgement> {
     const doc = this.layer(layer)
     // 1. New content only under the writer's own client ids, but for what is
     //    suggested in the fork: accepting a suggestion, or recording that it
@@ -626,7 +645,13 @@ export class DocumentOwner {
     }
     let kind: HistoryKind | undefined
     let acceptedDeletes = Y.createIdSet()
-    if (!suggested.isEmpty()) {
+    // The writer's own, just written in the fork through the suggestions view,
+    // by someone who may write the content: their writing, not an accept. An
+    // editor accepting their own suggestion at once reads as writing too.
+    const echo = from && this.capabilitiesFor(actor, roles).write ? from.echo : undefined
+    const typed = (set: Y.IdSet, own: Y.IdSet | undefined) =>
+      own !== undefined && !set.isEmpty() && Y.diffIdSet(set, own).isEmpty()
+    if (!suggested.isEmpty() && !typed(suggested, echo?.inserts)) {
       const rights = this.capabilitiesFor(actor, roles).suggestions ?? 'none'
       // Written and deleted at once, nothing else: a record that they were
       // rejected, which changes nothing anyone sees
@@ -660,7 +685,8 @@ export class DocumentOwner {
         Y.createDeleteSetFromStructStore(doc.store)
       )
       const accepted = Y.intersectSets(ids.deletes, suggestedDeletes)
-      if (!accepted.isEmpty() && this.capabilitiesFor(actor, roles).suggestions === 'all') {
+      if (!accepted.isEmpty() && !typed(accepted, echo?.deletes) &&
+        this.capabilitiesFor(actor, roles).suggestions === 'all') {
         kind = 'accept'
         acceptedDeletes = accepted
       }
@@ -924,13 +950,26 @@ export class DocumentOwner {
     if (!(await this.writeAs(actor, copy))) {
       return
     }
+    // What the repair itself wrote and deleted, nothing else: an update from
+    // a state vector carries every deletion the document has ever had
+    const inserts: Y.IdSet[] = []
+    const deletes: Y.IdSet[] = []
+    const collect = (tr: Y.Transaction) => {
+      inserts.push(tr.insertSet)
+      deletes.push(tr.deleteSet)
+    }
     const before = Y.encodeStateVector(copy)
-    repair(copy.get(CONTENT), this.type.content, work, this.options.plugins, REPAIRED)
-    const update = Y.encodeStateAsUpdate(copy, before)
-    const ids = Y.createContentIdsFromUpdate(update)
-    if (ids.inserts.isEmpty() && ids.deletes.isEmpty()) {
+    copy.on('afterTransaction', collect)
+    try {
+      repair(copy.get(CONTENT), this.type.content, work, this.options.plugins, REPAIRED)
+    } finally {
+      copy.off('afterTransaction', collect)
+    }
+    const own = Y.createContentIds(Y.mergeIdSets(inserts), Y.mergeIdSets(deletes))
+    if (own.inserts.isEmpty() && own.deletes.isEmpty()) {
       return
     }
+    const update = Y.intersectUpdateWithContentIds(Y.encodeStateAsUpdate(copy, before), own)
     // Not judged: the owner's own, on what it has. The shadow follows it.
     Y.applyUpdate(this.shadows.get('content')!, update)
     await this.commit(actor, 'content', update, undefined, 'repair')

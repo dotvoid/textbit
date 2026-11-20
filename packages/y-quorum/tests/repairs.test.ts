@@ -182,6 +182,22 @@ describe('repairs', () => {
   })
 })
 
+describe('a person deleting', () => {
+  it('is not repaired: a repair carries only what it changes', async () => {
+    await start([p('a', 'One')])
+    const alice = await open('alice')
+    edit(alice, 1, (editor) =>
+      Transforms.delete(editor, { at: { path: [0, 0], offset: 2 }, distance: 1 }))
+    await alice.client.next(ToClient.ACK)
+    edit(alice, 2, (editor) =>
+      Transforms.insertText(editor, 'x', { at: { path: [0, 0], offset: 0 } }))
+    await alice.client.next(ToClient.ACK)
+    await new Promise((resolve) => setTimeout(resolve, 80))
+    const log = await storage.log('news', 'p-1')
+    expect(log.map((entry) => entry.actor.principal.id)).toEqual(['alice', 'alice'])
+  })
+})
+
 describe('agents and code', () => {
   it('are refused a write that adds a problem, before it applies', async () => {
     await start([p('a', 'One')])

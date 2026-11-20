@@ -829,6 +829,13 @@ every call goes through the same write pipeline, policies and history as anyone'
    - the plugins: a table row holding only text no longer normalizes for ever; the link field
      follows the link it is on;
    - the docs, against the code.
+   Found typing alone in the lab, the same day: a repair that changed nothing was committed
+   all the same, as an update from a state vector carries every deletion the document has;
+   a repair now carries only what its own transactions wrote and deleted. And typing through
+   the suggestions view, not suggesting, was recorded as accepting a suggestion: Y.js writes
+   it in the fork, then the same items into the content. The opening's last fork write is
+   kept, and content that is just that, by someone who may write, is an edit. An editor
+   accepting their own suggestion the moment after making it reads as an edit too.
    Still open from the review: history, records and versions written by a node that lost its
    lease are not fenced by the epoch until its next renewal; record ids are remembered in
    memory only, so a record resent to another node or after an unload may be stored twice.
