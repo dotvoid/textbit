@@ -25,11 +25,19 @@ export const Link = (options: LinkOptions = {}): TBPlugin => {
       tools: {
         edit: [
           () => <LinkIcon />,
-          (props: TBToolComponentProps) => <EditLink {...props} labels={labels} />
+          // One field per link: moving from one link to another starts afresh
+          (props: TBToolComponentProps) => (
+            <EditLink key={linkKey(props.entry)} {...props} labels={labels} />
+          )
         ]
       }
     }
   }
+}
+
+function linkKey(entry: TBToolComponentProps['entry']): string {
+  const [node, path] = entry ?? []
+  return TextbitElement.isElement(node) && node.id ? node.id : (path ?? []).join('.')
 }
 
 function LinkComponent({ children, element }: TBComponentProps) {
