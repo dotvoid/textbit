@@ -373,7 +373,8 @@ and what is suggested stays there until accepted. The server keeps the fork too 
   is the suggester's, or anyone's with `all`.
 - **Typing through the suggestions view, not suggesting,** writes into the fork, then the same
   items into the content, as Y.js does. Content that is just what the same connection last
-  wrote in the fork, by someone who may write, is their writing, not an accept.
+  wrote in the fork, by someone who may write, is their writing, not an accept. In the history
+  the two go into one entry in the content.
 
 Accepts and rejections are history entries of their own, naming who suggested what was
 decided. How people review suggestions in the editor is in [Suggestions](./suggestions.md),

@@ -7,7 +7,7 @@ import { createClient, type Client, type DocumentHandle, type Rejection } from '
 import { defineType, object, string, text } from '@dotvoid/y-quorum-client/model'
 import type { Principal } from '@dotvoid/y-quorum-client/protocol'
 import { createTextbitEditor } from '@dotvoid/textbit/headless'
-import { createServer, memory, type QuorumServer, type ServerType } from '../lib'
+import { createServer, memory, verifyHistory, type QuorumServer, type ServerType } from '../lib'
 
 const paragraph = (id: string, words: string) => ({ id, type: 'base/text', class: 'text', children: [{ text: words }] })
 const article: ServerType = defineType('example/article', { content: object({ body: text() }), suggestions: true, history: true })
@@ -367,10 +367,31 @@ describe('typing through the suggestions view, not suggesting', () => {
     Transforms.delete(editor, { at: { path: [0, 0], offset: 5 }, distance: 1 })
     await saved(alice)
     expect(content(alice)).toBe('Writey 600 words.')
-    const kinds = (await server.exportHistory('news', 's-9')).split('\n')
-      .map((line) => JSON.parse(line) as { kind: string, layer: string })
-      .filter((entry) => entry.layer === 'content')
-      .map((entry) => entry.kind)
-    expect(new Set(kinds)).toEqual(new Set(['edit']))
+    // A new paragraph, and a word in it
+    Transforms.splitNodes(editor, { at: { path: [0, 0], offset: 17 }, always: true })
+    await saved(alice)
+    Transforms.insertText(editor, 'At last!', { at: { path: [1, 0], offset: 0 } })
+    await saved(alice)
+    const entries = (await server.exportHistory('news', 's-9')).split('\n').filter(Boolean)
+      .map((line) => JSON.parse(line) as { kind: string, layer: string, from: number, to: number })
+    // One entry for all of it, the writes in the fork with what they passed on
+    expect(entries.map(({ kind, layer }) => [kind, layer])).toEqual([['edit', 'content']])
+    expect(verifyHistory(entries.map((entry) => JSON.stringify(entry)).join('\n'))).toMatchObject({ ok: true })
+  })
+
+  it('a suggestion made after writing keeps an entry of its own', async () => {
+    await start()
+    const alice = await open('alice', 's-10')
+    const { editor, renderer } = suggesting(alice, { suggesting: false })
+    Transforms.insertText(editor, 'x', { at: { path: [0, 0], offset: 5 } })
+    await saved(alice)
+    renderer.suggestionMode = true
+    Transforms.insertText(editor, 'y', { at: { path: [0, 0], offset: 6 } })
+    await saved(alice)
+    const exported = await server.exportHistory('news', 's-10')
+    const entries = exported.split('\n').filter(Boolean)
+      .map((line) => JSON.parse(line) as { kind: string, layer: string, from: number, to: number })
+    expect(entries.map(({ layer, from, to }) => [layer, to - from + 1])).toEqual([['content', 2], ['suggestions', 1]])
+    expect(verifyHistory(exported)).toMatchObject({ ok: true })
   })
 })
