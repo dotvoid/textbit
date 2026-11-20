@@ -1,4 +1,4 @@
-import type { DocumentRecord, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
+import type { DocumentRecord, Person, VersionInfo } from '@dotvoid/y-quorum-client/protocol'
 import { StaleLease, type Checkpoint, type Lease, type LogEntry, type Storage, type StoredMeta } from '../types'
 import type { HistoryEntry } from '../history'
 
@@ -10,6 +10,7 @@ interface Kept {
   versions: Array<{ version: VersionInfo, state: Uint8Array }>
   history: HistoryEntry[]
   claims: Map<number, string>
+  people: Record<string, Person>
 }
 
 /** Storage in memory: for tests and trying things out. Gone when the process ends. */
@@ -43,7 +44,7 @@ export function memory(): Storage {
       if (documents.has(key)) {
         throw new Error(`y-quorum: ${namespace}/${id} exists`)
       }
-      documents.set(key, { meta, checkpoint: { ...checkpoint, seq: 0 }, entries: [], records: [], versions: [], history: [], claims: new Map() })
+      documents.set(key, { meta, checkpoint: { ...checkpoint, seq: 0 }, entries: [], records: [], versions: [], history: [], claims: new Map(), people: {} })
     },
     append: async (namespace, id, entries, epoch) => {
       if (epoch !== undefined && leases.get(keyOf(namespace, id))?.epoch !== epoch) {
@@ -77,6 +78,10 @@ export function memory(): Storage {
         }
       }
     },
+    addPeople: async (namespace, id, people) => {
+      Object.assign(get(namespace, id).people, people)
+    },
+    people: async (namespace, id) => ({ ...documents.get(keyOf(namespace, id))?.people }),
     clientHolder: async (namespace, id, client) => documents.get(keyOf(namespace, id))?.claims.get(client),
     checkpoint: async (namespace, id, checkpoint, seq) => {
       get(namespace, id).checkpoint = { ...checkpoint, seq }

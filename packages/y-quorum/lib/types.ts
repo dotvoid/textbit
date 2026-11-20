@@ -127,6 +127,13 @@ export interface Storage {
    * the history's payloads, whose hashes stay in the chain
    */
   prune?(namespace: string, id: string, limits: { before: number, upTo: number }): Promise<void>
+  /**
+   * The register of people a document's history names: their key, e.g.
+   * `person:alice`, and who they are. Kept apart from the chain, which holds
+   * keys only, so names can be looked after as the host decides.
+   */
+  addPeople?(namespace: string, id: string, people: Record<string, Person>): Promise<void>
+  people?(namespace: string, id: string): Promise<Record<string, Person>>
   /** Who holds a client id, without claiming it: so ids are claimed only by writes that are taken */
   clientHolder?(namespace: string, id: string, client: number): Promise<string | undefined>
   /**
@@ -260,6 +267,8 @@ export interface QuorumServer {
    * versions and the time after `before`.
    */
   prune(namespace: string, id: string, before: number): Promise<void>
+  /** The people a document's history names, by their key */
+  people(namespace: string, id: string): Promise<Record<string, Person>>
   /** Deletes a document, or a namespace, everywhere it is kept */
   delete(namespace: string, id?: string): Promise<void>
   close(): Promise<void>

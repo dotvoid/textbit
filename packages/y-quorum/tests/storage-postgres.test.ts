@@ -22,7 +22,7 @@ const bytes = (...values: number[]) => new Uint8Array(values)
 const entry = (seq: number, layer: LogEntry['layer'] = 'content'): LogEntry =>
   ({ seq, at: 1_700_000_000_000 + seq, layer, actor, update: bytes(seq, 1, 2) })
 const historyEntry = (seq: number, to: number, payload?: Uint8Array): HistoryEntry => ({
-  doc: 'news/a', seq, from: to, to, layer: 'content', at: 1, until: 2, actor, kind: 'edit',
+  doc: 'news/a', seq, from: to, to, layer: 'content', at: 1, until: 2, actor: { by: 'person:alice' }, kind: 'edit',
   ...(payload ? { payload } : {}),
   payloadHash: `p${seq}`, prevHash: `h${seq - 1}`, hash: `h${seq}`
 })

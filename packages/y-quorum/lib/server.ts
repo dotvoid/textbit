@@ -659,6 +659,14 @@ export function createServer(options: ServerOptions): QuorumServer {
     send: (namespace, id, message) => {
       void owners.get(keyOf(namespace, id))?.then((owner) => owner?.message(message))
     },
+    people: async (namespace, id) => {
+      const owner = await localOwner(namespace, id)
+      if (!owner) {
+        return {}
+      }
+      changed(owner)
+      return owner.register()
+    },
     prune: async (namespace, id, before) => {
       const owner = await localOwner(namespace, id)
       if (!owner) {

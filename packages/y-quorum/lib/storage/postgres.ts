@@ -31,7 +31,7 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
   const schema = `"${(options.schema ?? 'y_quorum').replaceAll('"', '""')}"`
   const t = (table: string) => `${schema}.${table}`
   const tables = [
-    'documents', 'checkpoint_parts', 'log', 'records', 'versions', 'history', 'claims', 'leases'
+    'documents', 'checkpoint_parts', 'log', 'records', 'versions', 'history', 'claims', 'leases', 'people'
   ]
 
   let ready: Promise<void> | undefined
@@ -75,6 +75,9 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
         namespace text NOT NULL, id text NOT NULL, seq bigint NOT NULL,
         entry jsonb NOT NULL, payload bytea, hash text NOT NULL,
         PRIMARY KEY (namespace, id, seq))`,
+      `CREATE TABLE IF NOT EXISTS ${t('people')} (
+        namespace text NOT NULL, id text NOT NULL, key text NOT NULL, person jsonb NOT NULL,
+        PRIMARY KEY (namespace, id, key))`,
       `CREATE TABLE IF NOT EXISTS ${t('claims')} (
         namespace text NOT NULL, id text NOT NULL, client bigint NOT NULL,
         principal text NOT NULL,
@@ -366,6 +369,21 @@ export function postgres(db: PostgresClient, options: PostgresOptions = {}): Sto
         [namespace, id, client]
       )
       return row?.principal === principal
+    },
+
+    addPeople: async (namespace, id, people) => {
+      for (const [key, person] of Object.entries(people)) {
+        await query(
+          `INSERT INTO ${t('people')} VALUES ($1, $2, $3, $4)
+            ON CONFLICT (namespace, id, key) DO UPDATE SET person = EXCLUDED.person`,
+          [namespace, id, key, JSON.stringify(person)]
+        )
+      }
+    },
+
+    people: async (namespace, id) => {
+      const rows = await query(`SELECT key, person::text AS person FROM ${t('people')} WHERE namespace = $1 AND id = $2`, [namespace, id])
+      return Object.fromEntries(rows.map((row) => [String(row.key), json<Person>(row.person)]))
     },
 
     clientHolder: async (namespace, id, client) => {

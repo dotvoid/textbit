@@ -5,10 +5,22 @@
 // export is JSON Lines that `verifyHistory` checks with nothing but itself.
 import { createHash, verify, type KeyObject } from 'node:crypto'
 import type { Layer } from '@dotvoid/y-quorum-client/protocol'
-import type { Actor } from './types'
 
 /** What a history entry did */
 export type HistoryKind = 'edit' | 'accept' | 'reject' | 'restore' | 'review' | 'record' | 'signature'
+
+/**
+ * Who acted, in the chain: by key only, e.g. `person:alice`, never by name.
+ * Names are kept apart, in the document's register of people, so the chain
+ * proves who did what without holding who they are.
+ */
+export interface HistoryActor {
+  by: string
+  onBehalfOf?: string
+  run?: string
+  /** As the agent claimed it */
+  model?: string
+}
 
 /** One entry of a document's history: writes of one actor, folded, in the chain */
 export interface HistoryEntry {
@@ -23,7 +35,7 @@ export interface HistoryEntry {
   /** When its first and last writes were stored */
   at: number
   until: number
-  actor: Actor
+  actor: HistoryActor
   /** The connection the writes came over, when there was one */
   connection?: string
   kind: HistoryKind
