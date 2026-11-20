@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Y from '@y/y'
 import { createClient, type DocumentHandle } from '@dotvoid/y-quorum-client'
 import { Textbit, useAgents } from '@dotvoid/textbit'
@@ -8,6 +8,7 @@ import { SelectionToolbar } from './SelectionToolbar'
 import { EditorContextMenu } from './EditorContextMenu'
 import { CommentsPanel } from './CommentsPanel'
 import { VersionsPanel } from './VersionsPanel'
+import { HistoryList, type HistoryRow } from './HistoryList'
 
 export const LAB_URL = 'ws://localhost:1234'
 
@@ -59,6 +60,13 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
     gone.current = onGone
   }, [onGone])
 
+  // The lab server's history, through the client of the moment
+  const rpc = useRef<(name: string) => Promise<unknown>>(undefined)
+  const loadHistory = useCallback(
+    () => (rpc.current?.('history') ?? Promise.resolve([])) as Promise<HistoryRow[]>,
+    []
+  )
+
   // Made and closed in the effect, so React's development double run of
   // effects does not leave a closed client behind
   useEffect(() => {
@@ -67,6 +75,7 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
     let cancelled = false
     const onStatus = (next: string) => setStatus(next)
     client.on('status', onStatus)
+    rpc.current = (name) => client.rpc(name)
     client.ready
       .then(() => client.open('lab', 'article'))
       .then((document) => {
@@ -146,6 +155,7 @@ export const LabEditor = ({ onGone, person = { name: 'You', color: '#2f9e44' }, 
           </div>
           <Textbit.Suggestions className='demo-lab-suggestions' aria-label='Suggestions' people={handle.people} />
           {!compact && <VersionsPanel handle={handle} plugins={plugins} />}
+          {!compact && <HistoryList handle={handle} load={loadHistory} />}
         </div>
         {!compact && (
           // The lab's principal ids are people's names, in lower case

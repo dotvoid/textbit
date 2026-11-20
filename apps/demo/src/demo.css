@@ -54,6 +54,13 @@ body { margin: 0; font-family: system-ui, sans-serif; }
 .demo-versions li span { flex: 1; color: var(--tb-muted); }
 .demo-versions li strong { color: var(--tb-text); font-weight: 600; }
 .demo-diff { margin-top: 1rem; }
+.demo-history { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--tb-border); font-family: var(--tb-font-ui); font-size: 0.875rem; }
+.demo-history h3 { margin: 0 0 0.5rem; font-size: 0.875rem; }
+.demo-history ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; max-height: 16rem; overflow-y: auto; }
+.demo-history li { display: flex; align-items: baseline; gap: 0.5rem; }
+.demo-history time, .demo-history small { color: var(--tb-muted); font-variant-numeric: tabular-nums; }
+.demo-history li span { flex: 1; color: var(--tb-muted); }
+.demo-history li strong { color: var(--tb-text); font-weight: 600; }
 .demo-diff p { display: flex; justify-content: space-between; align-items: center; margin: 0 0 0.5rem; color: var(--tb-muted); }
 .demo-diff [data-tb-change="insert"] { background: color-mix(in srgb, #2f9e44 22%, transparent); }
 .demo-diff [data-tb-change="delete"] { background: color-mix(in srgb, #e03131 14%, transparent); }
