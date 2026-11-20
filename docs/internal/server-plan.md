@@ -687,8 +687,10 @@ through MCP is an agent action: people edit over the socket.
    `Textbit.Suggestions` read the changes off the marks and accept or reject each by the Y.js
    item it starts at, reached through a relative position made through the renderer, public
    API; Y.js widens it to the run. Agents suggest by editing the fork (`suggestIn`). Server and
-   client send a change's attributions before the change, so views name who suggested. To come:
-   run revert as a suggestion; listing property-only changes; a fork per person, if wanted.
+   client send a change's attributions before the change, so views name who suggested. Run
+   revert too: `handle.suggestRevert({ run, by, since })` finds what was changed in the
+   attributions and places its inverse in the fork with `undoContentIds`, for a person to accept.
+   Carried forward: listing property-only changes; a fork per person, if wanted.
 6. **The MCP module.**
 7. **Production:** Postgres and S3, leases and forwarding, audit export, retention and
    redaction.

@@ -207,4 +207,32 @@ describe('suggestions', () => {
     await until(() => by(review.editor) === 'person:sam')
     await until(() => by(mine.editor) === 'person:sam')
   })
+
+  it('suggests taking back an agent’s run, for a person to accept', async () => {
+    await start()
+    const alice = await open('alice', 's-9')
+    const run = alice.claimOrigin({ agent: 'copy', run: 'r1' })
+    alice.doc.transact(() => {
+      const block = field(alice.doc).get(0) as Y.Node
+      block.delete('Write '.length, '600 '.length)
+      block.insert(0, 'Please ')
+    }, run)
+    await saved(alice)
+    await until(() => !Y.createIdSetFromIdMap(alice.attributions().deletes).isEmpty())
+    expect(content(alice)).toBe('Please Write words.')
+
+    // Even with a view open that lets typing go into the text, a revert is only suggested
+    const editing = suggesting(alice, { suggesting: false })
+    expect(alice.suggestRevert({ run: 'r2' })).toBe(false)
+    expect(alice.suggestRevert({ run: 'r1' })).toBe(true)
+    expect(pieces(editing.editor).length).toBe(4)
+    await saved(alice)
+    expect(content(alice)).toBe('Please Write words.')
+
+    const review = suggesting(alice)
+    expect(pieces(review.editor)).toEqual([['Please ', 'delete'], ['Write ', ''], ['600 ', 'insert'], ['words.', '']])
+    review.renderer.acceptAllChanges()
+    await saved(alice)
+    expect(content(alice)).toBe('Write 600 words.')
+  })
 })

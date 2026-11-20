@@ -35,7 +35,7 @@ import {
   type ReasonCode
 } from './protocol'
 import { CommentsOfHandle, type Comments } from './commentsHandle'
-import { LiveAttributionsRenderer, type Unreviewed } from './attributions'
+import { LiveAttributionsRenderer, contentOf, type ChangesOf, type Unreviewed } from './attributions'
 
 export type Status = 'connecting' | 'connected' | 'disconnected' | 'closed'
 export type Welcome = Headers[typeof ToClient.WELCOME]
@@ -181,6 +181,13 @@ export interface DocumentHandle {
   review(run?: string): Promise<Unreviewed[]>
   /** What agents wrote that is still in the text and no person has reviewed */
   unreviewed(): Promise<Unreviewed[]>
+  /**
+   * For a type with history and suggestions: suggests taking back what a run,
+   * an actor or a stretch of time changed, as its inverse in the fork, for a
+   * person to accept or reject. Nothing in the text changes until someone
+   * accepts. Returns whether there was anything to take back.
+   */
+  suggestRevert(which: ChangesOf): boolean
   readonly hasUnsavedChanges: boolean
   /** The comment threads beside the content, for a type with comments */
   readonly comments: Comments
@@ -1381,6 +1388,26 @@ class Handle extends Listeners<DocumentEvents> implements DocumentHandle {
   unreviewed(): Promise<Unreviewed[]> {
     return this.client.unreviewed(this.state)
   }
+
+  suggestRevert(which: ChangesOf): boolean {
+    if (!this.state.forked) {
+      return false
+    }
+    const ids = contentOf(this.attributions('content'), which)
+    if (ids.inserts.isEmpty() && ids.deletes.isEmpty()) {
+      return false
+    }
+    // Undone in the fork: what it inserted is suggested away, what it deleted
+    // suggested back. Worked out on a copy and applied as not local, so a
+    // renderer that lets typing into the text (suggestionMode off) leaves it a
+    // suggestion; it is sent as this person's all the same.
+    const scratch = new Y.Doc({ gc: false })
+    Y.applyUpdate(scratch, Y.encodeStateAsUpdate(this.state.suggestionsDoc))
+    const before = Y.encodeStateVector(scratch)
+    Y.undoContentIds(scratch, ids)
+    Y.applyUpdate(this.state.suggestionsDoc, Y.encodeStateAsUpdate(scratch, before), REVERT)
+    return true
+  }
   get hasUnsavedChanges() { return this.state.local.length > 0 }
 
   get comments(): Comments {
@@ -1461,6 +1488,9 @@ function emitAll<E extends object, K extends keyof E>(
 function keyOf(namespace: string, id: string): string {
   return `${namespace}\u0000${id}`
 }
+
+/** The origin of suggested reverts: neither the server's nor anyone typing */
+const REVERT = {}
 
 /** The Y.Doc of a document's layer */
 function layerDoc(state: DocState, layer: Layer): Y.Doc {

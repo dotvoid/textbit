@@ -106,6 +106,14 @@ the suggestions made so far. What it changes there is suggested, moving blocks i
 tools tell the model so. Without `suggestIn` it refuses to suggest. `review` may change between
 calls.
 
+## Taking back an agent's work
+
+With y-quorum, for a type with history and suggestions, `handle.suggestRevert({ run, by, since })`
+suggests taking back what a run, an actor (by key, such as `agent:copy`) or a stretch of time
+changed: its inverse goes into the fork, what it added suggested away and what it removed
+suggested back. Nothing in the text changes until a person accepts, change by change or all at
+once. It is suggested even where the renderer lets typing into the text.
+
 ## Limits
 
 - The fork is the whole text: there is one set of suggestions per document, not one per

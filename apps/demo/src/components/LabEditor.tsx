@@ -185,6 +185,14 @@ const AgentStatus = ({ handle, onUndo }: { handle: DocumentHandle, onUndo: () =>
     return () => handle.content.off('delta', update)
   }, [handle])
   const said = agents.map((agent) => agent.status === 'idle' ? `${agent.name} is here` : `${agent.name} is working on the document`)
+  // The agents who wrote in the document, known as their attributions arrive
+  const [writers, setWriters] = useState<string[]>([])
+  useEffect(() => {
+    const update = () => setWriters(Object.entries(handle.people).filter(([, who]) => who.kind === 'agent').map(([key]) => key))
+    update()
+    handle.on('attributions', update)
+    return () => handle.off('attributions', update)
+  }, [handle])
 
   return (
     <div className='demo-lab-status'>
@@ -194,6 +202,15 @@ const AgentStatus = ({ handle, onUndo }: { handle: DocumentHandle, onUndo: () =>
         {' '}The agent suggests
       </label>
       {agents.length > 0 && !suggest && <button type='button' onClick={onUndo}>Undo the agent’s last run</button>}
+      {writers.length > 0 && (
+        <button
+          type='button'
+          // Its inverse, suggested: accept it in the list below to take the work back
+          onClick={() => writers.forEach((key) => handle.suggestRevert({ by: key }))}
+        >
+          Suggest taking back the agents’ work
+        </button>
+      )}
     </div>
   )
 }
