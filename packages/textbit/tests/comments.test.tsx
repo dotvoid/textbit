@@ -39,6 +39,23 @@ describe('anchors', () => {
     expect(resolveAnchor(editor, anchor)).toEqual({ anchor: { path: [0, 0], offset: 37 }, focus: { path: [0, 0], offset: 44 } })
   })
 
+  test('across blocks, are found where they were made', () => {
+    const editor = createTextbitEditor({ value: doc() })
+    const across = { anchor: { path: [0, 0], offset: 39 }, focus: { path: [1, 0], offset: 5 } }
+    const anchor = commentAnchor(editor, across)!
+    expect(resolveAnchor(editor, anchor)).toEqual(across)
+  })
+
+  test('at the edge of their block, do not move to the same words elsewhere in it', () => {
+    const editor = createTextbitEditor({
+      value: [{ id: 'c', type: 'base/text', class: 'text', properties: {}, children: [{ text: 'cat sat. cat ran' }] }]
+    })
+    const first = { anchor: { path: [0, 0], offset: 0 }, focus: { path: [0, 0], offset: 3 } }
+    const anchor = commentAnchor(editor, first)!
+    Transforms.delete(editor, { at: first })
+    expect(resolveAnchor(editor, anchor)).toBeUndefined()
+  })
+
   test('are detached when their text is gone', () => {
     const editor = createTextbitEditor({ value: doc() })
     const anchor = commentAnchor(editor, second)!
@@ -94,6 +111,10 @@ describe('createCommentStore', () => {
     expect(() => bobs.resolve(thread, false)).toThrow()
     expect(() => bobs.remove(thread, reply)).toThrow()
     expect(() => createCommentStore({ author: bob, rights: 'none' }).create({ quote: 'x' }, 'Hi')).toThrow()
+    // Nor their own, without rights to comment
+    const own = store.threads[0].comments[1].id
+    expect(() => createCommentStore({ author: alice, rights: 'none', threads: store.threads })
+      .edit(thread, own, 'Changed')).toThrow()
   })
 })
 

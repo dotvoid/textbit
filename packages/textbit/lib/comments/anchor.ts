@@ -81,10 +81,11 @@ function toPoint(editor: Editor, encoded: string): Point | undefined {
   }
 }
 
-// The quote in its block: the occurrence with the same text around it, or
+// The quote from its block: the occurrence with the same text around it, or
 // the one nearest where it was. With the text around it known, one side at
 // least must still match: another occurrence elsewhere is other text, and a
-// comment never moves to it.
+// comment never moves to it. A quote that went on into the blocks after its
+// own, as a selection across blocks does, is found there too.
 function findQuote(editor: Editor, anchor: CommentAnchor): Range | undefined {
   if (!anchor.quote || !anchor.block) {
     return undefined
@@ -98,18 +99,29 @@ function findQuote(editor: Editor, anchor: CommentAnchor): Range | undefined {
   }
   const [block, path] = entry
   const text = Node.string(block)
+  // From the start of the block on, as Editor.string joins blocks: with nothing between
+  const onwards = Editor.string(editor,
+    { anchor: Editor.start(editor, path), focus: Editor.end(editor, []) })
   const found: number[] = []
-  for (let at = text.indexOf(anchor.quote); at !== -1; at = text.indexOf(anchor.quote, at + 1)) {
+  let at = onwards.indexOf(anchor.quote)
+  while (at !== -1 && at < text.length) {
     found.push(at)
+    at = onwards.indexOf(anchor.quote, at + 1)
   }
   if (!found.length) {
     return undefined
   }
   const wanted = anchor.offset ?? 0
-  const sides = (at: number) => ({
-    before: anchor.prefix !== undefined && text.slice(0, at).endsWith(anchor.prefix),
-    after: anchor.suffix !== undefined && text.slice(at + anchor.quote.length).startsWith(anchor.suffix)
-  })
+  // An empty side is the edge of the block, not any text at all
+  const sides = (at: number) => {
+    const end = at + anchor.quote.length
+    const { prefix, suffix } = anchor
+    return {
+      before: prefix !== undefined && (prefix === '' ? at === 0 : text.slice(0, at).endsWith(prefix)),
+      after: suffix !== undefined && end <= text.length &&
+        (suffix === '' ? end === text.length : text.slice(end).startsWith(suffix))
+    }
+  }
   const score = (at: number) => {
     const { before, after } = sides(at)
     return (before ? 0 : 1) + (after ? 0 : 1)
@@ -123,8 +135,8 @@ function findQuote(editor: Editor, anchor: CommentAnchor): Range | undefined {
     const order = score(a) - score(b)
     return order < 0 || (order === 0 && Math.abs(a - wanted) <= Math.abs(b - wanted)) ? a : b
   })
-  const start = pointAtOffset(block as Element, path, best)
-  const end = pointAtOffset(block as Element, path, best + anchor.quote.length)
+  const start = pointFrom(editor, path, best)
+  const end = pointFrom(editor, path, best + anchor.quote.length)
   return start && end ? { anchor: start, focus: end } : undefined
 }
 
@@ -138,17 +150,17 @@ function blockAt(editor: Editor, point: Point) {
   return entry as [Element, Path] | undefined
 }
 
-// A point some characters into an element's text
-function pointAtOffset(element: Element, path: Path, offset: number): Point | undefined {
+// A point some characters on from the start of an element, into the blocks after it
+function pointFrom(editor: Editor, path: Path, offset: number): Point | undefined {
   let start = 0
   let last: Point | undefined
-  for (const [text, relative] of Node.texts(element)) {
+  for (const [text, at] of Node.texts(editor, { from: Editor.first(editor, path)[1] })) {
     const length = (text as Text).text.length
     if (offset <= start + length) {
-      return { path: [...path, ...relative], offset: offset - start }
+      return { path: at, offset: offset - start }
     }
     start += length
-    last = { path: [...path, ...relative], offset: length }
+    last = { path: at, offset: length }
   }
   return offset === start ? last : undefined
 }

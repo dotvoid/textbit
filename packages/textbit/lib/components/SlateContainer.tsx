@@ -149,7 +149,7 @@ export function SlateContainer(props: SlateContainerProps) {
 
   // Debounced onChange callback
   const onChangeCallback = useMemo(
-    () => readOnly ? undefined : debounceCall(handleChange, debounce || 1250),
+    () => readOnly ? undefined : debounceCall(handleChange, debounce ?? 1250),
     [handleChange, readOnly, debounce]
   )
 

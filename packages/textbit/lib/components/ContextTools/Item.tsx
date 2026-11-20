@@ -46,11 +46,13 @@ export function Item({ action, className, children }: {
 
   if (inlineNodes.length === 1) {
     const inlineNode = inlineNodes[0]
+    // A tool per node: what it keeps of one node is not shown for the next
+    const key = String((inlineNode[0] as { id?: unknown }).id ?? inlineNode[1].join('.'))
     return (
       <div data-state='active'>
         {!Children.count(children)
-          ? <Tool editor={editor} active={isActive} entry={inlineNode} />
-          : <Tool editor={editor} active={isActive} entry={inlineNode}>{children}</Tool>
+          ? <Tool key={key} editor={editor} active={isActive} entry={inlineNode} />
+          : <Tool key={key} editor={editor} active={isActive} entry={inlineNode}>{children}</Tool>
         }
         <em className='active'></em>
       </div>

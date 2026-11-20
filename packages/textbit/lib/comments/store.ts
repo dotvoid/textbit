@@ -81,6 +81,7 @@ export function createCommentStore(options: CommentStoreOptions): Comments {
       return id
     },
     edit(threadId, commentId, body) {
+      allowed(author)
       const { comment, apply } = withComment(threadId, commentId, (c) => ({ ...c, body, edited: Date.now() }))
       if (comment.author.id !== author.id) {
         throw new Error('textbit: only its author edits a comment')

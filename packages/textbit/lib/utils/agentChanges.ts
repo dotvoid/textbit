@@ -47,10 +47,12 @@ export function resolveAgentChanges(editor: Editor, agents: PresentAgent[], dism
       if (!anchor || !focus) {
         continue
       }
-      const range = { anchor, focus }
-      if ((change.added ?? '') !== safeString(editor, range)) {
+      if ((change.added ?? '') !== safeString(editor, { anchor, focus })) {
         continue
       }
+      const range = Point.equals(anchor, focus)
+        ? { anchor, focus }
+        : { anchor: inward(editor, anchor), focus }
       resolved.push({
         id: change.id,
         name: agent.name,
@@ -63,6 +65,21 @@ export function resolveAgentChanges(editor: Editor, agents: PresentAgent[], dism
     }
   }
   return tagFirst(resolved)
+}
+
+// A start at the end of one text is the start of the next one: where the
+// change's first piece is, which carries the agent's name
+function inward(editor: Editor, point: Point): Point {
+  try {
+    const leaf = Editor.leaf(editor, point.path)[0]
+    if (point.offset < leaf.text.length) {
+      return point
+    }
+    const next = Editor.next(editor, { at: point.path, match: Text.isText })
+    return next ? { path: next[1], offset: 0 } : point
+  } catch {
+    return point
+  }
 }
 
 /** Name the agent once per block it changed: on the first change there */
